@@ -1,0 +1,26 @@
+<VAST version="3.0">
+  <Ad id="1">
+    <InLine>
+      <AdSystem>Test</AdSystem>
+      <AdTitle>Test</AdTitle>
+      <Impression>https://t.example.com/imp</Impression>
+      <Creatives>
+        <Creative>
+          <Linear>
+            <Duration>00:00:30</Duration>
+            <TrackingEvents>
+              <Tracking event="progress" offset="25%">https://t.example.com/q1</Tracking>
+              <!-- skip event but no skipoffset on Linear -->
+              <Tracking event="skip">https://t.example.com/skip</Tracking>
+            </TrackingEvents>
+            <MediaFiles>
+              <MediaFile delivery="progressive" type="video/mp4" width="640" height="360">
+                https://cdn.example.com/ad.mp4
+              </MediaFile>
+            </MediaFiles>
+          </Linear>
+        </Creative>
+      </Creatives>
+    </InLine>
+  </Ad>
+</VAST>

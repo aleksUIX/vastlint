@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<VAST version="4.1">
+  <Ad id="1">
+    <InLine>
+      <AdSystem>Test</AdSystem>
+      <AdTitle>Test Ad</AdTitle>
+      <AdServingId>abc123</AdServingId>
+      <Impression><![CDATA[https://example.com/impression]]></Impression>
+      <Creatives>
+        <Creative>
+          <UniversalAdId idRegistry="ad-id.org">UA-12345</UniversalAdId>
+          <Linear>
+            <Duration>00:00:30</Duration>
+            <MediaFiles>
+              <MediaFile delivery="progressive" type="video/mp4" width="1920" height="1080">
+                <![CDATA[https://cdn.example.com/video.mp4]]>
+              </MediaFile>
+            </MediaFiles>
+          </Linear>
+        </Creative>
+      </Creatives>
+      <Extensions>
+        <Extension type="KitchenSink">
+          <MediaFile delivery="progressive" type="video/mp4" width="640" height="360">
+            <![CDATA[https://cdn.example.com/alt.mp4]]>
+          </MediaFile>
+          <Impression><![CDATA[https://example.com/extra-impression]]></Impression>
+          <TrackingEvents>
+            <Tracking event="start"><![CDATA[https://example.com/start]]></Tracking>
+          </TrackingEvents>
+        </Extension>
+      </Extensions>
+    </InLine>
+  </Ad>
+</VAST>

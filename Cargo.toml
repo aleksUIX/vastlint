@@ -1,0 +1,8 @@
+[workspace]
+members = ["crates/vastlint-cli",
+    "crates/vastlint-core",
+]
+resolver = "2"
+
+[workspace.package]
+rust-version = "1.75"

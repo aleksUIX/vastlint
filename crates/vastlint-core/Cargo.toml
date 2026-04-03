@@ -1,0 +1,20 @@
+[package]
+name = "vastlint-core"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.75"
+authors = ["Aleks <aleks@vastlint.org>"]
+description = "VAST XML validator core — checks tags against IAB VAST 2.0 through 4.3"
+license = "Apache-2.0"
+repository = "https://github.com/aleksUIX/vastlint"
+homepage = "https://github.com/aleksUIX/vastlint"
+readme = "../../README.md"
+keywords = ["vast", "xml", "validator", "adtech", "iab"]
+categories = ["parser-implementations", "development-tools"]
+
+[dependencies]
+quick-xml = { version = "0.37", features = [] }
+url = "2"
+phf = { version = "0.11", features = ["macros"] }
+
+[dev-dependencies]

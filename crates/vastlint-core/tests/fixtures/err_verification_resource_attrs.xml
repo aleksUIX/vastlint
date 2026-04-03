@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<VAST version="4.1">
+  <Ad id="1">
+    <InLine>
+      <AdSystem>Test AdServer</AdSystem>
+      <AdTitle>Test Ad</AdTitle>
+      <AdServingId>TEST-SERVING-ID-001</AdServingId>
+      <Impression><![CDATA[https://example.com/impression]]></Impression>
+      <Creatives>
+        <Creative>
+          <UniversalAdId idRegistry="ad-id.org">TEST-1234</UniversalAdId>
+          <Linear>
+            <Duration>00:00:30</Duration>
+            <MediaFiles>
+              <MediaFile delivery="progressive" type="video/mp4" width="1920" height="1080">
+                <![CDATA[https://example.com/video.mp4]]>
+              </MediaFile>
+            </MediaFiles>
+          </Linear>
+        </Creative>
+      </Creatives>
+      <AdVerifications>
+        <Verification vendor="company.com-omid">
+          <!-- JavaScriptResource missing apiFramework -->
+          <JavaScriptResource>
+            <![CDATA[https://verificationvendor.com/omid.js]]>
+          </JavaScriptResource>
+          <!-- ExecutableResource missing apiFramework and type -->
+          <ExecutableResource>
+            <![CDATA[https://verificationvendor.com/verify]]>
+          </ExecutableResource>
+        </Verification>
+      </AdVerifications>
+    </InLine>
+  </Ad>
+</VAST>

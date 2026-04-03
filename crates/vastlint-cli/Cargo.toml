@@ -1,0 +1,29 @@
+[package]
+name = "vastlint-cli"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.75"
+authors = ["Aleks <aleks@vastlint.org>"]
+description = "Command-line VAST XML validator — checks tags against IAB VAST 2.0 through 4.3"
+license = "Apache-2.0"
+repository = "https://github.com/aleksUIX/vastlint"
+homepage = "https://github.com/aleksUIX/vastlint"
+readme = "../../README.md"
+keywords = ["vast", "xml", "validator", "adtech", "iab"]
+categories = ["command-line-utilities", "development-tools"]
+
+[[bin]]
+name = "vastlint"
+path = "src/main.rs"
+
+[dependencies]
+vastlint-core = { path = "../vastlint-core", version = "0.1.0" }
+# Argument parsing
+clap = { version = "4", features = ["derive"] }
+# Coloured terminal output
+anstream = "0.6"
+anstyle = "1"
+# Config file parsing
+toml = { version = "0.8", default-features = false, features = ["parse"] }
+# Opt-in telemetry ping (rustls, no OpenSSL dependency)
+ureq = { version = "2", default-features = false, features = ["tls"] }

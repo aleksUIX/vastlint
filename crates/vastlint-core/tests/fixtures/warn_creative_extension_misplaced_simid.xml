@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<VAST version="4.1">
+  <Ad id="1">
+    <InLine>
+      <AdSystem>Test</AdSystem>
+      <AdTitle>Test Ad</AdTitle>
+      <AdServingId>abc123</AdServingId>
+      <Impression><![CDATA[https://example.com/impression]]></Impression>
+      <Creatives>
+        <Creative>
+          <UniversalAdId idRegistry="ad-id.org">UA-12345</UniversalAdId>
+          <Linear>
+            <Duration>00:00:30</Duration>
+            <MediaFiles>
+              <MediaFile delivery="progressive" type="video/mp4" width="1920" height="1080">
+                <![CDATA[https://cdn.example.com/video.mp4]]>
+              </MediaFile>
+            </MediaFiles>
+          </Linear>
+          <CreativeExtensions>
+            <CreativeExtension type="SIMIDWrapper">
+              <InteractiveCreativeFile apiFramework="SIMID" type="text/html">
+                <![CDATA[https://cdn.example.com/simid.html]]>
+              </InteractiveCreativeFile>
+            </CreativeExtension>
+          </CreativeExtensions>
+        </Creative>
+      </Creatives>
+    </InLine>
+  </Ad>
+</VAST>

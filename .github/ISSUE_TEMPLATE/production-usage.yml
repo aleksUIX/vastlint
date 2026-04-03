@@ -1,0 +1,62 @@
+name: "I'm using vastlint in production"
+description: Let us know where vastlint is running. Helps prioritize rules and version support.
+title: "Production usage: [company or project]"
+labels: ["production-usage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        If you're running vastlint in a real pipeline, CI job, or ad serving stack, we'd like to hear about it.
+        This helps us understand which VAST versions and rule categories matter most, and prioritize accordingly.
+
+        All fields are optional. Share as much or as little as you're comfortable with.
+
+  - type: input
+    id: company
+    attributes:
+      label: Company or project
+      description: Where is vastlint running? Company name, open-source project, or "prefer not to say" are all fine.
+      placeholder: e.g. Acme Ad Tech, my-oss-project, prefer not to say
+    validations:
+      required: false
+
+  - type: dropdown
+    id: use-case
+    attributes:
+      label: How are you using it?
+      options:
+        - CI/CD pipeline
+        - Unit/integration tests
+        - Ad serving pipeline (inline validation)
+        - Monitoring/observability
+        - Local development
+        - Other
+    validations:
+      required: false
+
+  - type: dropdown
+    id: integration
+    attributes:
+      label: Integration method
+      options:
+        - CLI binary
+        - vastlint-core Rust library
+        - Other
+    validations:
+      required: false
+
+  - type: input
+    id: vast-versions
+    attributes:
+      label: Which VAST versions do you see in traffic?
+      placeholder: e.g. mostly 4.2, some 3.0 from legacy partners
+    validations:
+      required: false
+
+  - type: textarea
+    id: comments
+    attributes:
+      label: Anything else?
+      description: Problems you've hit, rules you wish existed, features that would help.
+    validations:
+      required: false

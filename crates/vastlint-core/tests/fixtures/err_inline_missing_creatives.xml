@@ -1,0 +1,10 @@
+<VAST version="2.0">
+  <Ad id="1">
+    <InLine>
+      <AdSystem>Test</AdSystem>
+      <AdTitle>Test</AdTitle>
+      <Impression>https://t.example.com/imp</Impression>
+      <!-- missing Creatives -->
+    </InLine>
+  </Ad>
+</VAST>
