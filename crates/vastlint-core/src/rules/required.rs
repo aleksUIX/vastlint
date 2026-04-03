@@ -1,0 +1,1079 @@
+//! Required-element rules.
+//!
+//! These enforce fields the spec marks as "must" or "required". All fire at
+//! Severity::Error. Justification for each is noted inline with the spec ref.
+
+use super::emit;
+use crate::parse::{Node, VastDocument};
+use crate::Issue;
+use crate::{DetectedVersion, Severity, ValidationContext, VastVersion};
+
+pub fn check(
+    doc: &VastDocument,
+    version: &DetectedVersion,
+    ctx: &ValidationContext,
+    issues: &mut Vec<Issue>,
+) {
+    // Short-circuit on parse error — a malformed document will produce
+    // misleading required-element errors. The parse error itself is the
+    // primary finding; required checks run on top of it but with limited value.
+    // We still run them because partial documents can still trigger real errors.
+
+    check_root(doc, version, ctx, issues);
+
+    let Some(vast) = doc.vast_root() else { return };
+
+    for (ad_idx, ad) in vast.children_named("Ad").enumerate() {
+        check_ad(ad, ad_idx, version, ctx, issues);
+    }
+}
+
+// ── Root-level checks ─────────────────────────────────────────────────────────
+
+fn check_root(
+    doc: &VastDocument,
+    version: &DetectedVersion,
+    ctx: &ValidationContext,
+    issues: &mut Vec<Issue>,
+) {
+    // VAST-2.0-root-element
+    // Spec (all versions): root element must be <VAST>.
+    if doc.root.name != "VAST" {
+        emit(
+            ctx,
+            issues,
+            "VAST-2.0-root-element",
+            Severity::Error,
+            "Root element must be <VAST>",
+            Some("/".to_owned()),
+            "IAB VAST 2.0 §2",
+        );
+        return; // No point checking further structure.
+    }
+
+    // VAST-2.0-root-version
+    // Spec (all versions): <VAST> must have a version attribute.
+    // IAB VAST 2.0 §2.1: "The version attribute is required."
+    if doc.root.attr("version").is_none() {
+        emit(
+            ctx,
+            issues,
+            "VAST-2.0-root-version",
+            Severity::Error,
+            "Root <VAST> element is missing the required version attribute",
+            Some("/VAST".to_owned()),
+            "IAB VAST 2.0 §2.1",
+        );
+    }
+
+    // VAST-2.0-root-version-value
+    // The version attribute must be one of the known VAST version strings.
+    // An unrecognised value likely indicates a typo or a future version this
+    // tool does not yet understand; we warn rather than error.
+    if let Some(ver_str) = doc.root.attr("version") {
+        const KNOWN: &[&str] = &["2.0", "2.0.1", "3.0", "4.0", "4.1", "4.2", "4.3"];
+        if !KNOWN.contains(&ver_str) {
+            emit(
+                ctx,
+                issues,
+                "VAST-2.0-root-version-value",
+                Severity::Warning,
+                "VAST version attribute value is not a recognised VAST version string",
+                Some("/VAST[@version]".to_owned()),
+                "IAB VAST 2.0 §2.1",
+            );
+        }
+    }
+
+    // VAST-2.0-root-has-ad-or-error
+    // Spec (all versions): a VAST response must contain at least one <Ad> or
+    // one root-level <Error>. An empty <VAST> is not a valid response.
+    let vast = &doc.root;
+    if !vast.has_child("Ad") && !vast.has_child("Error") {
+        emit(
+            ctx,
+            issues,
+            "VAST-2.0-root-has-ad-or-error",
+            Severity::Error,
+            "<VAST> contains neither <Ad> nor <Error> — response is empty",
+            Some("/VAST".to_owned()),
+            "IAB VAST 2.0 §2",
+        );
+    }
+
+    // VAST-4.0-wrapper-root-error
+    // VAST 4.0 §2.1: the root is a choice — either Ad elements or Error elements,
+    // not both. Flag when both are present.
+    if let Some(ver) = version.best() {
+        if ver.at_least(&VastVersion::V4_0) && vast.has_child("Ad") && vast.has_child("Error") {
+            emit(
+                ctx, issues,
+                "VAST-4.0-wrapper-root-error",
+                Severity::Warning,
+                "<VAST> root contains both <Ad> and <Error> elements — only one type is allowed per VAST 4.0",
+                Some("/VAST".to_owned()),
+                "IAB VAST 4.0 §2.1",
+            );
+        }
+    }
+}
+
+// ── Ad-level checks ───────────────────────────────────────────────────────────
+
+fn check_ad(
+    ad: &Node,
+    ad_idx: usize,
+    version: &DetectedVersion,
+    ctx: &ValidationContext,
+    issues: &mut Vec<Issue>,
+) {
+    let path = format!("/VAST/Ad[{}]", ad_idx);
+
+    // VAST-2.0-ad-has-inline-or-wrapper
+    // Spec (all versions): each <Ad> must contain exactly one <InLine> or one
+    // <Wrapper>.
+    let has_inline = ad.has_child("InLine");
+    let has_wrapper = ad.has_child("Wrapper");
+
+    if !has_inline && !has_wrapper {
+        emit(
+            ctx,
+            issues,
+            "VAST-2.0-ad-has-inline-or-wrapper",
+            Severity::Error,
+            "<Ad> must contain either <InLine> or <Wrapper>",
+            Some(path.clone()),
+            "IAB VAST 2.0 §2.2",
+        );
+        return;
+    }
+
+    if has_inline && has_wrapper {
+        emit(
+            ctx,
+            issues,
+            "VAST-2.0-ad-has-inline-or-wrapper",
+            Severity::Error,
+            "<Ad> must not contain both <InLine> and <Wrapper>",
+            Some(path.clone()),
+            "IAB VAST 2.0 §2.2",
+        );
+    }
+
+    if has_inline {
+        let inline = ad.child("InLine").unwrap();
+        check_inline(inline, &path, version, ctx, issues);
+    }
+
+    if has_wrapper {
+        let wrapper = ad.child("Wrapper").unwrap();
+        check_wrapper(wrapper, &path, version, ctx, issues);
+    }
+}
+
+// ── InLine checks ─────────────────────────────────────────────────────────────
+
+fn check_inline(
+    inline: &Node,
+    ad_path: &str,
+    version: &DetectedVersion,
+    ctx: &ValidationContext,
+    issues: &mut Vec<Issue>,
+) {
+    let path = format!("{}/InLine", ad_path);
+
+    // VAST-2.0-inline-adsystem
+    // Spec (all versions): <AdSystem> is required.
+    if !inline.has_child("AdSystem") {
+        emit(
+            ctx,
+            issues,
+            "VAST-2.0-inline-adsystem",
+            Severity::Error,
+            "<InLine> is missing required <AdSystem>",
+            Some(path.clone()),
+            "IAB VAST 2.0 §2.3.1",
+        );
+    }
+
+    // VAST-2.0-inline-adtitle
+    // Spec (all versions): <AdTitle> is required.
+    if !inline.has_child("AdTitle") {
+        emit(
+            ctx,
+            issues,
+            "VAST-2.0-inline-adtitle",
+            Severity::Error,
+            "<InLine> is missing required <AdTitle>",
+            Some(path.clone()),
+            "IAB VAST 2.0 §2.3.2",
+        );
+    }
+
+    // VAST-2.0-inline-impression
+    // Spec (all versions): at least one <Impression> is required.
+    if inline.children_named("Impression").count() == 0 {
+        emit(
+            ctx,
+            issues,
+            "VAST-2.0-inline-impression",
+            Severity::Error,
+            "<InLine> is missing required <Impression>",
+            Some(path.clone()),
+            "IAB VAST 2.0 §2.3.4",
+        );
+    }
+
+    // VAST-2.0-inline-creatives
+    // Spec (all versions): <Creatives> is required and must contain at least
+    // one <Creative>.
+    match inline.child("Creatives") {
+        None => emit(
+            ctx,
+            issues,
+            "VAST-2.0-inline-creatives",
+            Severity::Error,
+            "<InLine> is missing required <Creatives>",
+            Some(path.clone()),
+            "IAB VAST 2.0 §2.3.5",
+        ),
+        Some(creatives) => {
+            if creatives.children_named("Creative").count() == 0 {
+                emit(
+                    ctx,
+                    issues,
+                    "VAST-2.0-inline-creatives",
+                    Severity::Error,
+                    "<Creatives> must contain at least one <Creative>",
+                    Some(format!("{}/Creatives", path)),
+                    "IAB VAST 2.0 §2.3.5",
+                );
+            }
+        }
+    }
+
+    // VAST-4.1-adservingid-present
+    // IAB VAST 4.1 §3.4.1: <AdServingId> is required in InLine responses from
+    // 4.1 onwards.
+    if let Some(v) = version.best() {
+        if v.at_least(&VastVersion::V4_1) && !inline.has_child("AdServingId") {
+            emit(
+                ctx,
+                issues,
+                "VAST-4.1-adservingid-present",
+                Severity::Error,
+                "<InLine> is missing required <AdServingId> (required since VAST 4.1)",
+                Some(path.clone()),
+                "IAB VAST 4.1 §3.4.1",
+            );
+        }
+    }
+
+    // Recurse into creatives.
+    if let Some(creatives) = inline.child("Creatives") {
+        for (ci, creative) in creatives.children_named("Creative").enumerate() {
+            check_inline_creative(
+                creative,
+                &format!("{}/Creatives/Creative[{}]", path, ci),
+                version,
+                ctx,
+                issues,
+            );
+        }
+    }
+
+    // VAST-4.0-category-authority: Category authority attr required.
+    check_categories(inline, &path, ctx, issues);
+
+    // VAST-3.0-pricing-model / VAST-3.0-pricing-currency
+    check_pricing(inline, &path, ctx, issues);
+
+    // VAST-4.1-verification-no-resource
+    if let Some(ad_ver) = inline.child("AdVerifications") {
+        for (vi, ver_node) in ad_ver.children_named("Verification").enumerate() {
+            check_verification_resource(
+                ver_node,
+                &format!("{}/AdVerifications/Verification[{}]", path, vi),
+                ctx,
+                issues,
+            );
+        }
+    }
+}
+
+// ── InLine Creative checks ────────────────────────────────────────────────────
+
+fn check_inline_creative(
+    creative: &Node,
+    creative_path: &str,
+    version: &DetectedVersion,
+    ctx: &ValidationContext,
+    issues: &mut Vec<Issue>,
+) {
+    // VAST-4.0-universaladid-present
+    // IAB VAST 4.0 §3.8.1: <UniversalAdId> is required on InLine creatives.
+    // In 4.0 the value was in the idValue attribute; from 4.1 it is the element
+    // text content. Both require the element itself to be present.
+    if let Some(v) = version.best() {
+        if v.is_v4() && !creative.has_child("UniversalAdId") {
+            emit(
+                ctx,
+                issues,
+                "VAST-4.0-universaladid-present",
+                Severity::Error,
+                "<Creative> is missing required <UniversalAdId> (required since VAST 4.0)",
+                Some(creative_path.to_owned()),
+                "IAB VAST 4.0 §3.8.1",
+            );
+        }
+    }
+
+    // VAST-4.0-universaladid-idregistry
+    // IAB VAST 4.0 §3.8.1: idRegistry attribute is required on <UniversalAdId>.
+    if let Some(uid) = creative.child("UniversalAdId") {
+        if uid.attr("idRegistry").is_none() {
+            emit(
+                ctx,
+                issues,
+                "VAST-4.0-universaladid-idregistry",
+                Severity::Error,
+                "<UniversalAdId> is missing required idRegistry attribute",
+                Some(format!("{}/UniversalAdId", creative_path)),
+                "IAB VAST 4.0 §3.8.1",
+            );
+        }
+        // VAST-4.0-universaladid-idvalue / VAST-4.1-universaladid-idvalue-removed
+        check_universal_ad_id(
+            uid,
+            &format!("{}/UniversalAdId", creative_path),
+            version,
+            ctx,
+            issues,
+        );
+    }
+
+    // VAST-4.0-companion-clicktracking-id on all companions in this creative.
+    if let Some(companion_ads) = creative.child("CompanionAds") {
+        for (ci, companion) in companion_ads.children_named("Companion").enumerate() {
+            let comp_path = format!("{}/CompanionAds/Companion[{}]", creative_path, ci);
+            check_companion_clicktracking_id(companion, &comp_path, ctx, issues);
+            check_companion_resource(companion, &comp_path, ctx, issues);
+        }
+    }
+
+    // VAST-2.0-nonlinear-resource: InLine NonLinear must have a resource.
+    if let Some(nl_ads) = creative.child("NonLinearAds") {
+        for (ni, nl) in nl_ads.children_named("NonLinear").enumerate() {
+            check_nonlinear_resource(
+                nl,
+                &format!("{}/NonLinearAds/NonLinear[{}]", creative_path, ni),
+                ctx,
+                issues,
+            );
+        }
+    }
+
+    // Check linear and mediafiles.
+    if let Some(linear) = creative.child("Linear") {
+        check_inline_linear(
+            linear,
+            &format!("{}/Linear", creative_path),
+            version,
+            ctx,
+            issues,
+        );
+    }
+}
+
+// ── Linear checks ─────────────────────────────────────────────────────────────
+
+fn check_inline_linear(
+    linear: &Node,
+    linear_path: &str,
+    version: &DetectedVersion,
+    ctx: &ValidationContext,
+    issues: &mut Vec<Issue>,
+) {
+    // VAST-2.0-linear-duration
+    // Spec (all versions, 4.0+ formally required): <Duration> is required.
+    if !linear.has_child("Duration") {
+        emit(
+            ctx,
+            issues,
+            "VAST-2.0-linear-duration",
+            Severity::Error,
+            "<Linear> is missing required <Duration>",
+            Some(linear_path.to_owned()),
+            "IAB VAST 2.0 §2.3.5.1",
+        );
+    }
+
+    // VAST-2.0-linear-mediafiles
+    // Spec (all versions): <MediaFiles> is required in InLine Linear and must
+    // contain at least one <MediaFile>.
+    match linear.child("MediaFiles") {
+        None => emit(
+            ctx,
+            issues,
+            "VAST-2.0-linear-mediafiles",
+            Severity::Error,
+            "<Linear> is missing required <MediaFiles>",
+            Some(linear_path.to_owned()),
+            "IAB VAST 2.0 §2.3.5.2",
+        ),
+        Some(mf) => {
+            if mf.children_named("MediaFile").count() == 0 {
+                emit(
+                    ctx,
+                    issues,
+                    "VAST-2.0-linear-mediafiles",
+                    Severity::Error,
+                    "<MediaFiles> must contain at least one <MediaFile>",
+                    Some(format!("{}/MediaFiles", linear_path)),
+                    "IAB VAST 2.0 §2.3.5.2",
+                );
+            }
+            // Check each MediaFile has required attrs.
+            for (i, mf_el) in mf.children_named("MediaFile").enumerate() {
+                check_mediafile(
+                    mf_el,
+                    &format!("{}/MediaFiles/MediaFile[{}]", linear_path, i),
+                    ctx,
+                    issues,
+                );
+            }
+
+            // VAST-4.1: Mezzanine required attrs.
+            for (mi, mez) in mf.children_named("Mezzanine").enumerate() {
+                check_mezzanine_required_attrs(
+                    mez,
+                    &format!("{}/MediaFiles/Mezzanine[{}]", linear_path, mi),
+                    ctx,
+                    issues,
+                );
+            }
+        }
+    }
+
+    // Icon required attrs (VAST 3.0+).
+    if let Some(icons) = linear.child("Icons") {
+        for (ii, icon) in icons.children_named("Icon").enumerate() {
+            check_icon_required_attrs(
+                icon,
+                &format!("{}/Icons/Icon[{}]", linear_path, ii),
+                ctx,
+                issues,
+            );
+        }
+    }
+
+    // VAST-4.0-interactive-creative-no-api: InteractiveCreativeFile without apiFramework.
+    // VAST-4.1-interactive-creative-type: InteractiveCreativeFile should have a type attribute.
+    if let Some(mf) = linear.child("MediaFiles") {
+        for (icf_i, icf) in mf.children_named("InteractiveCreativeFile").enumerate() {
+            let icf_path = format!(
+                "{}/MediaFiles/InteractiveCreativeFile[{}]",
+                linear_path, icf_i
+            );
+            if icf.attr("apiFramework").is_none() {
+                emit(
+                    ctx, issues,
+                    "VAST-4.0-interactive-creative-no-api",
+                    Severity::Warning,
+                    "<InteractiveCreativeFile> should have an apiFramework attribute (e.g. \"SIMID\")",
+                    Some(icf_path.clone()),
+                    "IAB VAST 4.0 §2.3.5.4",
+                );
+            }
+
+            // VAST-4.1-interactive-creative-type
+            // The type attribute identifies the MIME type of the interactive file.
+            // Spec says it is listed as an attribute; not formally required by the
+            // XSD but needed for the player to know how to execute the file.
+            if icf.attr("type").is_none() {
+                emit(
+                    ctx, issues,
+                    "VAST-4.1-interactive-creative-type",
+                    Severity::Warning,
+                    "<InteractiveCreativeFile> should have a type attribute identifying the MIME type",
+                    Some(icf_path.clone()),
+                    "IAB VAST 4.1 §3.9.3",
+                );
+            }
+        }
+    }
+
+    let _ = version; // used via check_mezzanine_required_attrs above
+}
+
+fn check_mediafile(mf: &Node, path: &str, ctx: &ValidationContext, issues: &mut Vec<Issue>) {
+    // VAST-2.0-mediafile-delivery
+    // Spec (all versions): delivery attribute is required.
+    if mf.attr("delivery").is_none() {
+        emit(
+            ctx,
+            issues,
+            "VAST-2.0-mediafile-delivery",
+            Severity::Error,
+            "<MediaFile> is missing required delivery attribute",
+            Some(path.to_owned()),
+            "IAB VAST 2.0 §2.3.5.2",
+        );
+    }
+
+    // VAST-2.0-mediafile-type
+    // Spec (all versions): type attribute is required.
+    if mf.attr("type").is_none() {
+        emit(
+            ctx,
+            issues,
+            "VAST-2.0-mediafile-type",
+            Severity::Error,
+            "<MediaFile> is missing required type attribute",
+            Some(path.to_owned()),
+            "IAB VAST 2.0 §2.3.5.2",
+        );
+    }
+
+    // VAST-2.0-mediafile-dimensions
+    // Spec (all versions): width and height attributes are required.
+    if mf.attr("width").is_none() {
+        emit(
+            ctx,
+            issues,
+            "VAST-2.0-mediafile-dimensions",
+            Severity::Error,
+            "<MediaFile> is missing required width attribute",
+            Some(path.to_owned()),
+            "IAB VAST 2.0 §2.3.5.2",
+        );
+    }
+    if mf.attr("height").is_none() {
+        emit(
+            ctx,
+            issues,
+            "VAST-2.0-mediafile-dimensions",
+            Severity::Error,
+            "<MediaFile> is missing required height attribute",
+            Some(path.to_owned()),
+            "IAB VAST 2.0 §2.3.5.2",
+        );
+    }
+}
+
+// ── Wrapper checks ────────────────────────────────────────────────────────────
+
+fn check_wrapper(
+    wrapper: &Node,
+    ad_path: &str,
+    version: &DetectedVersion,
+    ctx: &ValidationContext,
+    issues: &mut Vec<Issue>,
+) {
+    let path = format!("{}/Wrapper", ad_path);
+
+    // VAST-2.0-wrapper-adsystem
+    if !wrapper.has_child("AdSystem") {
+        emit(
+            ctx,
+            issues,
+            "VAST-2.0-wrapper-adsystem",
+            Severity::Error,
+            "<Wrapper> is missing required <AdSystem>",
+            Some(path.clone()),
+            "IAB VAST 2.0 §2.3.1",
+        );
+    }
+
+    // VAST-2.0-wrapper-impression
+    if wrapper.children_named("Impression").count() == 0 {
+        emit(
+            ctx,
+            issues,
+            "VAST-2.0-wrapper-impression",
+            Severity::Error,
+            "<Wrapper> is missing required <Impression>",
+            Some(path.clone()),
+            "IAB VAST 2.0 §2.3.4",
+        );
+    }
+
+    // VAST-2.0-wrapper-vastadtaguri
+    // Spec (all versions): <VASTAdTagURI> is required in Wrapper.
+    if !wrapper.has_child("VASTAdTagURI") {
+        emit(
+            ctx,
+            issues,
+            "VAST-2.0-wrapper-vastadtaguri",
+            Severity::Error,
+            "<Wrapper> is missing required <VASTAdTagURI>",
+            Some(path.clone()),
+            "IAB VAST 2.0 §2.4",
+        );
+    }
+
+    // Category authority (4.0+).
+    check_categories(wrapper, &path, ctx, issues);
+
+    // Pricing required attrs (3.0+).
+    check_pricing(wrapper, &path, ctx, issues);
+
+    // BlockedAdCategories authority (4.1+).
+    check_blocked_ad_categories(wrapper, &path, ctx, issues);
+
+    // AdVerifications Verification resource presence (4.1+).
+    if let Some(v) = version.best() {
+        if v.at_least(&VastVersion::V4_1) {
+            if let Some(av) = wrapper.child("AdVerifications") {
+                for (vi, ver_node) in av.children_named("Verification").enumerate() {
+                    check_verification_resource(
+                        ver_node,
+                        &format!("{}/AdVerifications/Verification[{}]", path, vi),
+                        ctx,
+                        issues,
+                    );
+                }
+            }
+        }
+    }
+}
+
+// ── Additional attribute / element checks ─────────────────────────────────────
+
+/// Checks Category elements for required `authority` attribute (4.0+).
+pub(super) fn check_categories(
+    node: &Node, // InLine or Wrapper
+    node_path: &str,
+    ctx: &ValidationContext,
+    issues: &mut Vec<Issue>,
+) {
+    for (i, cat) in node.children_named("Category").enumerate() {
+        if cat.attr("authority").is_none() {
+            emit(
+                ctx,
+                issues,
+                "VAST-4.0-category-authority",
+                Severity::Error,
+                "<Category> is missing required authority attribute",
+                Some(format!("{}/Category[{}]", node_path, i)),
+                "IAB VAST 4.0 §2.3.3",
+            );
+        }
+    }
+}
+
+/// Checks CompanionClickTracking elements for required `id` attribute (4.0+).
+pub(super) fn check_companion_clicktracking_id(
+    companion: &Node,
+    companion_path: &str,
+    ctx: &ValidationContext,
+    issues: &mut Vec<Issue>,
+) {
+    for (i, ct) in companion
+        .children_named("CompanionClickTracking")
+        .enumerate()
+    {
+        if ct.attr("id").is_none() {
+            emit(
+                ctx,
+                issues,
+                "VAST-4.0-companion-clicktracking-id",
+                Severity::Error,
+                "<CompanionClickTracking> is missing required id attribute",
+                Some(format!("{}/CompanionClickTracking[{}]", companion_path, i)),
+                "IAB VAST 4.0 §2.3.8",
+            );
+        }
+    }
+}
+
+/// Checks Pricing element for required model and currency attributes (3.0+).
+pub(super) fn check_pricing(
+    node: &Node, // InLine or Wrapper
+    node_path: &str,
+    ctx: &ValidationContext,
+    issues: &mut Vec<Issue>,
+) {
+    let Some(pricing) = node.child("Pricing") else {
+        return;
+    };
+    let pricing_path = format!("{}/Pricing", node_path);
+
+    if pricing.attr("model").is_none() {
+        emit(
+            ctx,
+            issues,
+            "VAST-3.0-pricing-model",
+            Severity::Error,
+            "<Pricing> is missing required model attribute",
+            Some(pricing_path.clone()),
+            "IAB VAST 3.0 §2.3.10",
+        );
+    }
+    if pricing.attr("currency").is_none() {
+        emit(
+            ctx,
+            issues,
+            "VAST-3.0-pricing-currency",
+            Severity::Error,
+            "<Pricing> is missing required currency attribute",
+            Some(pricing_path),
+            "IAB VAST 3.0 §2.3.10",
+        );
+    }
+}
+
+/// Checks Icon elements for required attributes per spec (3.0+).
+pub(super) fn check_icon_required_attrs(
+    icon: &Node,
+    icon_path: &str,
+    ctx: &ValidationContext,
+    issues: &mut Vec<Issue>,
+) {
+    if icon.attr("program").is_none() {
+        emit(
+            ctx,
+            issues,
+            "VAST-3.0-icon-program",
+            Severity::Error,
+            "<Icon> is missing required program attribute",
+            Some(icon_path.to_owned()),
+            "IAB VAST 3.0 §2.3.6.4",
+        );
+    }
+    if icon.attr("width").is_none() {
+        emit(
+            ctx,
+            issues,
+            "VAST-3.0-icon-width",
+            Severity::Error,
+            "<Icon> is missing required width attribute",
+            Some(icon_path.to_owned()),
+            "IAB VAST 3.0 §2.3.6.4",
+        );
+    }
+    if icon.attr("height").is_none() {
+        emit(
+            ctx,
+            issues,
+            "VAST-3.0-icon-height",
+            Severity::Error,
+            "<Icon> is missing required height attribute",
+            Some(icon_path.to_owned()),
+            "IAB VAST 3.0 §2.3.6.4",
+        );
+    }
+    if icon.attr("xPosition").is_none() {
+        emit(
+            ctx,
+            issues,
+            "VAST-3.0-icon-xposition",
+            Severity::Error,
+            "<Icon> is missing required xPosition attribute",
+            Some(icon_path.to_owned()),
+            "IAB VAST 3.0 §2.3.6.4",
+        );
+    }
+    if icon.attr("yPosition").is_none() {
+        emit(
+            ctx,
+            issues,
+            "VAST-3.0-icon-yposition",
+            Severity::Error,
+            "<Icon> is missing required yPosition attribute",
+            Some(icon_path.to_owned()),
+            "IAB VAST 3.0 §2.3.6.4",
+        );
+    }
+
+    // VAST-3.0-icon-resource: must have at least one resource child.
+    let has_resource = icon.has_child("StaticResource")
+        || icon.has_child("IFrameResource")
+        || icon.has_child("HTMLResource");
+    if !has_resource {
+        emit(
+            ctx,
+            issues,
+            "VAST-3.0-icon-resource",
+            Severity::Error,
+            "<Icon> must contain at least one StaticResource, IFrameResource, or HTMLResource",
+            Some(icon_path.to_owned()),
+            "IAB VAST 3.0 §2.3.6.4",
+        );
+    }
+}
+
+/// Checks UniversalAdId for version-appropriate required content.
+/// 4.0 requires idValue attr; 4.1+ requires text content (idValue removed).
+pub(super) fn check_universal_ad_id(
+    uid: &Node,
+    uid_path: &str,
+    version: &DetectedVersion,
+    ctx: &ValidationContext,
+    issues: &mut Vec<Issue>,
+) {
+    let v = version.best();
+    if let Some(ver) = v {
+        if ver.at_least(&VastVersion::V4_1) {
+            // 4.1+: idValue attribute was removed; value is element text content.
+            if uid.attr("idValue").is_some() {
+                emit(
+                    ctx, issues,
+                    "VAST-4.1-universaladid-idvalue-removed",
+                    Severity::Warning,
+                    "<UniversalAdId> idValue attribute was removed in VAST 4.1 — value should be in element text content",
+                    Some(uid_path.to_owned()),
+                    "IAB VAST 4.1 §2.3.5.3",
+                );
+            }
+            // VAST-4.1-universaladid-content: value must be in element text body.
+            if uid.text.trim().is_empty() && uid.attr("idValue").is_none() {
+                emit(
+                    ctx, issues,
+                    "VAST-4.1-universaladid-content",
+                    Severity::Error,
+                    "<UniversalAdId> must have text content in VAST 4.1+ (the ID value is the element body)",
+                    Some(uid_path.to_owned()),
+                    "IAB VAST 4.1 §2.3.5.3",
+                );
+            }
+        } else if ver.at_least(&VastVersion::V4_0) {
+            // 4.0: idValue attribute is the canonical location for the ID value.
+            // Element text content is also accepted in practice (some implementations
+            // use text content only). Only fire if both idValue attr and text are absent.
+            let has_text = !uid.text.trim().is_empty();
+            if uid.attr("idValue").is_none() && !has_text {
+                emit(
+                    ctx,
+                    issues,
+                    "VAST-4.0-universaladid-idvalue",
+                    Severity::Error,
+                    "<UniversalAdId> is missing required idValue attribute (required in VAST 4.0)",
+                    Some(uid_path.to_owned()),
+                    "IAB VAST 4.0 §2.3.5.3",
+                );
+            }
+        }
+    }
+}
+
+/// Checks Mezzanine elements for required attributes (4.1+ typed element).
+pub(super) fn check_mezzanine_required_attrs(
+    mez: &Node,
+    mez_path: &str,
+    ctx: &ValidationContext,
+    issues: &mut Vec<Issue>,
+) {
+    if mez.attr("delivery").is_none() {
+        emit(
+            ctx,
+            issues,
+            "VAST-4.1-mezzanine-delivery",
+            Severity::Error,
+            "<Mezzanine> is missing required delivery attribute",
+            Some(mez_path.to_owned()),
+            "IAB VAST 4.1 §2.3.5.2",
+        );
+    }
+    if mez.attr("type").is_none() {
+        emit(
+            ctx,
+            issues,
+            "VAST-4.1-mezzanine-type",
+            Severity::Error,
+            "<Mezzanine> is missing required type attribute",
+            Some(mez_path.to_owned()),
+            "IAB VAST 4.1 §2.3.5.2",
+        );
+    }
+    if mez.attr("width").is_none() {
+        emit(
+            ctx,
+            issues,
+            "VAST-4.1-mezzanine-width",
+            Severity::Error,
+            "<Mezzanine> is missing required width attribute",
+            Some(mez_path.to_owned()),
+            "IAB VAST 4.1 §2.3.5.2",
+        );
+    }
+    if mez.attr("height").is_none() {
+        emit(
+            ctx,
+            issues,
+            "VAST-4.1-mezzanine-height",
+            Severity::Error,
+            "<Mezzanine> is missing required height attribute",
+            Some(mez_path.to_owned()),
+            "IAB VAST 4.1 §2.3.5.2",
+        );
+    }
+}
+
+/// Checks Verification for required resource presence and vendor attr (4.1+).
+pub(super) fn check_verification_resource(
+    ver_node: &Node,
+    ver_path: &str,
+    ctx: &ValidationContext,
+    issues: &mut Vec<Issue>,
+) {
+    let has_js = ver_node.has_child("JavaScriptResource");
+    let has_exec = ver_node.has_child("ExecutableResource");
+    if !has_js && !has_exec {
+        emit(
+            ctx,
+            issues,
+            "VAST-4.1-verification-no-resource",
+            Severity::Warning,
+            "<Verification> should contain at least one JavaScriptResource or ExecutableResource",
+            Some(ver_path.to_owned()),
+            "IAB VAST 4.1 §2.4",
+        );
+    }
+
+    // VAST-4.1-verification-vendor: vendor attribute is required per spec.
+    // The recommended format is [domain]-[useCase], e.g. "company.com-omid".
+    if ver_node.attr("vendor").is_none() {
+        emit(
+            ctx,
+            issues,
+            "VAST-4.1-verification-vendor",
+            Severity::Error,
+            "<Verification> is missing required vendor attribute",
+            Some(ver_path.to_owned()),
+            "IAB VAST 4.1 §3.17",
+        );
+    }
+
+    // Check JavaScriptResource elements for required attributes.
+    for (ji, js) in ver_node.children_named("JavaScriptResource").enumerate() {
+        let js_path = format!("{}/JavaScriptResource[{}]", ver_path, ji);
+
+        // VAST-4.1-js-resource-apiframework: apiFramework is required.
+        if js.attr("apiFramework").is_none() {
+            emit(
+                ctx,
+                issues,
+                "VAST-4.1-js-resource-apiframework",
+                Severity::Error,
+                "<JavaScriptResource> is missing required apiFramework attribute",
+                Some(js_path.clone()),
+                "IAB VAST 4.1 §3.17.1",
+            );
+        }
+
+        // VAST-4.3-js-resource-browser-optional: browserOptional is required (added 4.3).
+        if js.attr("browserOptional").is_none() {
+            emit(
+                ctx,
+                issues,
+                "VAST-4.3-js-resource-browser-optional",
+                Severity::Warning,
+                "<JavaScriptResource> should have a browserOptional attribute (required since VAST 4.3)",
+                Some(js_path),
+                "IAB VAST 4.3 §3.17.1",
+            );
+        }
+    }
+
+    // Check ExecutableResource elements for required attributes.
+    for (ei, exec) in ver_node.children_named("ExecutableResource").enumerate() {
+        let exec_path = format!("{}/ExecutableResource[{}]", ver_path, ei);
+
+        // VAST-4.1-exec-resource-apiframework: apiFramework is required.
+        if exec.attr("apiFramework").is_none() {
+            emit(
+                ctx,
+                issues,
+                "VAST-4.1-exec-resource-apiframework",
+                Severity::Error,
+                "<ExecutableResource> is missing required apiFramework attribute",
+                Some(exec_path.clone()),
+                "IAB VAST 4.1 §3.17.2",
+            );
+        }
+
+        // VAST-4.1-exec-resource-type: type is required.
+        if exec.attr("type").is_none() {
+            emit(
+                ctx,
+                issues,
+                "VAST-4.1-exec-resource-type",
+                Severity::Error,
+                "<ExecutableResource> is missing required type attribute",
+                Some(exec_path),
+                "IAB VAST 4.1 §3.17.2",
+            );
+        }
+    }
+}
+
+/// Checks BlockedAdCategories for recommended authority attribute (4.1+).
+pub(super) fn check_blocked_ad_categories(
+    node: &Node, // Wrapper
+    node_path: &str,
+    ctx: &ValidationContext,
+    issues: &mut Vec<Issue>,
+) {
+    for (i, bac) in node.children_named("BlockedAdCategories").enumerate() {
+        if bac.attr("authority").is_none() {
+            emit(
+                ctx,
+                issues,
+                "VAST-4.1-blockedadcategories-no-authority",
+                Severity::Warning,
+                "<BlockedAdCategories> should have an authority attribute to identify the taxonomy",
+                Some(format!("{}/BlockedAdCategories[{}]", node_path, i)),
+                "IAB VAST 4.1 §2.3.2",
+            );
+        }
+    }
+}
+
+/// Checks that an InLine Companion has at least one resource element.
+/// Wrapper Companions (CompanionWrapper_type) do not require resources.
+fn check_companion_resource(
+    companion: &Node,
+    path: &str,
+    ctx: &ValidationContext,
+    issues: &mut Vec<Issue>,
+) {
+    let has_resource = companion.has_child("StaticResource")
+        || companion.has_child("IFrameResource")
+        || companion.has_child("HTMLResource");
+    if !has_resource {
+        emit(
+            ctx,
+            issues,
+            "VAST-2.0-companion-resource",
+            Severity::Error,
+            "<Companion> must contain at least one StaticResource, IFrameResource, or HTMLResource",
+            Some(path.to_owned()),
+            "IAB VAST 2.0 §2.3.7",
+        );
+    }
+}
+
+/// Checks that an InLine NonLinear has at least one resource element.
+/// Wrapper NonLinear (NonLinearWrapper_type) does not require resources.
+fn check_nonlinear_resource(
+    nl: &Node,
+    path: &str,
+    ctx: &ValidationContext,
+    issues: &mut Vec<Issue>,
+) {
+    let has_resource = nl.has_child("StaticResource")
+        || nl.has_child("IFrameResource")
+        || nl.has_child("HTMLResource");
+    if !has_resource {
+        emit(
+            ctx,
+            issues,
+            "VAST-2.0-nonlinear-resource",
+            Severity::Error,
+            "<NonLinear> must contain at least one StaticResource, IFrameResource, or HTMLResource",
+            Some(path.to_owned()),
+            "IAB VAST 2.0 §2.3.6.1",
+        );
+    }
+}

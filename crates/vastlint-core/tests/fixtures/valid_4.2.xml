@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<VAST version="4.2">
+  <Ad id="1">
+    <Wrapper>
+      <AdSystem>Test AdServer</AdSystem>
+      <VASTAdTagURI><![CDATA[https://example.com/vast.xml]]></VASTAdTagURI>
+      <Impression><![CDATA[https://example.com/impression]]></Impression>
+      <Creatives>
+        <Creative>
+          <Linear>
+            <VideoClicks>
+              <ClickThrough><![CDATA[https://example.com/click]]></ClickThrough>
+              <ClickTracking><![CDATA[https://example.com/clicktrack]]></ClickTracking>
+            </VideoClicks>
+          </Linear>
+        </Creative>
+      </Creatives>
+    </Wrapper>
+  </Ad>
+</VAST>

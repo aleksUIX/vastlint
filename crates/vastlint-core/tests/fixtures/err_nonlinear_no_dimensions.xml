@@ -1,0 +1,36 @@
+<VAST version="2.0">
+  <Ad id="1">
+    <InLine>
+      <AdSystem>Test</AdSystem>
+      <AdTitle>Test</AdTitle>
+      <Impression>https://t.example.com/imp</Impression>
+      <Creatives>
+        <Creative>
+          <Linear>
+            <Duration>00:00:30</Duration>
+            <MediaFiles>
+              <MediaFile delivery="progressive" type="video/mp4" width="640" height="360">
+                https://cdn.example.com/ad.mp4
+              </MediaFile>
+            </MediaFiles>
+          </Linear>
+        </Creative>
+        <Creative>
+          <CompanionAds>
+            <Companion width="300" height="250">
+              <StaticResource creativeType="image/png">https://cdn.example.com/banner.png</StaticResource>
+            </Companion>
+          </CompanionAds>
+        </Creative>
+        <Creative>
+          <NonLinearAds>
+            <!-- missing width and height on NonLinear -->
+            <NonLinear>
+              <StaticResource creativeType="image/png">https://cdn.example.com/overlay.png</StaticResource>
+            </NonLinear>
+          </NonLinearAds>
+        </Creative>
+      </Creatives>
+    </InLine>
+  </Ad>
+</VAST>

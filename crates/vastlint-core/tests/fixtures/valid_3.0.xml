@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<VAST version="3.0">
+  <Ad id="1">
+    <InLine>
+      <AdSystem>Test AdServer</AdSystem>
+      <AdTitle>Test Ad</AdTitle>
+      <Impression><![CDATA[https://example.com/impression]]></Impression>
+      <Creatives>
+        <Creative>
+          <Linear>
+            <Duration>00:00:30</Duration>
+            <Icons>
+              <Icon program="AdChoices" width="77" height="15" xPosition="right" yPosition="top">
+                <StaticResource creativeType="image/png"><![CDATA[https://example.com/icon.png]]></StaticResource>
+                <IconViewTracking><![CDATA[https://example.com/iconview]]></IconViewTracking>
+                <IconClickThrough><![CDATA[https://example.com/iconclick]]></IconClickThrough>
+              </Icon>
+            </Icons>
+            <MediaFiles>
+              <MediaFile delivery="progressive" type="video/mp4" width="640" height="360">
+                <![CDATA[https://example.com/video.mp4]]>
+              </MediaFile>
+            </MediaFiles>
+          </Linear>
+        </Creative>
+      </Creatives>
+    </InLine>
+  </Ad>
+</VAST>

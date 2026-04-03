@@ -1,0 +1,11 @@
+vastlint
+Copyright 2026 Aleksander Sekowski
+https://github.com/aleksUIX/vastlint
+
+A VAST XML validator. Checks ad tags against the IAB VAST 2.0-4.3 specification.
+
+---
+
+This product includes software developed by the vastlint project.
+If you distribute this software or a derivative work, you must include
+this NOTICE file in your distribution.

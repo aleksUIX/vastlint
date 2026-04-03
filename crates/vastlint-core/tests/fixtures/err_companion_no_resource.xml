@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<VAST version="2.0">
+  <Ad id="1">
+    <InLine>
+      <AdSystem>Test AdServer</AdSystem>
+      <AdTitle>Test Ad</AdTitle>
+      <Impression><![CDATA[https://example.com/impression]]></Impression>
+      <Creatives>
+        <Creative>
+          <CompanionAds>
+            <!-- No StaticResource, IFrameResource, or HTMLResource -->
+            <Companion width="300" height="250">
+              <CompanionClickThrough><![CDATA[https://example.com/click]]></CompanionClickThrough>
+            </Companion>
+          </CompanionAds>
+        </Creative>
+      </Creatives>
+    </InLine>
+  </Ad>
+</VAST>

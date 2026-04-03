@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<VAST version="2.0">
+  <Ad id="1">
+    <InLine>
+      <AdSystem>Test AdServer</AdSystem>
+      <AdTitle>Test Ad</AdTitle>
+      <Impression><![CDATA[https://example.com/impression]]></Impression>
+      <Creatives>
+        <Creative>
+          <NonLinearAds>
+            <!-- No StaticResource, IFrameResource, or HTMLResource -->
+            <NonLinear width="300" height="60">
+              <NonLinearClickThrough><![CDATA[https://example.com/click]]></NonLinearClickThrough>
+            </NonLinear>
+          </NonLinearAds>
+        </Creative>
+      </Creatives>
+    </InLine>
+  </Ad>
+</VAST>
