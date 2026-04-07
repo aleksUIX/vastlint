@@ -350,8 +350,50 @@ wasm-pack build crates/vastlint-wasm --target bundler --out-dir ../../npm/pkg
 # CommonJS / Node.js target
 wasm-pack build crates/vastlint-wasm --target nodejs --out-dir ../../npm/pkg-node
 
+# Copy built files to package root
+node npm/scripts/assemble.js
+
 # Publish
 cd npm && npm publish
+```
+
+---
+
+## Release and Publish Graph
+
+A single git tag (`vX.Y.Z`) triggers everything via `.github/workflows/release.yml`:
+
+```
+git tag vX.Y.Z → push tag
+  │
+  ├── build (4 targets: linux x86_64/aarch64, macos x86_64/aarch64)
+  │     │
+  │     ├── release       → GitHub Release with binary tarballs
+  │     │
+  │     ├── publish       → crates.io: vastlint-core, then vastlint-cli
+  │     │   [ENABLE_CRATES_PUBLISH=true]
+  │     │
+  │     └── publish-npm   → npm: vastlint (WASM, built fresh from source)
+  │         [ENABLE_NPM_PUBLISH=true]
+```
+
+**Version sync:** The npm package version is set automatically from the git tag during the workflow (`TAG=v1.2.3` → `npm version 1.2.3`). You do not need to manually bump `npm/package.json`.
+
+**Required secrets (Settings → Secrets → Actions):**
+- `CARGO_REGISTRY_TOKEN` — crates.io API token
+- `NPM_TOKEN` — npm automation token (create at npmjs.com → Access Tokens → Automation)
+
+**Required repo variables (Settings → Variables → Actions):**
+- `ENABLE_CRATES_PUBLISH` — set to `true` to enable crates.io publish
+- `ENABLE_NPM_PUBLISH` — set to `true` to enable npm publish
+
+Both flags default to off so a misconfigured tag push doesn't accidentally publish.
+
+**To do a full release:**
+```sh
+# Bump versions in Cargo.toml files first, commit, then:
+git tag v0.2.0
+git push origin v0.2.0
 ```
 
 ---

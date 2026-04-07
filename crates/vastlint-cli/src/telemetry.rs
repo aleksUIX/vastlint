@@ -23,7 +23,7 @@ use std::path::PathBuf;
 
 /// Endpoint that receives the ping.
 /// Set to empty string to disable at compile time.
-const TELEMETRY_ENDPOINT: &str = "https://vastlint.org/ping";
+const TELEMETRY_ENDPOINT: &str = "https://vastlint.org/api/ping";
 
 /// Fire an async telemetry ping. Returns immediately; the request runs in a
 /// detached thread. Call only when the user has opted in.
