@@ -1,6 +1,8 @@
 [workspace]
-members = ["crates/vastlint-cli",
+members = [
+    "crates/vastlint-cli",
     "crates/vastlint-core",
+    "crates/vastlint-wasm",
 ]
 resolver = "2"
 

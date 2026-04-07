@@ -1,0 +1,24 @@
+[package]
+name = "vastlint-wasm"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.75"
+authors = ["Aleks <aleks@vastlint.org>"]
+description = "WASM bindings for vastlint-core — validate VAST XML in the browser, Node, Deno, and edge workers"
+license = "Apache-2.0"
+repository = "https://github.com/aleksUIX/vastlint"
+homepage = "https://github.com/aleksUIX/vastlint"
+keywords = ["vast", "xml", "validator", "adtech", "wasm"]
+categories = ["parser-implementations", "wasm"]
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+vastlint-core = { path = "../vastlint-core", version = "0.1.0" }
+wasm-bindgen = "0.2"
+serde = { version = "1", features = ["derive"] }
+serde-wasm-bindgen = "0.6"
+
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = ["-O3"]

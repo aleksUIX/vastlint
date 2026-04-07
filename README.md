@@ -3,6 +3,7 @@
 [![crates.io](https://img.shields.io/crates/v/vastlint-cli.svg?label=crates.io)](https://crates.io/crates/vastlint-cli)
 [![crates.io](https://img.shields.io/crates/v/vastlint-core.svg?label=vastlint-core)](https://crates.io/crates/vastlint-core)
 [![docs.rs](https://docs.rs/vastlint-core/badge.svg)](https://docs.rs/vastlint-core)
+[![npm](https://img.shields.io/npm/v/vastlint.svg?label=npm)](https://www.npmjs.com/package/vastlint)
 [![license](https://img.shields.io/crates/l/vastlint-cli.svg)](LICENSE)
 
 A VAST XML validator. Checks ad tags against the IAB Tech Lab VAST specification so you don't have to read it. Over $30 billion in annual CTV and video ad spend flows through VAST XML, and malformed tags are one of the most common causes of lost impressions, broken tracking, and revenue discrepancies between platforms. There is no widely adopted open-source tool that validates VAST XML against the full IAB specification across all published versions.
@@ -177,6 +178,27 @@ let ctx = ValidationContext {
 
 let result = validate_with_context(xml_string, ctx);
 ```
+
+## Use from JavaScript / TypeScript
+
+[`vastlint`](https://www.npmjs.com/package/vastlint) is published on npm. Same 108 rules, same core — compiled to WASM.
+
+```sh
+npm install vastlint
+```
+
+```ts
+import { validate } from 'vastlint';
+
+const result = validate(xmlString);
+if (!result.summary.valid) {
+  for (const issue of result.issues) {
+    console.error(`[${issue.severity}] ${issue.id}: ${issue.message}`);
+  }
+}
+```
+
+Works in Node.js (ESM and CJS), Vite, Webpack 5, and Rollup. Requires a bundler for browser use — see the [npm package README](npm/README.md) for the full environment compatibility table and API reference.
 
 ## Performance
 
