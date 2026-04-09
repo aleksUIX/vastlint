@@ -2,6 +2,10 @@ use std::collections::HashMap;
 use std::io::Read;
 use std::process::ExitCode;
 
+use mimalloc::MiMalloc;
+#[global_allocator]
+static GLOBAL: MiMalloc = MiMalloc;
+
 use anstream::eprintln;
 use anstyle::{AnsiColor, Color, Style};
 use clap::{Parser, Subcommand, ValueEnum};

@@ -10,6 +10,43 @@
 //! - [`validate_with_context`] -- validate with rule overrides or wrapper depth
 //! - [`all_rules`] -- list the full 108-rule catalog
 //!
+//! # Performance — allocator recommendation
+//!
+//! `vastlint-core` builds an owned document tree on every call (one heap
+//! allocation per XML element, attribute, and text node). Under concurrent
+//! load the system allocator becomes a bottleneck because all threads compete
+//! for a shared free-list lock.
+//!
+//! Switching to [`mimalloc`](https://docs.rs/mimalloc) in your **binary**
+//! crate eliminates this contention and gives dramatically better throughput
+//! at high concurrency, especially for larger documents:
+//!
+//! ```toml
+//! # Cargo.toml (your binary, not a library crate)
+//! [dependencies]
+//! mimalloc = { version = "0.1", default-features = false }
+//! ```
+//!
+//! ```rust,ignore
+//! // src/main.rs
+//! use mimalloc::MiMalloc;
+//! #[global_allocator]
+//! static GLOBAL: MiMalloc = MiMalloc;
+//! ```
+//!
+//! Measured on Apple M-series (10 threads, 339 KB VAST documents, 100k calls):
+//!
+//! | Allocator | Throughput | avg latency | p99 latency |
+//! |---|---|---|---|
+//! | system (default) | 7,966 tags/s | 1,246 µs | 24,260 µs |
+//! | mimalloc | 57,936 tags/s | 171 µs | 912 µs |
+//!
+//! **+628% throughput, p99 drops 26×.**
+//!
+//! > ⚠️ Do **not** set a global allocator in a library crate — it would
+//! > override the allocator for any host process that links you (Go, Python,
+//! > Ruby runtimes, etc.), which can cause heap corruption.
+//!
 //! # Quick start
 //!
 //! ```rust
