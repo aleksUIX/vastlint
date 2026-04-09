@@ -1,6 +1,6 @@
 [package]
 name = "vastlint-wasm"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 rust-version = "1.75"
 authors = ["Aleks <aleks@vastlint.org>"]
@@ -15,7 +15,7 @@ categories = ["parser-implementations", "wasm"]
 crate-type = ["cdylib"]
 
 [dependencies]
-vastlint-core = { path = "../vastlint-core", version = "0.1.0" }
+vastlint-core = { path = "../vastlint-core", version = "0.2.0" }
 wasm-bindgen = "0.2"
 serde = { version = "1", features = ["derive"] }
 serde-wasm-bindgen = "0.6"

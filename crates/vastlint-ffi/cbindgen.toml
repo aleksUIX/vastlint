@@ -1,0 +1,60 @@
+# cbindgen configuration for vastlint-ffi
+#
+# Generate the C header with:
+#   cbindgen --config crates/vastlint-ffi/cbindgen.toml \
+#             --crate vastlint-ffi \
+#             --output crates/vastlint-ffi/vastlint.h
+#
+# Or via cargo (install cbindgen first: cargo install cbindgen):
+#   cargo cbindgen --config crates/vastlint-ffi/cbindgen.toml \
+#                  --output crates/vastlint-ffi/vastlint.h
+#
+# The output file (vastlint.h) is committed to the repo so consumers of
+# pre-built binaries don't need a Rust toolchain.
+
+language = "C"
+
+# Include a file-level doc comment in the generated header.
+header = """
+/**
+ * vastlint C API
+ *
+ * Validate IAB VAST XML tags from any language that can call a C library.
+ *
+ * Quick start:
+ *
+ *   VastlintResult *r = vastlint_validate(xml, 0);
+ *   if (vastlint_result_valid(r)) {
+ *     // tag is clean
+ *   } else {
+ *     const char *json = vastlint_result_json(r);
+ *     // parse json to get issue details
+ *   }
+ *   vastlint_result_free(r);
+ *
+ * All functions are thread-safe and re-entrant except vastlint_result_free,
+ * which must not be called concurrently on the same pointer.
+ */
+"""
+
+# Wrap everything in an include guard.
+include_guard = "VASTLINT_H"
+
+# Emit `#include <stdint.h>` and `#include <stddef.h>` at the top.
+sys_includes = ["stddef.h", "stdint.h"]
+
+# Don't expose internal Rust types — only #[no_mangle] extern "C" functions.
+[export]
+# Only export symbols that have a #[no_mangle] attribute.
+# cbindgen will include VastlintResult as an opaque struct because it is
+# referenced by pointer in the exported function signatures.
+include = []
+exclude = []
+
+[struct]
+# Emit VastlintResult as a forward-declared opaque struct. Callers cannot
+# inspect its fields directly; they must use the accessor functions.
+opaque_types = ["VastlintResult"]
+
+[parse]
+parse_deps = false

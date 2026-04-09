@@ -4,6 +4,7 @@
 [![crates.io](https://img.shields.io/crates/v/vastlint-core.svg?label=vastlint-core)](https://crates.io/crates/vastlint-core)
 [![docs.rs](https://docs.rs/vastlint-core/badge.svg)](https://docs.rs/vastlint-core)
 [![npm](https://img.shields.io/npm/v/vastlint.svg?label=npm)](https://www.npmjs.com/package/vastlint)
+[![Go](https://img.shields.io/github/v/tag/aleksUIX/vastlint-go?label=go&color=00ADD8)](https://github.com/aleksUIX/vastlint-go)
 [![license](https://img.shields.io/crates/l/vastlint-cli.svg)](LICENSE)
 
 A VAST XML validator. Checks ad tags against the IAB Tech Lab VAST specification so you don't have to read it. Over $30 billion in annual CTV and video ad spend flows through VAST XML, and malformed tags are one of the most common causes of lost impressions, broken tracking, and revenue discrepancies between platforms. There is no widely adopted open-source tool that validates VAST XML against the full IAB specification across all published versions.
@@ -199,6 +200,45 @@ if (!result.summary.valid) {
 ```
 
 Works in Node.js (ESM and CJS), Vite, Webpack 5, and Rollup. Requires a bundler for browser use — see the [npm package README](npm/README.md) for the full environment compatibility table and API reference.
+
+## Use from Go
+
+[`vastlint-go`](https://github.com/aleksUIX/vastlint-go) provides Go bindings via CGo. Prebuilt static libraries are included — no Rust toolchain required.
+
+```sh
+go get github.com/aleksUIX/vastlint-go
+```
+
+```go
+import vastlint "github.com/aleksUIX/vastlint-go"
+
+result, err := vastlint.Validate(xmlString)
+if err != nil {
+    log.Fatal(err)
+}
+if !result.Valid {
+    for _, issue := range result.Issues {
+        fmt.Printf("[%s] %s (%s)\n", issue.Severity, issue.Message, issue.ID)
+    }
+}
+```
+
+Supported platforms: Linux (amd64, arm64), macOS (amd64, arm64).
+
+With options:
+
+```go
+result, err := vastlint.ValidateWithOptions(xmlString, vastlint.Options{
+    WrapperDepth:    2,
+    MaxWrapperDepth: 5,
+    RuleOverrides: map[string]string{
+        "VAST-2.0-mediafile-https":       "error",
+        "VAST-4.1-mezzanine-recommended": "off",
+    },
+})
+```
+
+See the [vastlint-go README](https://github.com/aleksUIX/vastlint-go) for the full API reference.
 
 ## Performance
 

@@ -3,3 +3,4 @@ specs/
 scratch/
 target/
 .DS_Store
+*.code-workspace

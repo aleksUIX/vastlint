@@ -73,9 +73,100 @@ jobs:
           name: ${{ matrix.archive }}
           path: ${{ matrix.archive }}
 
+  # ── C FFI library build ─────────────────────────────────────────────────────
+  # Builds vastlint-ffi as both a shared library (.so/.dylib) and a static
+  # archive (.a) for each supported platform. The output tarballs contain:
+  #   vastlint.h          — C header (ABI contract, same across all platforms)
+  #   libvastlint.a       — static library for link-time embedding (Go CGo, etc.)
+  #   libvastlint.so      — shared library for runtime linking (Linux)
+  #   libvastlint.dylib   — shared library for runtime linking (macOS)
+  #
+  # These artifacts are the foundation for Go, Ruby, Python, Java, and Erlang
+  # language bindings.
+  build-ffi:
+    name: Build FFI ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+            static: libvastlint.a
+            shared: libvastlint.so
+            archive: vastlint-ffi-linux-x86_64.tar.gz
+
+          - target: aarch64-unknown-linux-gnu
+            os: ubuntu-latest
+            static: libvastlint.a
+            shared: libvastlint.so
+            archive: vastlint-ffi-linux-aarch64.tar.gz
+
+          - target: x86_64-apple-darwin
+            os: macos-latest
+            static: libvastlint.a
+            shared: libvastlint.dylib
+            archive: vastlint-ffi-macos-x86_64.tar.gz
+
+          - target: aarch64-apple-darwin
+            os: macos-latest
+            static: libvastlint.a
+            shared: libvastlint.dylib
+            archive: vastlint-ffi-macos-aarch64.tar.gz
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Install cross (Linux aarch64)
+        if: matrix.target == 'aarch64-unknown-linux-gnu'
+        run: cargo install cross --locked
+
+      - name: Build FFI crate (cross — Linux aarch64)
+        if: matrix.target == 'aarch64-unknown-linux-gnu'
+        run: cross build --release --target ${{ matrix.target }} -p vastlint-ffi
+
+      - name: Build FFI crate (cargo — all others)
+        if: matrix.target != 'aarch64-unknown-linux-gnu'
+        run: cargo build --release --target ${{ matrix.target }} -p vastlint-ffi
+
+      - name: Package FFI artifacts
+        run: |
+          OUTDIR=target/${{ matrix.target }}/release
+          STAGING=ffi-staging
+          mkdir -p "$STAGING"
+
+          # Header — same for all platforms, included in every tarball so
+          # consumers get a self-contained package.
+          cp crates/vastlint-ffi/vastlint.h "$STAGING/"
+
+          # Static library — Rust outputs libvastlint_ffi.a (crate name with
+          # underscores). Rename to libvastlint.a so consumers use a clean name.
+          cp "$OUTDIR/libvastlint_ffi.a" "$STAGING/libvastlint.a"
+
+          # Shared library — same rename convention.
+          # matrix.shared is "libvastlint.so" or "libvastlint.dylib"; derive
+          # the extension and rename the Rust output to match.
+          EXT="${{ matrix.shared }##*.}"
+          cp "$OUTDIR/libvastlint_ffi.${EXT}" "$STAGING/${{ matrix.shared }}"
+
+          tar czf ${{ matrix.archive }} -C "$STAGING" .
+
+      - name: Upload FFI artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.archive }}
+          path: ${{ matrix.archive }}
+
   release:
     name: Create GitHub Release
-    needs: build
+    needs: [build, build-ffi]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -173,3 +264,94 @@ jobs:
         working-directory: npm
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  # ── Sync vastlint-go ────────────────────────────────────────────────────────
+  # After a successful release, push the updated prebuilt libs and header into
+  # the vastlint-go repo and tag it at the same version.
+  #
+  # Prerequisites (one-time setup):
+  #   1. Generate an SSH deploy key for vastlint-go:
+  #        ssh-keygen -t ed25519 -f vastlint_go_deploy -C "vastlint release bot"
+  #   2. Add the PUBLIC key as a deploy key in vastlint-go (Settings → Deploy
+  #      keys) with write access.
+  #   3. Add the PRIVATE key as a secret in this repo (Settings → Secrets →
+  #      Actions) named VASTLINT_GO_DEPLOY_KEY.
+  #
+  # Set ENABLE_GO_SYNC to "true" in repo variables to activate this job.
+  sync-go:
+    name: Sync vastlint-go
+    needs: [build-ffi, release]
+    runs-on: ubuntu-latest
+    if: vars.ENABLE_GO_SYNC == 'true'
+
+    steps:
+      - name: Download all FFI artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ffi-artifacts
+          # Download only the FFI tarballs by filtering on name prefix.
+          pattern: vastlint-ffi-*
+          merge-multiple: true
+
+      - name: Checkout vastlint-go via deploy key
+        uses: actions/checkout@v4
+        with:
+          repository: aleksUIX/vastlint-go
+          ssh-key: ${{ secrets.VASTLINT_GO_DEPLOY_KEY }}
+          path: vastlint-go
+
+      - name: Unpack libs into vastlint-go
+        run: |
+          TAG="${{ github.ref_name }}"
+
+          cd vastlint-go
+
+          declare -A TARBALL_TO_DIR=(
+            ["vastlint-ffi-macos-aarch64.tar.gz"]="libs/darwin_arm64"
+            ["vastlint-ffi-macos-x86_64.tar.gz"]="libs/darwin_amd64"
+            ["vastlint-ffi-linux-aarch64.tar.gz"]="libs/linux_arm64"
+            ["vastlint-ffi-linux-x86_64.tar.gz"]="libs/linux_amd64"
+          )
+
+          HEADER_COPIED=0
+          for TARBALL in "${!TARBALL_TO_DIR[@]}"; do
+            DIR="${TARBALL_TO_DIR[$TARBALL]}"
+            SRC="../ffi-artifacts/${TARBALL}"
+            if [[ ! -f "$SRC" ]]; then
+              echo "WARNING: $SRC not found — skipping" >&2
+              continue
+            fi
+            mkdir -p "$DIR"
+            TMPDIR=$(mktemp -d)
+            tar xzf "$SRC" -C "$TMPDIR"
+            cp "$TMPDIR/libvastlint.a" "$DIR/libvastlint.a"
+            if [[ $HEADER_COPIED -eq 0 && -f "$TMPDIR/vastlint.h" ]]; then
+              cp "$TMPDIR/vastlint.h" vastlint.h
+              HEADER_COPIED=1
+            fi
+            rm -rf "$TMPDIR"
+            echo "✓ $DIR/libvastlint.a"
+          done
+
+      - name: Commit and push
+        run: |
+          TAG="${{ github.ref_name }}"
+          VERSION="${TAG#v}"
+
+          cd vastlint-go
+          git config user.name  "vastlint release bot"
+          git config user.email "bot@vastlint.org"
+
+          git add libs/ vastlint.h
+          git diff --cached --quiet && echo "nothing to commit" && exit 0
+
+          git commit -m "chore: update prebuilt libs to ${TAG}"
+          git push origin main
+
+      - name: Tag vastlint-go
+        run: |
+          TAG="${{ github.ref_name }}"
+          cd vastlint-go
+          git tag "$TAG"
+          git push origin "$TAG"
+
