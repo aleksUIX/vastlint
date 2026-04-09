@@ -324,7 +324,11 @@ unsafe fn parse_rule_overrides(
         map.insert(static_id, level);
     }
 
-    if map.is_empty() { None } else { Some(map) }
+    if map.is_empty() {
+        None
+    } else {
+        Some(map)
+    }
 }
 
 /// Return the result as a null-terminated UTF-8 JSON string.
@@ -339,9 +343,7 @@ unsafe fn parse_rule_overrides(
 /// `result` must be a valid pointer returned by `vastlint_validate` or
 /// `vastlint_validate_with_options` that has not yet been freed.
 #[no_mangle]
-pub unsafe extern "C" fn vastlint_result_json(
-    result: *const VastlintResult,
-) -> *const c_char {
+pub unsafe extern "C" fn vastlint_result_json(result: *const VastlintResult) -> *const c_char {
     if result.is_null() {
         return ptr::null();
     }
@@ -357,7 +359,11 @@ pub unsafe extern "C" fn vastlint_result_json(
 /// `result` must be a valid non-freed pointer or NULL.
 #[no_mangle]
 pub unsafe extern "C" fn vastlint_result_errors(result: *const VastlintResult) -> usize {
-    if result.is_null() { 0 } else { (*result).errors }
+    if result.is_null() {
+        0
+    } else {
+        (*result).errors
+    }
 }
 
 /// Return the number of Warning-severity issues in the result.
@@ -369,7 +375,11 @@ pub unsafe extern "C" fn vastlint_result_errors(result: *const VastlintResult) -
 /// `result` must be a valid non-freed pointer or NULL.
 #[no_mangle]
 pub unsafe extern "C" fn vastlint_result_warnings(result: *const VastlintResult) -> usize {
-    if result.is_null() { 0 } else { (*result).warnings }
+    if result.is_null() {
+        0
+    } else {
+        (*result).warnings
+    }
 }
 
 /// Return the number of Info-severity issues in the result.
@@ -381,7 +391,11 @@ pub unsafe extern "C" fn vastlint_result_warnings(result: *const VastlintResult)
 /// `result` must be a valid non-freed pointer or NULL.
 #[no_mangle]
 pub unsafe extern "C" fn vastlint_result_infos(result: *const VastlintResult) -> usize {
-    if result.is_null() { 0 } else { (*result).infos }
+    if result.is_null() {
+        0
+    } else {
+        (*result).infos
+    }
 }
 
 /// Return 1 if the result has zero errors, 0 otherwise.
@@ -393,7 +407,11 @@ pub unsafe extern "C" fn vastlint_result_infos(result: *const VastlintResult) ->
 /// `result` must be a valid non-freed pointer or NULL.
 #[no_mangle]
 pub unsafe extern "C" fn vastlint_result_valid(result: *const VastlintResult) -> c_int {
-    if result.is_null() { 0 } else { (*result).valid }
+    if result.is_null() {
+        0
+    } else {
+        (*result).valid
+    }
 }
 
 /// Free a result pointer returned by `vastlint_validate` or
