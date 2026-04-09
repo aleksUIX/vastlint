@@ -30,6 +30,41 @@ CLI crate on crates.io: [crates.io/crates/vastlint](https://crates.io/crates/vas
 
 Or download a pre-built binary from the [releases page](https://github.com/aleksUIX/vastlint/releases).
 
+## Docker
+
+Pull the image from Docker Hub:
+
+```sh
+docker pull vastlint/vastlint
+```
+
+**Validate a file:**
+
+```sh
+docker run --rm -v "$(pwd)":/data vastlint/vastlint check /data/tag.xml
+```
+
+**Pipe from stdin:**
+
+```sh
+cat tag.xml | docker run --rm -i vastlint/vastlint check -
+```
+
+**JSON output:**
+
+```sh
+docker run --rm -v "$(pwd)":/data vastlint/vastlint check /data/tag.xml --format json
+```
+
+**Validate a whole directory:**
+
+```sh
+docker run --rm -v "$(pwd)/tags":/data vastlint/vastlint check /data/*.xml
+```
+
+The image is built `FROM scratch` — a fully-static musl binary with no OS layer.
+Compressed size is under 5 MB. Cold-start to first result is under 10 ms.
+
 ## Usage
 
 ```

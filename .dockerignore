@@ -1,0 +1,36 @@
+# Build artifacts — by far the largest directory, never needed in the image
+target/
+
+# Development scratch files
+scratch/
+
+# Documentation and specs — not needed at build time
+docs/
+specs/
+notes/
+
+# npm / wasm packages
+npm/
+
+# Go bindings
+# (if you ever add a vastlint-go subdirectory here)
+*.go
+*.h
+
+# Editor and OS noise
+.DS_Store
+.idea/
+.vscode/
+*.code-workspace
+
+# Git
+.git/
+.github/
+
+# Secrets / env
+.env
+.env.*
+secrets/
+
+# Test fixtures already embedded in the crate — scratch XMLs not needed
+scratch/*.xml

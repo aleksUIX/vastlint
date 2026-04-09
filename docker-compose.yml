@@ -1,0 +1,20 @@
+# docker-compose.yml — local build and test helper
+#
+# Build:   docker compose build
+# Run:     docker compose run --rm vastlint check /data/tag.xml
+# Stdin:   cat tag.xml | docker compose run --rm -T vastlint check -
+# JSON:    docker compose run --rm vastlint check /data/tag.xml --format json
+
+services:
+  vastlint:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: vastlint:local
+    # Mount a local directory of XML files at /data inside the container.
+    # Change ./scratch to any directory containing your VAST XML files.
+    volumes:
+      - ./scratch:/data:ro
+    # Keep stdin open so `check -` (piped input) works.
+    stdin_open: true
+    tty: false
