@@ -152,9 +152,10 @@ jobs:
 
           # Shared library — same rename convention.
           # matrix.shared is "libvastlint.so" or "libvastlint.dylib"; derive
-          # the extension and rename the Rust output to match.
-          EXT="${{ matrix.shared }##*.}"
-          cp "$OUTDIR/libvastlint_ffi.${EXT}" "$STAGING/${{ matrix.shared }}"
+          # the extension using bash parameter expansion (not Actions expression).
+          SHARED="${{ matrix.shared }}"
+          EXT="${SHARED##*.}"
+          cp "$OUTDIR/libvastlint_ffi.${EXT}" "$STAGING/${SHARED}"
 
           tar czf ${{ matrix.archive }} -C "$STAGING" .
 
