@@ -34,7 +34,11 @@ use std::ffi::{CStr, CString};
 use std::os::raw::{c_char, c_int, c_uint};
 use std::ptr;
 
+use mimalloc::MiMalloc;
 use vastlint_core::{RuleLevel, ValidationContext};
+
+#[global_allocator]
+static GLOBAL: MiMalloc = MiMalloc;
 
 // ── Opaque result handle ──────────────────────────────────────────────────────
 
@@ -123,7 +127,17 @@ fn build_result(result: vastlint_core::ValidationResult) -> *mut VastlintResult 
         }
         json.push_str(",\"spec_ref\":\"");
         json_escape_into(&mut json, issue.spec_ref);
-        json.push_str("\"}");
+        json.push_str("\",\"line\":");
+        match issue.line {
+            Some(l) => json.push_str(&l.to_string()),
+            None => json.push_str("null"),
+        }
+        json.push_str(",\"col\":");
+        match issue.col {
+            Some(c) => json.push_str(&c.to_string()),
+            None => json.push_str("null"),
+        }
+        json.push('}');
     }
     json.push(']');
     json.push(',');

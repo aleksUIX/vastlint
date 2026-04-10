@@ -18,3 +18,4 @@ crate-type = ["cdylib", "staticlib"]
 
 [dependencies]
 vastlint-core = { path = "../vastlint-core" }
+mimalloc = { version = "0.1", default-features = false }
