@@ -126,6 +126,7 @@ jobs:
     name: Build ${{ matrix.target }}
     runs-on: ${{ matrix.os }}
     needs: smoke-test
+    strategy:
       fail-fast: false
       matrix:
         include:
@@ -200,6 +201,7 @@ jobs:
     name: Build FFI ${{ matrix.target }}
     runs-on: ${{ matrix.os }}
     needs: smoke-test
+    strategy:
       fail-fast: false
       matrix:
         include:
