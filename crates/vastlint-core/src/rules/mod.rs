@@ -50,6 +50,7 @@ pub fn run(
 /// Pass `node` to attach the element's source position to the issue. Pass
 /// `None` for document-level issues (e.g. missing root element, parse errors).
 #[inline]
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn emit(
     ctx: &ValidationContext,
     issues: &mut Vec<Issue>,

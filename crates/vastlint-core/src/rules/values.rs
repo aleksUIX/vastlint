@@ -262,7 +262,7 @@ fn check_mediafile_values(mf: &Node, path: &str, ctx: &ValidationContext, issues
                 "<MediaFile> delivery attribute must be \"progressive\" or \"streaming\"",
                 Some(format!("{}[@delivery]", path)),
                 "IAB VAST 2.0 §2.3.5.2",
-                Some(&mf),
+                Some(mf),
             )
         }
     }
@@ -279,7 +279,7 @@ fn check_mediafile_values(mf: &Node, path: &str, ctx: &ValidationContext, issues
             "<MediaFile> must have both minBitrate and maxBitrate, or neither",
             Some(path.to_owned()),
             "IAB VAST 3.0 §2.3.5.2",
-            Some(&mf),
+            Some(mf),
         )
     }
 
@@ -293,7 +293,7 @@ fn check_mediafile_values(mf: &Node, path: &str, ctx: &ValidationContext, issues
             "<MediaFile> should not specify both bitrate and minBitrate/maxBitrate",
             Some(path.to_owned()),
             "IAB VAST 3.0 §2.3.5.2",
-            Some(&mf),
+            Some(mf),
         )
     }
 }

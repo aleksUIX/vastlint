@@ -198,7 +198,7 @@ fn to_js(result: vastlint_core::ValidationResult) -> Result<JsValue, JsValue> {
 
     // Patch: manually set line/col on each issue object because
     // serde-wasm-bindgen 0.6 drops Option<numeric> fields.
-    let issues_arr = js_sys::Reflect::get(&val, &JsValue::from_str("issues")).map_err(|e| e)?;
+    let issues_arr = js_sys::Reflect::get(&val, &JsValue::from_str("issues"))?;
     let issues_arr = js_sys::Array::from(&issues_arr);
     for (idx, (line, col)) in line_cols.iter().enumerate() {
         let issue_obj = issues_arr.get(idx as u32);

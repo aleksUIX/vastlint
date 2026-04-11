@@ -149,7 +149,7 @@ fn check_ad(
             "<Ad> must contain either <InLine> or <Wrapper>",
             Some(path.clone()),
             "IAB VAST 2.0 §2.2",
-            Some(&ad),
+            Some(ad),
         );
         return;
     }
@@ -163,7 +163,7 @@ fn check_ad(
             "<Ad> must not contain both <InLine> and <Wrapper>",
             Some(path.clone()),
             "IAB VAST 2.0 §2.2",
-            Some(&ad),
+            Some(ad),
         )
     }
 
@@ -200,7 +200,7 @@ fn check_inline(
             "<InLine> is missing required <AdSystem>",
             Some(path.clone()),
             "IAB VAST 2.0 §2.3.1",
-            Some(&inline),
+            Some(inline),
         )
     }
 
@@ -215,7 +215,7 @@ fn check_inline(
             "<InLine> is missing required <AdTitle>",
             Some(path.clone()),
             "IAB VAST 2.0 §2.3.2",
-            Some(&inline),
+            Some(inline),
         )
     }
 
@@ -230,7 +230,7 @@ fn check_inline(
             "<InLine> is missing required <Impression>",
             Some(path.clone()),
             "IAB VAST 2.0 §2.3.4",
-            Some(&inline),
+            Some(inline),
         )
     }
 
@@ -246,7 +246,7 @@ fn check_inline(
             "<InLine> is missing required <Creatives>",
             Some(path.clone()),
             "IAB VAST 2.0 §2.3.5",
-            Some(&inline),
+            Some(inline),
         ),
         Some(creatives) => {
             if creatives.children_named("Creative").count() == 0 {
@@ -258,7 +258,7 @@ fn check_inline(
                     "<Creatives> must contain at least one <Creative>",
                     Some(format!("{}/Creatives", path)),
                     "IAB VAST 2.0 §2.3.5",
-                    Some(&inline),
+                    Some(inline),
                 )
             }
         }
@@ -277,7 +277,7 @@ fn check_inline(
                 "<InLine> is missing required <AdServingId> (required since VAST 4.1)",
                 Some(path.clone()),
                 "IAB VAST 4.1 §3.4.1",
-                Some(&inline),
+                Some(inline),
             )
         }
     }
@@ -337,7 +337,7 @@ fn check_inline_creative(
                 "<Creative> is missing required <UniversalAdId> (required since VAST 4.0)",
                 Some(creative_path.to_owned()),
                 "IAB VAST 4.0 §3.8.1",
-                Some(&creative),
+                Some(creative),
             )
         }
     }
@@ -354,7 +354,7 @@ fn check_inline_creative(
                 "<UniversalAdId> is missing required idRegistry attribute",
                 Some(format!("{}/UniversalAdId", creative_path)),
                 "IAB VAST 4.0 §3.8.1",
-                Some(&creative),
+                Some(creative),
             )
         }
         // VAST-4.0-universaladid-idvalue / VAST-4.1-universaladid-idvalue-removed
@@ -420,7 +420,7 @@ fn check_inline_linear(
             "<Linear> is missing required <Duration>",
             Some(linear_path.to_owned()),
             "IAB VAST 2.0 §2.3.5.1",
-            Some(&linear),
+            Some(linear),
         )
     }
 
@@ -436,7 +436,7 @@ fn check_inline_linear(
             "<Linear> is missing required <MediaFiles>",
             Some(linear_path.to_owned()),
             "IAB VAST 2.0 §2.3.5.2",
-            Some(&linear),
+            Some(linear),
         ),
         Some(mf) => {
             if mf.children_named("MediaFile").count() == 0 {
@@ -448,7 +448,7 @@ fn check_inline_linear(
                     "<MediaFiles> must contain at least one <MediaFile>",
                     Some(format!("{}/MediaFiles", linear_path)),
                     "IAB VAST 2.0 §2.3.5.2",
-                    Some(&linear),
+                    Some(linear),
                 )
             }
             // Check each MediaFile has required attrs.
@@ -501,7 +501,7 @@ fn check_inline_linear(
                     "<InteractiveCreativeFile> should have an apiFramework attribute (e.g. \"SIMID\")",
                     Some(icf_path.clone()),
                     "IAB VAST 4.0 §2.3.5.4",
-            Some(&linear),
+            Some(linear),
         )
             }
 
@@ -517,7 +517,7 @@ fn check_inline_linear(
                     "<InteractiveCreativeFile> should have a type attribute identifying the MIME type",
                     Some(icf_path.clone()),
                     "IAB VAST 4.1 §3.9.3",
-            Some(&linear),
+            Some(linear),
         )
             }
         }
@@ -538,7 +538,7 @@ fn check_mediafile(mf: &Node, path: &str, ctx: &ValidationContext, issues: &mut 
             "<MediaFile> is missing required delivery attribute",
             Some(path.to_owned()),
             "IAB VAST 2.0 §2.3.5.2",
-            Some(&mf),
+            Some(mf),
         )
     }
 
@@ -553,7 +553,7 @@ fn check_mediafile(mf: &Node, path: &str, ctx: &ValidationContext, issues: &mut 
             "<MediaFile> is missing required type attribute",
             Some(path.to_owned()),
             "IAB VAST 2.0 §2.3.5.2",
-            Some(&mf),
+            Some(mf),
         )
     }
 
@@ -568,7 +568,7 @@ fn check_mediafile(mf: &Node, path: &str, ctx: &ValidationContext, issues: &mut 
             "<MediaFile> is missing required width attribute",
             Some(path.to_owned()),
             "IAB VAST 2.0 §2.3.5.2",
-            Some(&mf),
+            Some(mf),
         )
     }
     if mf.attr("height").is_none() {
@@ -580,7 +580,7 @@ fn check_mediafile(mf: &Node, path: &str, ctx: &ValidationContext, issues: &mut 
             "<MediaFile> is missing required height attribute",
             Some(path.to_owned()),
             "IAB VAST 2.0 §2.3.5.2",
-            Some(&mf),
+            Some(mf),
         )
     }
 }
@@ -606,7 +606,7 @@ fn check_wrapper(
             "<Wrapper> is missing required <AdSystem>",
             Some(path.clone()),
             "IAB VAST 2.0 §2.3.1",
-            Some(&wrapper),
+            Some(wrapper),
         )
     }
 
@@ -620,7 +620,7 @@ fn check_wrapper(
             "<Wrapper> is missing required <Impression>",
             Some(path.clone()),
             "IAB VAST 2.0 §2.3.4",
-            Some(&wrapper),
+            Some(wrapper),
         )
     }
 
@@ -635,7 +635,7 @@ fn check_wrapper(
             "<Wrapper> is missing required <VASTAdTagURI>",
             Some(path.clone()),
             "IAB VAST 2.0 §2.4",
-            Some(&wrapper),
+            Some(wrapper),
         )
     }
 
@@ -1101,7 +1101,7 @@ fn check_companion_resource(
             "<Companion> must contain at least one StaticResource, IFrameResource, or HTMLResource",
             Some(path.to_owned()),
             "IAB VAST 2.0 §2.3.7",
-            Some(&companion),
+            Some(companion),
         )
     }
 }
@@ -1126,7 +1126,7 @@ fn check_nonlinear_resource(
             "<NonLinear> must contain at least one StaticResource, IFrameResource, or HTMLResource",
             Some(path.to_owned()),
             "IAB VAST 2.0 §2.3.6.1",
-            Some(&nl),
+            Some(nl),
         )
     }
 }

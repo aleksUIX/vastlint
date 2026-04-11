@@ -23,6 +23,7 @@
   "types": "./index.d.ts",
   "exports": {
     ".": {
+      "workerd": "./index.cjs",
       "import": "./index.js",
       "require": "./index.cjs",
       "types": "./index.d.ts"
