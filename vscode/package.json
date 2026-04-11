@@ -1,0 +1,83 @@
+{
+  "name": "vastlint",
+  "displayName": "vastlint — VAST XML Validator",
+  "description": "Inline linting for IAB VAST ad tags. Highlights errors and warnings with squiggles, hover tooltips, and Problems panel integration.",
+  "version": "0.2.4",
+  "publisher": "aleksUIX",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/aleksUIX/vastlint.git",
+    "directory": "vscode"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "icon": "icon.png",
+  "categories": [
+    "Linters"
+  ],
+  "keywords": [
+    "vast",
+    "xml",
+    "validator",
+    "adtech",
+    "iab",
+    "ctv"
+  ],
+  "activationEvents": [
+    "onLanguage:xml",
+    "onLanguage:plaintext"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "xml",
+        "extensions": [
+          ".xml"
+        ]
+      }
+    ],
+    "configuration": {
+      "title": "vastlint",
+      "properties": {
+        "vastlint.enable": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable/disable vastlint diagnostics."
+        },
+        "vastlint.minSeverity": {
+          "type": "string",
+          "enum": [
+            "error",
+            "warning",
+            "info"
+          ],
+          "default": "info",
+          "description": "Minimum severity level to show. Set to 'error' to hide warnings and info."
+        },
+        "vastlint.ruleOverrides": {
+          "type": "object",
+          "default": {},
+          "description": "Per-rule severity overrides. Keys are rule IDs (e.g. 'VAST-2.0-mediafile-https'). Values are 'error', 'warning', 'info', or 'off'."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run bundle",
+    "compile": "tsc --noEmit",
+    "bundle": "node build.js",
+    "watch": "tsc -watch -p ./ --noEmit"
+  },
+  "dependencies": {
+    "vastlint": "file:../npm"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.85.0",
+    "esbuild": "^0.28.0",
+    "typescript": "^5.3.0"
+  }
+}

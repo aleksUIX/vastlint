@@ -1,0 +1,9 @@
+# Exclude source / dev files
+src/**
+node_modules/**
+.vscode/**
+.gitignore
+tsconfig.json
+build.js
+icon.svg
+*.vsix
