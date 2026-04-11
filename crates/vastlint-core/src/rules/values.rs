@@ -92,8 +92,8 @@ fn check_creative(
                     "<CompanionAds> required attribute must be \"all\", \"any\", or \"none\"",
                     Some(format!("{}/CompanionAds[@required]", path)),
                     "IAB VAST 3.0 §2.3.8",
-            Some(companion_ads),
-        )
+                    Some(companion_ads),
+                )
             }
         }
 
@@ -128,8 +128,8 @@ fn check_linear(
                 "<Duration> value does not match required format HH:MM:SS or HH:MM:SS.mmm",
                 Some(format!("{}/Duration", path)),
                 "IAB VAST 2.0 §2.3.5.1",
-            Some(dur),
-        )
+                Some(dur),
+            )
         }
     }
 
@@ -144,8 +144,8 @@ fn check_linear(
                 "Linear skipoffset attribute does not match required format (HH:MM:SS[.mmm] or n%)",
                 Some(format!("{}[@skipoffset]", path)),
                 "IAB VAST 3.0 §2.3.6",
-            Some(node),
-        )
+                Some(node),
+            )
         }
     }
 
@@ -164,8 +164,8 @@ fn check_linear(
                     "<Tracking event=\"skip\"> present but <Linear> has no skipoffset attribute",
                     Some(format!("{}/TrackingEvents", path)),
                     "IAB VAST 3.0 §2.3.6",
-            Some(node),
-        )
+                    Some(node),
+                )
             }
         }
     }
@@ -243,8 +243,8 @@ fn check_tracking_value(
                     "Tracking event attribute value is not in the VAST spec enum for this version",
                     Some(format!("{}[@event]", path)),
                     "IAB VAST 4.2 §2.3.6",
-            Some(tracking),
-        )
+                    Some(tracking),
+                )
             }
         }
     }
@@ -262,8 +262,8 @@ fn check_mediafile_values(mf: &Node, path: &str, ctx: &ValidationContext, issues
                 "<MediaFile> delivery attribute must be \"progressive\" or \"streaming\"",
                 Some(format!("{}[@delivery]", path)),
                 "IAB VAST 2.0 §2.3.5.2",
-            Some(&mf),
-        )
+                Some(&mf),
+            )
         }
     }
 
@@ -345,8 +345,8 @@ fn check_pricing_values(
                 "<Pricing> currency attribute must be a 3-letter ISO-4217 code (e.g. \"USD\")",
                 Some(format!("{}[@currency]", pricing_path)),
                 "IAB VAST 3.0 §2.3.10",
-            Some(pricing),
-        )
+                Some(pricing),
+            )
         }
     }
 

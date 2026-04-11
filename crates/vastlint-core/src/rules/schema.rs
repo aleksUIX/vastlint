@@ -80,18 +80,16 @@ fn check_inline(
             // AdVerifications, Verification, ViewableImpression, Category —
             // complex elements with their own rules; left to future schema rules.
             "AdVerifications" | "ViewableImpression" | "Category" | "BlockedAdCategories" => {}
-            other => {
-                emit(
-                    ctx,
-                    issues,
-                    "VAST-2.0-inline-unknown-child",
-                    Severity::Error,
-                    "<InLine> contains an unrecognised child element",
-                    Some(format!("{}/{}", path, other)),
-                    "IAB VAST 2.0 §2.3.1",
-            Some(child),
-        )
-            }
+            other => emit(
+                ctx,
+                issues,
+                "VAST-2.0-inline-unknown-child",
+                Severity::Error,
+                "<InLine> contains an unrecognised child element",
+                Some(format!("{}/{}", path, other)),
+                "IAB VAST 2.0 §2.3.1",
+                Some(child),
+            ),
         }
     }
 }
@@ -120,18 +118,16 @@ fn check_wrapper(node: &Node, path: &str, ctx: &ValidationContext, issues: &mut 
             "Creatives" => check_creatives(child, &child_path, ctx, issues),
             "Extensions" => check_extensions(child, &child_path, ctx, issues),
             "BlockedAdCategories" | "AdVerifications" | "ViewableImpression" => {}
-            other => {
-                emit(
-                    ctx,
-                    issues,
-                    "VAST-2.0-wrapper-unknown-child",
-                    Severity::Error,
-                    "<Wrapper> contains an unrecognised child element",
-                    Some(format!("{}/{}", path, other)),
-                    "IAB VAST 2.0 §2.3.2",
-            Some(child),
-        )
-            }
+            other => emit(
+                ctx,
+                issues,
+                "VAST-2.0-wrapper-unknown-child",
+                Severity::Error,
+                "<Wrapper> contains an unrecognised child element",
+                Some(format!("{}/{}", path, other)),
+                "IAB VAST 2.0 §2.3.2",
+                Some(child),
+            ),
         }
     }
 }
@@ -150,8 +146,8 @@ fn check_creatives(node: &Node, path: &str, ctx: &ValidationContext, issues: &mu
                 "<Creatives> may only contain <Creative> elements",
                 Some(child_path),
                 "IAB VAST 2.0 §2.3.5",
-            Some(child),
-        );
+                Some(child),
+            );
         } else {
             check_creative(child, &child_path, ctx, issues);
         }
@@ -177,18 +173,16 @@ fn check_creative(node: &Node, path: &str, ctx: &ValidationContext, issues: &mut
                 check_text_only(child, &child_path, &["idRegistry", "idValue"], ctx, issues)
             }
             "CreativeExtensions" => check_creative_extensions(child, &child_path, ctx, issues),
-            other => {
-                emit(
-                    ctx,
-                    issues,
-                    "VAST-2.0-creative-unknown-child",
-                    Severity::Error,
-                    "<Creative> contains an unrecognised child element",
-                    Some(format!("{}/{}", path, other)),
-                    "IAB VAST 2.0 §2.3.5",
-            Some(child),
-        )
-            }
+            other => emit(
+                ctx,
+                issues,
+                "VAST-2.0-creative-unknown-child",
+                Severity::Error,
+                "<Creative> contains an unrecognised child element",
+                Some(format!("{}/{}", path, other)),
+                "IAB VAST 2.0 §2.3.5",
+                Some(child),
+            ),
         }
     }
 }
@@ -206,18 +200,16 @@ fn check_linear(node: &Node, path: &str, ctx: &ValidationContext, issues: &mut V
             "MediaFiles" => check_media_files(child, &child_path, ctx, issues),
             "Icons" => check_icons(child, &child_path, ctx, issues),
             "Extensions" => check_extensions(child, &child_path, ctx, issues),
-            other => {
-                emit(
-                    ctx,
-                    issues,
-                    "VAST-2.0-linear-unknown-child",
-                    Severity::Error,
-                    "<Linear> contains an unrecognised child element",
-                    Some(format!("{}/{}", path, other)),
-                    "IAB VAST 2.0 §2.3.6",
-            Some(child),
-        )
-            }
+            other => emit(
+                ctx,
+                issues,
+                "VAST-2.0-linear-unknown-child",
+                Severity::Error,
+                "<Linear> contains an unrecognised child element",
+                Some(format!("{}/{}", path, other)),
+                "IAB VAST 2.0 §2.3.6",
+                Some(child),
+            ),
         }
     }
 }
@@ -239,8 +231,8 @@ fn check_tracking_events(
                 "<TrackingEvents> may only contain <Tracking> elements",
                 Some(child_path),
                 "IAB VAST 2.0 §2.3.6",
-            Some(child),
-        );
+                Some(child),
+            );
         } else {
             check_text_only(child, &child_path, &["event", "offset"], ctx, issues);
         }
@@ -304,18 +296,16 @@ fn check_media_files(node: &Node, path: &str, ctx: &ValidationContext, issues: &
                 ctx,
                 issues,
             ),
-            other => {
-                emit(
-                    ctx,
-                    issues,
-                    "VAST-2.0-mediafiles-unknown-child",
-                    Severity::Error,
-                    "<MediaFiles> contains an unrecognised child element",
-                    Some(format!("{}/{}", path, other)),
-                    "IAB VAST 2.0 §2.3.5.2",
-            Some(child),
-        )
-            }
+            other => emit(
+                ctx,
+                issues,
+                "VAST-2.0-mediafiles-unknown-child",
+                Severity::Error,
+                "<MediaFiles> contains an unrecognised child element",
+                Some(format!("{}/{}", path, other)),
+                "IAB VAST 2.0 §2.3.5.2",
+                Some(child),
+            ),
         }
     }
 }
@@ -331,8 +321,8 @@ fn check_extensions(node: &Node, path: &str, ctx: &ValidationContext, issues: &m
                 "<Extensions> may only contain <Extension> elements",
                 Some(format!("{}/{}[{}]", path, child.name, i)),
                 "IAB VAST 3.0 §3.1",
-            Some(child),
-        )
+                Some(child),
+            )
         } else {
             let ext_path = format!("{}/Extension[{}]", path, i);
             scan_extension_for_misplaced_elements(
@@ -355,18 +345,16 @@ fn check_video_clicks(node: &Node, path: &str, ctx: &ValidationContext, issues: 
             "ClickThrough" => check_text_only(child, &child_path, &["id"], ctx, issues),
             "ClickTracking" => check_text_only(child, &child_path, &["id"], ctx, issues),
             "CustomClick" => check_text_only(child, &child_path, &["id"], ctx, issues),
-            other => {
-                emit(
-                    ctx,
-                    issues,
-                    "VAST-2.0-videoclicks-unknown-child",
-                    Severity::Error,
-                    "<VideoClicks> contains an unrecognised child element",
-                    Some(format!("{}/{}", path, other)),
-                    "IAB VAST 2.0 §2.3.6",
-            Some(child),
-        )
-            }
+            other => emit(
+                ctx,
+                issues,
+                "VAST-2.0-videoclicks-unknown-child",
+                Severity::Error,
+                "<VideoClicks> contains an unrecognised child element",
+                Some(format!("{}/{}", path, other)),
+                "IAB VAST 2.0 §2.3.6",
+                Some(child),
+            ),
         }
     }
 }
@@ -379,18 +367,16 @@ fn check_non_linear_ads(node: &Node, path: &str, ctx: &ValidationContext, issues
         match child.name.as_str() {
             "TrackingEvents" => check_tracking_events(child, &child_path, ctx, issues),
             "NonLinear" => check_non_linear(child, &child_path, ctx, issues),
-            other => {
-                emit(
-                    ctx,
-                    issues,
-                    "VAST-2.0-nonlinearads-unknown-child",
-                    Severity::Error,
-                    "<NonLinearAds> contains an unrecognised child element",
-                    Some(format!("{}/{}", path, other)),
-                    "IAB VAST 2.0 §2.3.7",
-            Some(child),
-        )
-            }
+            other => emit(
+                ctx,
+                issues,
+                "VAST-2.0-nonlinearads-unknown-child",
+                Severity::Error,
+                "<NonLinearAds> contains an unrecognised child element",
+                Some(format!("{}/{}", path, other)),
+                "IAB VAST 2.0 §2.3.7",
+                Some(child),
+            ),
         }
     }
 }
@@ -423,18 +409,16 @@ fn check_non_linear(node: &Node, path: &str, ctx: &ValidationContext, issues: &m
             "AdParameters" => check_text_only(child, &child_path, &["xmlEncoded"], ctx, issues),
             "NonLinearClickThrough" => check_text_only(child, &child_path, &[], ctx, issues),
             "NonLinearClickTracking" => check_text_only(child, &child_path, &["id"], ctx, issues),
-            other => {
-                emit(
-                    ctx,
-                    issues,
-                    "VAST-2.0-nonlinear-unknown-child",
-                    Severity::Error,
-                    "<NonLinear> contains an unrecognised child element",
-                    Some(format!("{}/{}", path, other)),
-                    "IAB VAST 2.0 §2.3.7",
-            Some(child),
-        )
-            }
+            other => emit(
+                ctx,
+                issues,
+                "VAST-2.0-nonlinear-unknown-child",
+                Severity::Error,
+                "<NonLinear> contains an unrecognised child element",
+                Some(format!("{}/{}", path, other)),
+                "IAB VAST 2.0 §2.3.7",
+                Some(child),
+            ),
         }
     }
 }
@@ -455,8 +439,8 @@ fn check_companion_ads(node: &Node, path: &str, ctx: &ValidationContext, issues:
                 "<CompanionAds> may only contain <Companion> elements",
                 Some(child_path),
                 "IAB VAST 2.0 §2.3.8",
-            Some(child),
-        );
+                Some(child),
+            );
         }
     }
 }
@@ -494,18 +478,16 @@ fn check_companion(node: &Node, path: &str, ctx: &ValidationContext, issues: &mu
             "CompanionClickTracking" => check_text_only(child, &child_path, &["id"], ctx, issues),
             "TrackingEvents" => check_tracking_events(child, &child_path, ctx, issues),
             "CreativeExtensions" => check_creative_extensions(child, &child_path, ctx, issues),
-            other => {
-                emit(
-                    ctx,
-                    issues,
-                    "VAST-2.0-companion-unknown-child",
-                    Severity::Error,
-                    "<Companion> contains an unrecognised child element",
-                    Some(format!("{}/{}", path, other)),
-                    "IAB VAST 2.0 §2.3.8",
-            Some(child),
-        )
-            }
+            other => emit(
+                ctx,
+                issues,
+                "VAST-2.0-companion-unknown-child",
+                Severity::Error,
+                "<Companion> contains an unrecognised child element",
+                Some(format!("{}/{}", path, other)),
+                "IAB VAST 2.0 §2.3.8",
+                Some(child),
+            ),
         }
     }
 }
@@ -526,8 +508,8 @@ fn check_icons(node: &Node, path: &str, ctx: &ValidationContext, issues: &mut Ve
                 "<Icons> may only contain <Icon> elements",
                 Some(format!("{}/{}", path, child.name)),
                 "IAB VAST 3.0 §2.3.6.4",
-            Some(child),
-        )
+                Some(child),
+            )
         }
     }
 }
@@ -563,18 +545,16 @@ fn check_icon(node: &Node, path: &str, ctx: &ValidationContext, issues: &mut Vec
             // children of <Icon> before being moved into <IconClicks>.
             "IconClickThrough" => check_text_only(child, &child_path, &[], ctx, issues),
             "IconClickTracking" => check_text_only(child, &child_path, &["id"], ctx, issues),
-            other => {
-                emit(
-                    ctx,
-                    issues,
-                    "VAST-3.0-icon-unknown-child",
-                    Severity::Error,
-                    "<Icon> contains an unrecognised child element",
-                    Some(format!("{}/{}", path, other)),
-                    "IAB VAST 3.0 §2.3.6.4",
-            Some(child),
-        )
-            }
+            other => emit(
+                ctx,
+                issues,
+                "VAST-3.0-icon-unknown-child",
+                Severity::Error,
+                "<Icon> contains an unrecognised child element",
+                Some(format!("{}/{}", path, other)),
+                "IAB VAST 3.0 §2.3.6.4",
+                Some(child),
+            ),
         }
     }
 }
@@ -588,18 +568,16 @@ fn check_icon_clicks(node: &Node, path: &str, ctx: &ValidationContext, issues: &
             "IconClickThrough" => check_text_only(child, &child_path, &[], ctx, issues),
             "IconClickTracking" => check_text_only(child, &child_path, &["id"], ctx, issues),
             "IconClickFallbackImages" => {} // open structure, intentionally pass-through
-            other => {
-                emit(
-                    ctx,
-                    issues,
-                    "VAST-3.0-iconclicks-unknown-child",
-                    Severity::Error,
-                    "<IconClicks> contains an unrecognised child element",
-                    Some(format!("{}/{}", path, other)),
-                    "IAB VAST 3.0 §2.3.6.4",
-            Some(child),
-        )
-            }
+            other => emit(
+                ctx,
+                issues,
+                "VAST-3.0-iconclicks-unknown-child",
+                Severity::Error,
+                "<IconClicks> contains an unrecognised child element",
+                Some(format!("{}/{}", path, other)),
+                "IAB VAST 3.0 §2.3.6.4",
+                Some(child),
+            ),
         }
     }
 }
@@ -620,8 +598,8 @@ fn check_creative_extensions(
                 "<CreativeExtensions> may only contain <CreativeExtension> elements",
                 Some(format!("{}/{}[{}]", path, child.name, i)),
                 "IAB VAST 2.0 §2.3.5",
-            Some(child),
-        )
+                Some(child),
+            )
         } else {
             let ext_path = format!("{}/CreativeExtension[{}]", path, i);
             scan_extension_for_misplaced_elements(
@@ -661,8 +639,8 @@ fn check_closed_caption_files(
                 "<ClosedCaptionFiles> may only contain <ClosedCaptionFile> elements",
                 Some(format!("{}/{}[{}]", path, child.name, i)),
                 "IAB VAST 4.2 §2.3.5.2",
-            Some(child),
-        )
+                Some(child),
+            )
         }
     }
 }
@@ -829,8 +807,8 @@ fn check_attrs(
                 "Element has an attribute not defined in the VAST spec",
                 Some(format!("{}[@{}]", path, attr.name)),
                 "IAB VAST 2.0 §2",
-            Some(node),
-        )
+                Some(node),
+            )
         }
     }
 }

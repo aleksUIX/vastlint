@@ -4,3 +4,4 @@ scratch/
 target/
 .DS_Store
 *.code-workspace
+**/vast-master.code-workspace

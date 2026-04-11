@@ -18,9 +18,9 @@ pub mod security;
 pub mod structure;
 pub mod values;
 
+use crate::parse::Node;
 use crate::parse::VastDocument;
 use crate::{DetectedVersion, Issue, RuleMeta, Severity, ValidationContext};
-use crate::parse::Node;
 
 /// Run all applicable rules against the document and collect issues.
 pub fn run(

@@ -166,11 +166,8 @@ fn to_js(result: vastlint_core::ValidationResult) -> Result<JsValue, JsValue> {
 
     // Collect raw line/col before serde consumes the issues (serde-wasm-bindgen
     // 0.6 silently drops Option<u32> / Option<f64> fields).
-    let line_cols: Vec<(Option<u32>, Option<u32>)> = result
-        .issues
-        .iter()
-        .map(|i| (i.line, i.col))
-        .collect();
+    let line_cols: Vec<(Option<u32>, Option<u32>)> =
+        result.issues.iter().map(|i| (i.line, i.col)).collect();
 
     let issues: Vec<JsIssue> = result
         .issues
@@ -196,13 +193,12 @@ fn to_js(result: vastlint_core::ValidationResult) -> Result<JsValue, JsValue> {
         issues,
         summary,
     };
-    let val = serde_wasm_bindgen::to_value(&js_result)
-        .map_err(|e| JsValue::from_str(&e.to_string()))?;
+    let val =
+        serde_wasm_bindgen::to_value(&js_result).map_err(|e| JsValue::from_str(&e.to_string()))?;
 
     // Patch: manually set line/col on each issue object because
     // serde-wasm-bindgen 0.6 drops Option<numeric> fields.
-    let issues_arr = js_sys::Reflect::get(&val, &JsValue::from_str("issues"))
-        .map_err(|e| e)?;
+    let issues_arr = js_sys::Reflect::get(&val, &JsValue::from_str("issues")).map_err(|e| e)?;
     let issues_arr = js_sys::Array::from(&issues_arr);
     for (idx, (line, col)) in line_cols.iter().enumerate() {
         let issue_obj = issues_arr.get(idx as u32);

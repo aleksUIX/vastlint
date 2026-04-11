@@ -186,8 +186,8 @@ fn check_non_linear(nl: &Node, path: &str, ctx: &ValidationContext, issues: &mut
                 "NonLinear is missing width or height — required by spec, optional in XSD",
                 Some(path.to_owned()),
                 "IAB VAST 2.0 §2.3.6.1",
-            Some(nl),
-        );
+                Some(nl),
+            );
             break;
         }
     }
@@ -205,8 +205,8 @@ fn check_companion(comp: &Node, path: &str, ctx: &ValidationContext, issues: &mu
                 "Companion is missing width or height — required by spec, optional in XSD",
                 Some(path.to_owned()),
                 "IAB VAST 2.0 §2.3.7.1",
-            Some(comp),
-        );
+                Some(comp),
+            );
             break;
         }
     }

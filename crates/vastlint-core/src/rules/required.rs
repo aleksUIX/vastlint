@@ -83,8 +83,8 @@ fn check_root(
                 "VAST version attribute value is not a recognised VAST version string",
                 Some("/VAST[@version]".to_owned()),
                 "IAB VAST 2.0 §2.1",
-            Some(&doc.root),
-        )
+                Some(&doc.root),
+            )
         }
     }
 
@@ -258,8 +258,8 @@ fn check_inline(
                     "<Creatives> must contain at least one <Creative>",
                     Some(format!("{}/Creatives", path)),
                     "IAB VAST 2.0 §2.3.5",
-            Some(&inline),
-        )
+                    Some(&inline),
+                )
             }
         }
     }
@@ -277,8 +277,8 @@ fn check_inline(
                 "<InLine> is missing required <AdServingId> (required since VAST 4.1)",
                 Some(path.clone()),
                 "IAB VAST 4.1 §3.4.1",
-            Some(&inline),
-        )
+                Some(&inline),
+            )
         }
     }
 
@@ -337,8 +337,8 @@ fn check_inline_creative(
                 "<Creative> is missing required <UniversalAdId> (required since VAST 4.0)",
                 Some(creative_path.to_owned()),
                 "IAB VAST 4.0 §3.8.1",
-            Some(&creative),
-        )
+                Some(&creative),
+            )
         }
     }
 
@@ -354,8 +354,8 @@ fn check_inline_creative(
                 "<UniversalAdId> is missing required idRegistry attribute",
                 Some(format!("{}/UniversalAdId", creative_path)),
                 "IAB VAST 4.0 §3.8.1",
-            Some(&creative),
-        )
+                Some(&creative),
+            )
         }
         // VAST-4.0-universaladid-idvalue / VAST-4.1-universaladid-idvalue-removed
         check_universal_ad_id(
@@ -448,8 +448,8 @@ fn check_inline_linear(
                     "<MediaFiles> must contain at least one <MediaFile>",
                     Some(format!("{}/MediaFiles", linear_path)),
                     "IAB VAST 2.0 §2.3.5.2",
-            Some(&linear),
-        )
+                    Some(&linear),
+                )
             }
             // Check each MediaFile has required attrs.
             for (i, mf_el) in mf.children_named("MediaFile").enumerate() {
@@ -684,8 +684,8 @@ pub(super) fn check_categories(
                 "<Category> is missing required authority attribute",
                 Some(format!("{}/Category[{}]", node_path, i)),
                 "IAB VAST 4.0 §2.3.3",
-            Some(cat),
-        )
+                Some(cat),
+            )
         }
     }
 }
@@ -710,8 +710,8 @@ pub(super) fn check_companion_clicktracking_id(
                 "<CompanionClickTracking> is missing required id attribute",
                 Some(format!("{}/CompanionClickTracking[{}]", companion_path, i)),
                 "IAB VAST 4.0 §2.3.8",
-            Some(ct),
-        )
+                Some(ct),
+            )
         }
     }
 }
@@ -890,8 +890,8 @@ pub(super) fn check_universal_ad_id(
                     "<UniversalAdId> is missing required idValue attribute (required in VAST 4.0)",
                     Some(uid_path.to_owned()),
                     "IAB VAST 4.0 §2.3.5.3",
-            Some(uid),
-        )
+                    Some(uid),
+                )
             }
         }
     }
@@ -1005,8 +1005,8 @@ pub(super) fn check_verification_resource(
                 "<JavaScriptResource> is missing required apiFramework attribute",
                 Some(js_path.clone()),
                 "IAB VAST 4.1 §3.17.1",
-            Some(js),
-        )
+                Some(js),
+            )
         }
 
         // VAST-4.3-js-resource-browser-optional: browserOptional is required (added 4.3).
@@ -1038,8 +1038,8 @@ pub(super) fn check_verification_resource(
                 "<ExecutableResource> is missing required apiFramework attribute",
                 Some(exec_path.clone()),
                 "IAB VAST 4.1 §3.17.2",
-            Some(exec),
-        )
+                Some(exec),
+            )
         }
 
         // VAST-4.1-exec-resource-type: type is required.
@@ -1052,8 +1052,8 @@ pub(super) fn check_verification_resource(
                 "<ExecutableResource> is missing required type attribute",
                 Some(exec_path),
                 "IAB VAST 4.1 §3.17.2",
-            Some(exec),
-        );
+                Some(exec),
+            );
         }
     }
 }
@@ -1075,8 +1075,8 @@ pub(super) fn check_blocked_ad_categories(
                 "<BlockedAdCategories> should have an authority attribute to identify the taxonomy",
                 Some(format!("{}/BlockedAdCategories[{}]", node_path, i)),
                 "IAB VAST 4.1 §2.3.2",
-            Some(bac),
-        )
+                Some(bac),
+            )
         }
     }
 }

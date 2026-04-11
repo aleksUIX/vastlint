@@ -34,8 +34,8 @@ pub fn check(
                 "conditionalAd attribute is deprecated as of VAST 4.1",
                 Some(ad_path.clone()),
                 "IAB VAST 4.1 §2.2.1",
-            Some(ad),
-        )
+                Some(ad),
+            )
         }
 
         if let Some(inline) = ad.child("InLine") {
@@ -165,8 +165,8 @@ fn check_creative_deprecated(
                         "Flash-based MediaFile type is no longer supported in modern browsers",
                         Some(mf_path),
                         "IAB VAST 2.0 §2.3.5.2",
-            Some(mf),
-        );
+                        Some(mf),
+                    );
                 }
             }
         }
