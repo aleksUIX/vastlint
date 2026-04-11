@@ -23,13 +23,14 @@
   "types": "./index.d.ts",
   "exports": {
     ".": {
-      "workerd": "./index.cjs",
       "import": "./index.js",
       "require": "./index.cjs",
       "types": "./index.d.ts"
     },
     "./index.cjs": "./index.cjs",
-    "./vastlint_wasm_cjs.js": "./vastlint_wasm_cjs.js"
+    "./vastlint_wasm_cjs.js": "./vastlint_wasm_cjs.js",
+    "./vastlint_wasm_bg.js": "./vastlint_wasm_bg.js",
+    "./vastlint_wasm_bg.wasm": "./vastlint_wasm_bg.wasm"
   },
   "files": [
     "index.js",

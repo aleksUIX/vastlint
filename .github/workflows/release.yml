@@ -9,10 +9,123 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  # ── Smoke tests ─────────────────────────────────────────────────────────────
+  # All publish / release jobs declare `needs: smoke-test` so no artefact ever
+  # leaves the repo unless every module passes validation.
+  #
+  # Covers:
+  #   1. vastlint-core + vastlint-ffi  — cargo test --all (unit + integration)
+  #   2. vastlint-cli                  — build release binary, run against a
+  #                                      valid fixture (expect exit 0) and an
+  #                                      invalid fixture (expect exit 1)
+  #   3. vastlint-wasm                 — wasm-pack build (nodejs target) then
+  #                                      a Node.js script that imports the
+  #                                      package and validates the same fixtures
+  smoke-test:
+    name: Smoke test all modules
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+          components: clippy
+
+      - uses: Swatinem/rust-cache@v2
+
+      # ── 1. Unit + integration tests (core, ffi, cli) ──────────────────────
+      - name: cargo test --all
+        run: cargo test --all
+
+      # ── 2. CLI smoke test ─────────────────────────────────────────────────
+      - name: Build CLI (release)
+        run: cargo build --release -p vastlint-cli
+
+      - name: CLI smoke — valid fixture exits 0
+        run: |
+          ./target/release/vastlint \
+            crates/vastlint-core/tests/fixtures/valid_4.2.xml
+          echo "Exit code: $?"
+
+      - name: CLI smoke — invalid fixture exits 1
+        run: |
+          set +e
+          ./target/release/vastlint \
+            crates/vastlint-core/tests/fixtures/err_no_ad.xml
+          CODE=$?
+          set -e
+          if [ "$CODE" -eq 0 ]; then
+            echo "ERROR: vastlint exited 0 on an invalid fixture — expected non-zero"
+            exit 1
+          fi
+          echo "Exit code $CODE (expected non-zero) ✓"
+
+      # ── 3. WASM smoke test ────────────────────────────────────────────────
+      - name: Install wasm-pack
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Build WASM (nodejs target)
+        run: wasm-pack build crates/vastlint-wasm --target nodejs --out-dir ../../npm/pkg-node
+
+      - name: Assemble npm package
+        run: node npm/scripts/assemble.js
+
+      - name: WASM smoke — valid fixture returns no errors
+        run: |
+          node - <<'EOF'
+          const { validate } = require('./npm');
+          const fs = require('fs');
+
+          const validXml = fs.readFileSync(
+            'crates/vastlint-core/tests/fixtures/valid_4.2.xml', 'utf8'
+          );
+          const result = validate(validXml);
+          const parsed = JSON.parse(result);
+          if (parsed.summary.errors !== 0) {
+            console.error('WASM smoke FAILED: expected 0 errors on valid fixture, got', parsed.summary.errors);
+            process.exit(1);
+          }
+          if (!parsed.summary.valid) {
+            console.error('WASM smoke FAILED: expected valid=true on valid fixture');
+            process.exit(1);
+          }
+          console.log('WASM valid fixture ✓ (errors=0, valid=true)');
+          EOF
+
+      - name: WASM smoke — invalid fixture returns errors
+        run: |
+          node - <<'EOF'
+          const { validate } = require('./npm');
+          const fs = require('fs');
+
+          const invalidXml = fs.readFileSync(
+            'crates/vastlint-core/tests/fixtures/err_no_ad.xml', 'utf8'
+          );
+          const result = validate(invalidXml);
+          const parsed = JSON.parse(result);
+          if (parsed.summary.errors === 0) {
+            console.error('WASM smoke FAILED: expected errors > 0 on invalid fixture');
+            process.exit(1);
+          }
+          if (parsed.summary.valid) {
+            console.error('WASM smoke FAILED: expected valid=false on invalid fixture');
+            process.exit(1);
+          }
+          console.log('WASM invalid fixture ✓ (errors=' + parsed.summary.errors + ', valid=false)');
+          EOF
+
   build:
     name: Build ${{ matrix.target }}
     runs-on: ${{ matrix.os }}
-    strategy:
+    needs: smoke-test
       fail-fast: false
       matrix:
         include:
@@ -86,7 +199,7 @@ jobs:
   build-ffi:
     name: Build FFI ${{ matrix.target }}
     runs-on: ${{ matrix.os }}
-    strategy:
+    needs: smoke-test
       fail-fast: false
       matrix:
         include:
@@ -189,7 +302,7 @@ jobs:
 
   publish:
     name: Publish to crates.io
-    needs: build
+    needs: [smoke-test, build]
     runs-on: ubuntu-latest
     # Set ENABLE_CRATES_PUBLISH to "true" in repo variables (Settings → Variables)
     # to enable publishing. Without it this job is skipped entirely.
@@ -228,7 +341,7 @@ jobs:
   # Set ENABLE_DOCKER_PUBLISH to "true" in repo variables to activate this job.
   publish-docker:
     name: Publish to Docker Hub
-    needs: build
+    needs: [smoke-test, build]
     runs-on: ubuntu-latest
     if: vars.ENABLE_DOCKER_PUBLISH == 'true'
 
@@ -269,7 +382,7 @@ jobs:
 
   publish-npm:
     name: Publish to npm
-    needs: build
+    needs: [smoke-test, build]
     runs-on: ubuntu-latest
     # Set ENABLE_NPM_PUBLISH to "true" in repo variables (Settings → Variables)
     # to enable publishing. Without it this job is skipped entirely.
@@ -331,7 +444,7 @@ jobs:
   # Set ENABLE_VSCODE_PUBLISH to "true" in repo variables to activate this job.
   publish-vscode:
     name: Publish VS Code Extension
-    needs: build
+    needs: [smoke-test, build]
     runs-on: ubuntu-latest
     if: vars.ENABLE_VSCODE_PUBLISH == 'true'
 
