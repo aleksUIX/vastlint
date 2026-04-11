@@ -688,6 +688,7 @@ dependencies = [
 name = "vastlint-wasm"
 version = "0.2.3"
 dependencies = [
+ "js-sys",
  "serde",
  "serde-wasm-bindgen",
  "vastlint-core",

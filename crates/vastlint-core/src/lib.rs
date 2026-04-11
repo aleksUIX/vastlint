@@ -215,6 +215,12 @@ pub struct Issue {
     pub path: Option<String>,
     /// Short spec reference, e.g. "IAB VAST 4.1 §3.4.1".
     pub spec_ref: &'static str,
+    /// 1-based line number of the element that triggered this issue.
+    /// None for document-level issues (e.g. parse errors, missing root).
+    pub line: Option<u32>,
+    /// 1-based column number (byte offset within the line) of the element.
+    /// None for document-level issues.
+    pub col: Option<u32>,
 }
 
 /// Counts of issues by severity.

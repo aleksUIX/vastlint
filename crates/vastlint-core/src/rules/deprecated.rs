@@ -34,7 +34,8 @@ pub fn check(
                 "conditionalAd attribute is deprecated as of VAST 4.1",
                 Some(ad_path.clone()),
                 "IAB VAST 4.1 §2.2.1",
-            );
+            Some(ad),
+        )
         }
 
         if let Some(inline) = ad.child("InLine") {
@@ -65,7 +66,8 @@ fn check_inline(
             "<Survey> is deprecated as of VAST 4.1 — use <Extensions> or a custom solution",
             Some(format!("{}/Survey", inline_path)),
             "IAB VAST 4.1 §4",
-        );
+            Some(inline),
+        )
     }
 
     for (creative_idx, creative) in inline
@@ -95,7 +97,8 @@ fn check_wrapper_deprecated(
             "<Survey> is deprecated as of VAST 4.1 — use <Extensions> or a custom solution",
             Some(format!("{}/Survey", wrapper_path)),
             "IAB VAST 4.1 §4",
-        );
+            Some(wrapper),
+        )
     }
 }
 
@@ -131,7 +134,8 @@ fn check_creative_deprecated(
                             "apiFramework=\"VPAID\" is deprecated as of VAST 4.1 — use SIMID or OMID instead",
                             Some(mf_path.clone()),
                             "IAB VAST 4.1 §2.3.5.1",
-                        );
+            Some(mf),
+        )
                     } else {
                         // VAST-4.0-mediafile-apiframework
                         // Fire Info for any apiFramework value on 4.0+ MediaFile
@@ -144,7 +148,8 @@ fn check_creative_deprecated(
                             "<MediaFile apiFramework> is deprecated in VAST 4.0+ — use <InteractiveCreativeFile> instead",
                             Some(mf_path.clone()),
                             "IAB VAST 4.0 §2.3.5.2",
-                        );
+            Some(mf),
+        )
                     }
                 }
             }
@@ -160,7 +165,8 @@ fn check_creative_deprecated(
                         "Flash-based MediaFile type is no longer supported in modern browsers",
                         Some(mf_path),
                         "IAB VAST 2.0 §2.3.5.2",
-                    );
+            Some(mf),
+        );
                 }
             }
         }

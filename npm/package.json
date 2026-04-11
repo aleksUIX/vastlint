@@ -1,6 +1,6 @@
 {
   "name": "vastlint",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "description": "VAST XML validator — checks ad tags against IAB VAST 2.0 through 4.3",
   "license": "Apache-2.0",
   "author": "Alex Sekowski <alex@vastlint.org>",
@@ -9,8 +9,15 @@
     "type": "git",
     "url": "git+https://github.com/aleksUIX/vastlint.git"
   },
-  "keywords": ["vast", "xml", "validator", "adtech", "iab", "ctv", "wasm"],
-  "type": "module",
+  "keywords": [
+    "vast",
+    "xml",
+    "validator",
+    "adtech",
+    "iab",
+    "ctv",
+    "wasm"
+  ],
   "main": "./index.cjs",
   "module": "./index.js",
   "types": "./index.d.ts",
@@ -19,7 +26,9 @@
       "import": "./index.js",
       "require": "./index.cjs",
       "types": "./index.d.ts"
-    }
+    },
+    "./index.cjs": "./index.cjs",
+    "./vastlint_wasm_cjs.js": "./vastlint_wasm_cjs.js"
   },
   "files": [
     "index.js",

@@ -32,7 +32,8 @@ fn check_parse_error(doc: &VastDocument, ctx: &ValidationContext, issues: &mut V
             "XML parse error — document may be malformed",
             Some("/VAST".to_owned()),
             "IAB VAST 2.0 §2",
-        );
+            None,
+        )
     }
 }
 
@@ -53,7 +54,8 @@ fn check_version_mismatch(
                 "VAST version attribute does not match structural signals in the document",
                 Some("/VAST".to_owned()),
                 "IAB VAST 2.0 §2.1",
-            );
+            None,
+        )
         }
     }
 }
@@ -94,7 +96,8 @@ fn check_duplicate_impressions(
                     "Duplicate <Impression> URL found — the same pixel appears more than once",
                     Some(format!("{}/Impression", container_path)),
                     "IAB VAST 2.0 §2.3.3",
-                );
+            None,
+        );
                 // Emit once per container, not once per duplicate occurrence.
                 break;
             }

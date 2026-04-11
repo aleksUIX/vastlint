@@ -4,6 +4,7 @@ members = [
     "crates/vastlint-core",
     "crates/vastlint-ffi",
     "crates/vastlint-wasm",
+    "scratch/bench-core",
 ]
 resolver = "2"
 

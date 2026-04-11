@@ -69,7 +69,8 @@ fn check_inline_ctv(
                 "<MediaFiles> has no <Mezzanine> — ad-stitching servers may reject this tag in CTV/SSAI contexts",
                 Some(format!("{}/MediaFiles", linear_path)),
                 "IAB VAST 4.1 §3.9.2",
-            );
+            Some(media_files),
+        )
         }
 
         // VAST-4.1-vpaid-in-interactive-context
@@ -90,7 +91,8 @@ fn check_inline_ctv(
                             "<MediaFile apiFramework=\"VPAID\"> alongside <InteractiveCreativeFile> — VPAID is not supported in CTV and should be removed when SIMID/OMID is present",
                             Some(format!("{}/MediaFiles/MediaFile[{}]", linear_path, mf_idx)),
                             "IAB VAST 4.1 §2.4.3",
-                        );
+            Some(mf),
+        )
                     }
                 }
             }
@@ -110,7 +112,8 @@ fn check_inline_ctv(
                     "<AdServingId> is present but empty — SSAI servers rely on this value for creative deduplication",
                     Some(format!("{}/AdServingId", inline_path)),
                     "IAB VAST 4.1 §3.4.1",
-                );
+            Some(asid),
+        )
             }
         }
     }

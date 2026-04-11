@@ -30,7 +30,8 @@ fn check_wrapper_depth(_doc: &VastDocument, ctx: &ValidationContext, issues: &mu
             "Wrapper chain depth exceeds the maximum allowed limit",
             Some("/VAST".to_owned()),
             "IAB VAST 4.x §2.3",
-        );
+            None,
+        )
     }
 }
 
@@ -54,6 +55,7 @@ fn check_ad_sequence(doc: &VastDocument, ctx: &ValidationContext, issues: &mut V
             "Multiple <Ad> elements present but sequence attribute is missing on some — ambiguous ordering",
             Some("/VAST".to_owned()),
             "IAB VAST 2.0 §2.2",
-        );
+            None,
+        )
     }
 }

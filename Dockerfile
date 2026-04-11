@@ -13,29 +13,11 @@ RUN apk add --no-cache musl-dev gcc make perl
 
 WORKDIR /build
 
-# Cache dependency compilation separately from source changes.
-# Copy manifests first so this layer is only invalidated when deps change.
+# Copy full source
 COPY Cargo.toml Cargo.lock ./
-COPY crates/vastlint-cli/Cargo.toml   crates/vastlint-cli/Cargo.toml
-COPY crates/vastlint-core/Cargo.toml  crates/vastlint-core/Cargo.toml
-COPY crates/vastlint-ffi/Cargo.toml   crates/vastlint-ffi/Cargo.toml
-COPY crates/vastlint-wasm/Cargo.toml  crates/vastlint-wasm/Cargo.toml
-
-# Stub out every crate so Cargo can resolve and compile all dependencies
-# without the real source.  The stubs are replaced by the real COPY below.
-RUN for crate in vastlint-cli vastlint-core vastlint-ffi vastlint-wasm; do \
-      mkdir -p crates/$crate/src; \
-      echo 'fn main() {}' > crates/$crate/src/main.rs; \
-      echo '' > crates/$crate/src/lib.rs; \
-    done
-
-RUN cargo build --release --bin vastlint 2>/dev/null || true
-
-# Now copy the real source and rebuild only what changed
 COPY crates/ crates/
 
-RUN touch crates/vastlint-cli/src/main.rs \
- && cargo build --release --bin vastlint
+RUN cargo build --release --bin vastlint
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Stage 2 — final image: scratch + the static binary only

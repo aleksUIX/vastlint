@@ -89,7 +89,8 @@ fn check_inline(
                     "<InLine> contains an unrecognised child element",
                     Some(format!("{}/{}", path, other)),
                     "IAB VAST 2.0 §2.3.1",
-                );
+            Some(child),
+        )
             }
         }
     }
@@ -128,7 +129,8 @@ fn check_wrapper(node: &Node, path: &str, ctx: &ValidationContext, issues: &mut 
                     "<Wrapper> contains an unrecognised child element",
                     Some(format!("{}/{}", path, other)),
                     "IAB VAST 2.0 §2.3.2",
-                );
+            Some(child),
+        )
             }
         }
     }
@@ -148,7 +150,8 @@ fn check_creatives(node: &Node, path: &str, ctx: &ValidationContext, issues: &mu
                 "<Creatives> may only contain <Creative> elements",
                 Some(child_path),
                 "IAB VAST 2.0 §2.3.5",
-            );
+            Some(child),
+        );
         } else {
             check_creative(child, &child_path, ctx, issues);
         }
@@ -183,7 +186,8 @@ fn check_creative(node: &Node, path: &str, ctx: &ValidationContext, issues: &mut
                     "<Creative> contains an unrecognised child element",
                     Some(format!("{}/{}", path, other)),
                     "IAB VAST 2.0 §2.3.5",
-                );
+            Some(child),
+        )
             }
         }
     }
@@ -211,7 +215,8 @@ fn check_linear(node: &Node, path: &str, ctx: &ValidationContext, issues: &mut V
                     "<Linear> contains an unrecognised child element",
                     Some(format!("{}/{}", path, other)),
                     "IAB VAST 2.0 §2.3.6",
-                );
+            Some(child),
+        )
             }
         }
     }
@@ -234,7 +239,8 @@ fn check_tracking_events(
                 "<TrackingEvents> may only contain <Tracking> elements",
                 Some(child_path),
                 "IAB VAST 2.0 §2.3.6",
-            );
+            Some(child),
+        );
         } else {
             check_text_only(child, &child_path, &["event", "offset"], ctx, issues);
         }
@@ -307,7 +313,8 @@ fn check_media_files(node: &Node, path: &str, ctx: &ValidationContext, issues: &
                     "<MediaFiles> contains an unrecognised child element",
                     Some(format!("{}/{}", path, other)),
                     "IAB VAST 2.0 §2.3.5.2",
-                );
+            Some(child),
+        )
             }
         }
     }
@@ -324,7 +331,8 @@ fn check_extensions(node: &Node, path: &str, ctx: &ValidationContext, issues: &m
                 "<Extensions> may only contain <Extension> elements",
                 Some(format!("{}/{}[{}]", path, child.name, i)),
                 "IAB VAST 3.0 §3.1",
-            );
+            Some(child),
+        )
         } else {
             let ext_path = format!("{}/Extension[{}]", path, i);
             scan_extension_for_misplaced_elements(
@@ -356,7 +364,8 @@ fn check_video_clicks(node: &Node, path: &str, ctx: &ValidationContext, issues: 
                     "<VideoClicks> contains an unrecognised child element",
                     Some(format!("{}/{}", path, other)),
                     "IAB VAST 2.0 §2.3.6",
-                );
+            Some(child),
+        )
             }
         }
     }
@@ -379,7 +388,8 @@ fn check_non_linear_ads(node: &Node, path: &str, ctx: &ValidationContext, issues
                     "<NonLinearAds> contains an unrecognised child element",
                     Some(format!("{}/{}", path, other)),
                     "IAB VAST 2.0 §2.3.7",
-                );
+            Some(child),
+        )
             }
         }
     }
@@ -422,7 +432,8 @@ fn check_non_linear(node: &Node, path: &str, ctx: &ValidationContext, issues: &m
                     "<NonLinear> contains an unrecognised child element",
                     Some(format!("{}/{}", path, other)),
                     "IAB VAST 2.0 §2.3.7",
-                );
+            Some(child),
+        )
             }
         }
     }
@@ -444,7 +455,8 @@ fn check_companion_ads(node: &Node, path: &str, ctx: &ValidationContext, issues:
                 "<CompanionAds> may only contain <Companion> elements",
                 Some(child_path),
                 "IAB VAST 2.0 §2.3.8",
-            );
+            Some(child),
+        );
         }
     }
 }
@@ -491,7 +503,8 @@ fn check_companion(node: &Node, path: &str, ctx: &ValidationContext, issues: &mu
                     "<Companion> contains an unrecognised child element",
                     Some(format!("{}/{}", path, other)),
                     "IAB VAST 2.0 §2.3.8",
-                );
+            Some(child),
+        )
             }
         }
     }
@@ -513,7 +526,8 @@ fn check_icons(node: &Node, path: &str, ctx: &ValidationContext, issues: &mut Ve
                 "<Icons> may only contain <Icon> elements",
                 Some(format!("{}/{}", path, child.name)),
                 "IAB VAST 3.0 §2.3.6.4",
-            );
+            Some(child),
+        )
         }
     }
 }
@@ -558,7 +572,8 @@ fn check_icon(node: &Node, path: &str, ctx: &ValidationContext, issues: &mut Vec
                     "<Icon> contains an unrecognised child element",
                     Some(format!("{}/{}", path, other)),
                     "IAB VAST 3.0 §2.3.6.4",
-                );
+            Some(child),
+        )
             }
         }
     }
@@ -582,7 +597,8 @@ fn check_icon_clicks(node: &Node, path: &str, ctx: &ValidationContext, issues: &
                     "<IconClicks> contains an unrecognised child element",
                     Some(format!("{}/{}", path, other)),
                     "IAB VAST 3.0 §2.3.6.4",
-                );
+            Some(child),
+        )
             }
         }
     }
@@ -604,7 +620,8 @@ fn check_creative_extensions(
                 "<CreativeExtensions> may only contain <CreativeExtension> elements",
                 Some(format!("{}/{}[{}]", path, child.name, i)),
                 "IAB VAST 2.0 §2.3.5",
-            );
+            Some(child),
+        )
         } else {
             let ext_path = format!("{}/CreativeExtension[{}]", path, i);
             scan_extension_for_misplaced_elements(
@@ -644,7 +661,8 @@ fn check_closed_caption_files(
                 "<ClosedCaptionFiles> may only contain <ClosedCaptionFile> elements",
                 Some(format!("{}/{}[{}]", path, child.name, i)),
                 "IAB VAST 4.2 §2.3.5.2",
-            );
+            Some(child),
+        )
         }
     }
 }
@@ -752,6 +770,8 @@ fn scan_extension_for_misplaced_elements(
                 message: "<Extension> contains an element that has a dedicated location in the VAST spec — likely misplaced",
                 path: Some(child_path),
                 spec_ref: "IAB VAST 2.0 §2",
+                line: Some(child.line),
+                col: Some(child.col),
             });
             // Don't recurse into the misplaced subtree; the parent hit is enough.
         } else {
@@ -783,7 +803,8 @@ fn check_text_only(
             "Element is text-only per spec but contains a child element",
             Some(format!("{}/{}", path, child.name)),
             "IAB VAST 2.0 §2",
-        );
+            Some(child),
+        )
     }
 
     // Check for unexpected attributes.
@@ -808,7 +829,8 @@ fn check_attrs(
                 "Element has an attribute not defined in the VAST spec",
                 Some(format!("{}[@{}]", path, attr.name)),
                 "IAB VAST 2.0 §2",
-            );
+            Some(node),
+        )
         }
     }
 }

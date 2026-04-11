@@ -14,7 +14,7 @@
  *   node npm/scripts/assemble.js   (from the vastlint/ workspace root)
  */
 
-import { copyFileSync, existsSync, mkdirSync } from 'fs';
+import { copyFileSync, existsSync, readFileSync, writeFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
@@ -39,5 +39,19 @@ copy(join(root, 'pkg/vastlint_wasm_bg.wasm.d.ts'),join(root, 'vastlint_wasm_bg.w
 
 // From nodejs target: the CJS glue (different JS, same wasm binary)
 copy(join(root, 'pkg-node/vastlint_wasm.js'),     join(root, 'vastlint_wasm_cjs.js'));
+
+// Patch vastlint_wasm_cjs.js: guard wasm.__wbindgen_start() which crashes when
+// the WASM binary doesn't export __wbindgen_start (wasm-bindgen omits it when
+// there is no #[wasm_bindgen(start)] function).
+const cjsPath = join(root, 'vastlint_wasm_cjs.js');
+const cjs = readFileSync(cjsPath, 'utf8');
+const patched = cjs.replace(
+  /^wasm\.__wbindgen_start\(\);$/m,
+  'if (typeof wasm.__wbindgen_start === "function") wasm.__wbindgen_start();'
+);
+if (patched !== cjs) {
+  writeFileSync(cjsPath, patched);
+  console.log('[assemble] patched vastlint_wasm_cjs.js — guarded __wbindgen_start');
+}
 
 console.log('[assemble] done');

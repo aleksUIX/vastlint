@@ -91,7 +91,8 @@ fn check_linear(
                     "<Tracking event=\"progress\"> requires an offset attribute — the XSD allows it to be absent but the spec mandates it",
                     Some(format!("{}/TrackingEvents/Tracking[{}]", path, t_idx)),
                     "IAB VAST 3.0 §2.3.6",
-                );
+            Some(t),
+        )
             }
         }
     }
@@ -121,7 +122,8 @@ fn check_icon(icon: &Node, path: &str, ctx: &ValidationContext, issues: &mut Vec
                 "Icon is missing a recommended attribute — the spec requires program, width, height, xPosition and yPosition",
                 Some(path.to_owned()),
                 "IAB VAST 3.0 §2.4.2",
-            );
+            Some(icon),
+        );
             // One warning per icon is enough.
             break;
         }
@@ -166,7 +168,8 @@ fn check_icon_fallback_images(
                     icon_path, fi
                 )),
                 "IAB VAST 4.2 §2.3.6.4",
-            );
+            Some(img),
+        )
         }
     }
 }
@@ -183,7 +186,8 @@ fn check_non_linear(nl: &Node, path: &str, ctx: &ValidationContext, issues: &mut
                 "NonLinear is missing width or height — required by spec, optional in XSD",
                 Some(path.to_owned()),
                 "IAB VAST 2.0 §2.3.6.1",
-            );
+            Some(nl),
+        );
             break;
         }
     }
@@ -201,7 +205,8 @@ fn check_companion(comp: &Node, path: &str, ctx: &ValidationContext, issues: &mu
                 "Companion is missing width or height — required by spec, optional in XSD",
                 Some(path.to_owned()),
                 "IAB VAST 2.0 §2.3.7.1",
-            );
+            Some(comp),
+        );
             break;
         }
     }
@@ -235,7 +240,8 @@ fn check_wrapper(
                                     path, ci
                                 )),
                                 "IAB VAST 4.0 §2.4.1",
-                            );
+            Some(vc),
+        )
                         }
                     }
                 }

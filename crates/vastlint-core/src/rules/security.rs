@@ -72,7 +72,8 @@ fn check_url_elements(node: &Node, path: &str, ctx: &ValidationContext, issues: 
                 "<MediaFile> URL uses HTTP instead of HTTPS — may be blocked in secure contexts",
                 Some(path.to_owned()),
                 "IAB VAST 2.0 §2.3.5.2",
-            );
+            Some(node),
+        )
         }
     }
 
@@ -88,7 +89,8 @@ fn check_url_elements(node: &Node, path: &str, ctx: &ValidationContext, issues: 
                 "Tracking URL uses HTTP instead of HTTPS — may be blocked in secure contexts",
                 Some(path.to_owned()),
                 "IAB VAST 2.0 §2",
-            );
+            Some(node),
+        )
         }
     }
 
@@ -104,7 +106,8 @@ fn check_url_elements(node: &Node, path: &str, ctx: &ValidationContext, issues: 
                 "Tracking/click URL uses HTTP instead of HTTPS — may be blocked in secure contexts",
                 Some(path.to_owned()),
                 "IAB VAST 2.0 §2",
-            );
+            Some(node),
+        )
         }
     }
 
@@ -131,6 +134,7 @@ fn check_url_value(value: &str, path: &str, ctx: &ValidationContext, issues: &mu
             "URL field is empty — expected a URI",
             Some(path.to_owned()),
             "IAB VAST 2.0 §2",
+            None,
         );
         return;
     }
@@ -154,6 +158,7 @@ fn check_url_value(value: &str, path: &str, ctx: &ValidationContext, issues: &mu
             "URL field does not appear to be a valid URI",
             Some(path.to_owned()),
             "IAB VAST 2.0 §2",
-        );
+            None,
+        )
     }
 }

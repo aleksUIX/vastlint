@@ -28,15 +28,21 @@ pub struct Node {
     pub text: String,
     /// Child elements.
     pub children: Vec<Node>,
+    /// 1-based line number of the opening tag in the source XML.
+    pub line: u32,
+    /// 1-based column number (byte offset within the line) of the opening tag.
+    pub col: u32,
 }
 
 impl Node {
-    fn new(name: String, attrs: Vec<Attr>) -> Self {
+    fn new(name: String, attrs: Vec<Attr>, line: u32, col: u32) -> Self {
         Node {
             name,
             attrs,
             text: String::new(),
             children: Vec::new(),
+            line,
+            col,
         }
     }
 
@@ -105,12 +111,30 @@ impl VastDocument {
 
 // ── Parser ────────────────────────────────────────────────────────────────────
 
+/// Convert a 0-based byte offset into a (1-based line, 1-based col) pair by
+/// scanning the source text. This is O(offset) but is only called once per
+/// element open tag and the source documents are small (< 1 MB in practice).
+fn byte_offset_to_line_col(input: &[u8], offset: usize) -> (u32, u32) {
+    let safe = offset.min(input.len());
+    let mut line: u32 = 1;
+    let mut line_start: usize = 0;
+    for (i, &b) in input[..safe].iter().enumerate() {
+        if b == b'\n' {
+            line += 1;
+            line_start = i + 1;
+        }
+    }
+    let col = (safe - line_start) as u32 + 1;
+    (line, col)
+}
+
 /// Parse a VAST XML string into a VastDocument.
 ///
 /// On well-formed XML, returns a complete tree. On malformed XML, returns a
 /// VastDocument with parse_error set and root containing whatever was parsed
 /// successfully before the error.
 pub fn parse(input: &str) -> VastDocument {
+    let input_bytes = input.as_bytes();
     let mut reader = Reader::from_str(input);
     reader.config_mut().trim_text(true);
 
@@ -121,6 +145,16 @@ pub fn parse(input: &str) -> VastDocument {
     loop {
         match reader.read_event() {
             Ok(Event::Start(e)) => {
+                // buffer_position() is the byte offset just past the `>` of
+                // this tag. Walk back to find the `<` to get the tag start.
+                let end_pos = reader.buffer_position() as usize;
+                let tag_bytes = e.as_ref();
+                // tag_bytes is the raw content between < and > (exclusive).
+                // The tag in the stream is: '<' + tag_bytes + '>'.
+                let tag_len = tag_bytes.len() + 2; // +2 for '<' and '>'
+                let start_pos = end_pos.saturating_sub(tag_len);
+                let (line, col) = byte_offset_to_line_col(input_bytes, start_pos);
+
                 let name = std::str::from_utf8(e.local_name().as_ref())
                     .unwrap_or("")
                     .to_owned();
@@ -137,7 +171,7 @@ pub fn parse(input: &str) -> VastDocument {
                         value: val,
                     });
                 }
-                stack.push(Node::new(name, attrs));
+                stack.push(Node::new(name, attrs, line, col));
             }
 
             Ok(Event::End(_)) => {
@@ -150,6 +184,13 @@ pub fn parse(input: &str) -> VastDocument {
 
             Ok(Event::Empty(e)) => {
                 // Self-closing tag: push and immediately pop.
+                let end_pos = reader.buffer_position() as usize;
+                let tag_bytes = e.as_ref();
+                // Self-closing: '<' + tag_bytes + '/>'
+                let tag_len = tag_bytes.len() + 3; // +3 for '<', '/', '>'
+                let start_pos = end_pos.saturating_sub(tag_len);
+                let (line, col) = byte_offset_to_line_col(input_bytes, start_pos);
+
                 let name = std::str::from_utf8(e.local_name().as_ref())
                     .unwrap_or("")
                     .to_owned();
@@ -166,7 +207,7 @@ pub fn parse(input: &str) -> VastDocument {
                         value: val,
                     });
                 }
-                let node = Node::new(name, attrs);
+                let node = Node::new(name, attrs, line, col);
                 if let Some(parent) = stack.last_mut() {
                     parent.children.push(node);
                 } else {
@@ -215,7 +256,7 @@ pub fn parse(input: &str) -> VastDocument {
     }
 
     let root = if stack.is_empty() {
-        Node::new("__empty__".to_owned(), Vec::new())
+        Node::new("__empty__".to_owned(), Vec::new(), 0, 0)
     } else {
         // Collapse remaining stack (handles unclosed tags gracefully).
         while stack.len() > 1 {

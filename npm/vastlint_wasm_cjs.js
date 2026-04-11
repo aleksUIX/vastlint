@@ -158,11 +158,19 @@ function __wbg_get_imports() {
             const ret = Object.entries(arg0);
             return ret;
         },
+        __wbg_from_741da0f916ab74aa: function(arg0) {
+            const ret = Array.from(arg0);
+            return ret;
+        },
         __wbg_get_4848e350b40afc16: function(arg0, arg1) {
             const ret = arg0[arg1 >>> 0];
             return ret;
         },
         __wbg_get_ed0642c4b9d31ddf: function() { return handleError(function (arg0, arg1) {
+            const ret = Reflect.get(arg0, arg1);
+            return ret;
+        }, arguments); },
+        __wbg_get_f96702c6245e4ef9: function() { return handleError(function (arg0, arg1) {
             const ret = Reflect.get(arg0, arg1);
             return ret;
         }, arguments); },
@@ -239,6 +247,10 @@ function __wbg_get_imports() {
         __wbg_set_6c60b2e8ad0e9383: function(arg0, arg1, arg2) {
             arg0[arg1 >>> 0] = arg2;
         },
+        __wbg_set_8ee2d34facb8466e: function() { return handleError(function (arg0, arg1, arg2) {
+            const ret = Reflect.set(arg0, arg1, arg2);
+            return ret;
+        }, arguments); },
         __wbg_value_7f6052747ccf940f: function(arg0) {
             const ret = arg0.value;
             return ret;
@@ -452,4 +464,4 @@ const wasmPath = `${__dirname}/vastlint_wasm_bg.wasm`;
 const wasmBytes = require('fs').readFileSync(wasmPath);
 const wasmModule = new WebAssembly.Module(wasmBytes);
 let wasm = new WebAssembly.Instance(wasmModule, __wbg_get_imports()).exports;
-wasm.__wbindgen_start();
+if (typeof wasm.__wbindgen_start === "function") wasm.__wbindgen_start();

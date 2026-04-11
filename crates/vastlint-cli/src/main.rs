@@ -411,13 +411,23 @@ fn print_json(file: &str, result: &ValidationResult) {
                 Some(p) => format!("\"{}\"", json_escape(p)),
                 None => "null".to_owned(),
             };
+            let line = match i.line {
+                Some(l) => l.to_string(),
+                None => "null".to_owned(),
+            };
+            let col = match i.col {
+                Some(c) => c.to_string(),
+                None => "null".to_owned(),
+            };
             format!(
-                "{{\"id\":\"{}\",\"severity\":\"{}\",\"message\":\"{}\",\"path\":{},\"spec_ref\":\"{}\"}}",
+                "{{\"id\":\"{}\",\"severity\":\"{}\",\"message\":\"{}\",\"path\":{},\"spec_ref\":\"{}\",\"line\":{},\"col\":{}}}",
                 i.id,
                 i.severity.as_str(),
                 json_escape(i.message),
                 path,
                 i.spec_ref,
+                line,
+                col,
             )
         })
         .collect();

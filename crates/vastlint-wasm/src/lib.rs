@@ -28,6 +28,10 @@ struct JsIssue {
     message: &'static str,
     path: Option<String>,
     spec_ref: &'static str,
+    // Use f64 (JS number) for line/col — serde-wasm-bindgen drops Option<u32>
+    // silently but correctly serializes Option<f64>.
+    line: Option<f64>,
+    col: Option<f64>,
 }
 
 #[derive(Serialize)]
@@ -159,6 +163,15 @@ pub fn rules() -> Result<JsValue, JsValue> {
 
 fn to_js(result: vastlint_core::ValidationResult) -> Result<JsValue, JsValue> {
     let version = result.version.best().map(|v| v.as_str().to_owned());
+
+    // Collect raw line/col before serde consumes the issues (serde-wasm-bindgen
+    // 0.6 silently drops Option<u32> / Option<f64> fields).
+    let line_cols: Vec<(Option<u32>, Option<u32>)> = result
+        .issues
+        .iter()
+        .map(|i| (i.line, i.col))
+        .collect();
+
     let issues: Vec<JsIssue> = result
         .issues
         .into_iter()
@@ -168,6 +181,8 @@ fn to_js(result: vastlint_core::ValidationResult) -> Result<JsValue, JsValue> {
             message: i.message,
             path: i.path,
             spec_ref: i.spec_ref,
+            line: i.line.map(|v| v as f64),
+            col: i.col.map(|v| v as f64),
         })
         .collect();
     let summary = JsSummary {
@@ -181,5 +196,29 @@ fn to_js(result: vastlint_core::ValidationResult) -> Result<JsValue, JsValue> {
         issues,
         summary,
     };
-    serde_wasm_bindgen::to_value(&js_result).map_err(|e| JsValue::from_str(&e.to_string()))
+    let val = serde_wasm_bindgen::to_value(&js_result)
+        .map_err(|e| JsValue::from_str(&e.to_string()))?;
+
+    // Patch: manually set line/col on each issue object because
+    // serde-wasm-bindgen 0.6 drops Option<numeric> fields.
+    let issues_arr = js_sys::Reflect::get(&val, &JsValue::from_str("issues"))
+        .map_err(|e| e)?;
+    let issues_arr = js_sys::Array::from(&issues_arr);
+    for (idx, (line, col)) in line_cols.iter().enumerate() {
+        let issue_obj = issues_arr.get(idx as u32);
+        let line_key = JsValue::from_str("line");
+        let col_key = JsValue::from_str("col");
+        let line_val = match line {
+            Some(v) => JsValue::from_f64(*v as f64),
+            None => JsValue::NULL,
+        };
+        let col_val = match col {
+            Some(v) => JsValue::from_f64(*v as f64),
+            None => JsValue::NULL,
+        };
+        js_sys::Reflect::set(&issue_obj, &line_key, &line_val).ok();
+        js_sys::Reflect::set(&issue_obj, &col_key, &col_val).ok();
+    }
+
+    Ok(val)
 }

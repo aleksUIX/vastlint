@@ -10,6 +10,10 @@ export interface Issue {
   path: string | null;
   /** Short spec reference, e.g. "IAB VAST 4.1 §3.4.1". */
   spec_ref: string;
+  /** 1-based line number of the opening tag that triggered this issue. Null for document-level issues. */
+  line: number | null;
+  /** 1-based column number (byte offset within the line) of the opening tag. Null for document-level issues. */
+  col: number | null;
 }
 
 export interface Summary {

@@ -1,7 +1,0 @@
-# wasm-pack build output — generated artifacts, not source
-# Note: pkg/ and pkg-node/ are intentionally published to npm (see .npmignore)
-# but should not be committed to git.
-pkg/
-pkg-node/
-vastlint_wasm_bg.wasm
-*.tgz

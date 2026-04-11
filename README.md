@@ -35,31 +35,31 @@ Or download a pre-built binary from the [releases page](https://github.com/aleks
 Pull the image from Docker Hub:
 
 ```sh
-docker pull vastlint/vastlint
+docker pull aleksuix/vastlint
 ```
 
 **Validate a file:**
 
 ```sh
-docker run --rm -v "$(pwd)":/data vastlint/vastlint check /data/tag.xml
+docker run --rm -v "$(pwd)":/data aleksuix/vastlint check /data/tag.xml
 ```
 
 **Pipe from stdin:**
 
 ```sh
-cat tag.xml | docker run --rm -i vastlint/vastlint check -
+cat tag.xml | docker run --rm -i aleksuix/vastlint check -
 ```
-
+DOCKERHUB_TOKEN
 **JSON output:**
 
 ```sh
-docker run --rm -v "$(pwd)":/data vastlint/vastlint check /data/tag.xml --format json
+docker run --rm -v "$(pwd)":/data aleksuix/vastlint check /data/tag.xml --format json
 ```
 
 **Validate a whole directory:**
 
 ```sh
-docker run --rm -v "$(pwd)/tags":/data vastlint/vastlint check /data/*.xml
+docker run --rm -v "$(pwd)/tags":/data aleksuix/vastlint check /data/*.xml
 ```
 
 The image is built `FROM scratch` — a fully-static musl binary with no OS layer.

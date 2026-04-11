@@ -20,6 +20,7 @@ pub mod values;
 
 use crate::parse::VastDocument;
 use crate::{DetectedVersion, Issue, RuleMeta, Severity, ValidationContext};
+use crate::parse::Node;
 
 /// Run all applicable rules against the document and collect issues.
 pub fn run(
@@ -45,6 +46,9 @@ pub fn run(
 ///
 /// `default_severity` is the recommended severity as defined in the spec
 /// reference docs. The caller's rule_overrides may change or silence it.
+///
+/// Pass `node` to attach the element's source position to the issue. Pass
+/// `None` for document-level issues (e.g. missing root element, parse errors).
 #[inline]
 pub(crate) fn emit(
     ctx: &ValidationContext,
@@ -54,14 +58,21 @@ pub(crate) fn emit(
     message: &'static str,
     path: Option<String>,
     spec_ref: &'static str,
+    node: Option<&Node>,
 ) {
     if let Some(severity) = ctx.resolve(id, default_severity) {
+        let (line, col) = match node {
+            Some(n) => (Some(n.line), Some(n.col)),
+            None => (None, None),
+        };
         issues.push(Issue {
             id,
             severity,
             message,
             path,
             spec_ref,
+            line,
+            col,
         });
     }
 }
