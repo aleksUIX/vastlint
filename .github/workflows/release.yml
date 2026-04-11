@@ -46,14 +46,14 @@ jobs:
 
       - name: CLI smoke — valid fixture exits 0
         run: |
-          ./target/release/vastlint \
+          ./target/release/vastlint check \
             crates/vastlint-core/tests/fixtures/valid_4.2.xml
           echo "Exit code: $?"
 
       - name: CLI smoke — invalid fixture exits 1
         run: |
           set +e
-          ./target/release/vastlint \
+          ./target/release/vastlint check \
             crates/vastlint-core/tests/fixtures/err_no_ad.xml
           CODE=$?
           set -e
