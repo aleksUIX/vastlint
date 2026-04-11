@@ -75,6 +75,9 @@ jobs:
       - name: Build WASM (nodejs target)
         run: wasm-pack build crates/vastlint-wasm --target nodejs --out-dir ../../npm/pkg-node
 
+      - name: Build WASM (bundler target)
+        run: wasm-pack build crates/vastlint-wasm --target bundler --out-dir ../../npm/pkg
+
       - name: Assemble npm package
         run: node npm/scripts/assemble.js
 
