@@ -91,12 +91,11 @@ jobs:
             'crates/vastlint-core/tests/fixtures/valid_4.2.xml', 'utf8'
           );
           const result = validate(validXml);
-          const parsed = JSON.parse(result);
-          if (parsed.summary.errors !== 0) {
-            console.error('WASM smoke FAILED: expected 0 errors on valid fixture, got', parsed.summary.errors);
+          if (result.summary.errors !== 0) {
+            console.error('WASM smoke FAILED: expected 0 errors on valid fixture, got', result.summary.errors);
             process.exit(1);
           }
-          if (!parsed.summary.valid) {
+          if (!result.summary.valid) {
             console.error('WASM smoke FAILED: expected valid=true on valid fixture');
             process.exit(1);
           }
@@ -113,16 +112,15 @@ jobs:
             'crates/vastlint-core/tests/fixtures/err_no_ad.xml', 'utf8'
           );
           const result = validate(invalidXml);
-          const parsed = JSON.parse(result);
-          if (parsed.summary.errors === 0) {
+          if (result.summary.errors === 0) {
             console.error('WASM smoke FAILED: expected errors > 0 on invalid fixture');
             process.exit(1);
           }
-          if (parsed.summary.valid) {
+          if (result.summary.valid) {
             console.error('WASM smoke FAILED: expected valid=false on invalid fixture');
             process.exit(1);
           }
-          console.log('WASM invalid fixture ✓ (errors=' + parsed.summary.errors + ', valid=false)');
+          console.log('WASM invalid fixture ✓ (errors=' + result.summary.errors + ', valid=false)');
           EOF
 
   build:
