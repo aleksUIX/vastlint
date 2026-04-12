@@ -494,7 +494,7 @@ jobs:
         run: npm install -g @vscode/vsce
 
       - name: Publish to VS Code Marketplace
-        run: vsce publish --no-update-package-json
+        run: vsce publish --no-update-package-json || echo "VS Code version already published, skipping"
         working-directory: vscode
         env:
           VSCE_PAT: ${{ secrets.VSCE_PAT }}
