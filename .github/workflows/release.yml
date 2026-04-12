@@ -469,6 +469,9 @@ jobs:
         with:
           node-version: '22'
 
+      - name: Build WASM (bundler target — ESM)
+        run: wasm-pack build crates/vastlint-wasm --target bundler --out-dir ../../npm/pkg
+
       - name: Build WASM (nodejs target — CJS)
         run: wasm-pack build crates/vastlint-wasm --target nodejs --out-dir ../../npm/pkg-node
 
