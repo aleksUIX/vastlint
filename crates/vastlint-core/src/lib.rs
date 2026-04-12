@@ -34,14 +34,14 @@
 //! static GLOBAL: MiMalloc = MiMalloc;
 //! ```
 //!
-//! Measured on Apple M-series (10 threads, 339 KB VAST documents, 100k calls):
+//! Measured on Apple M4 (10 threads, production-realistic VAST tags):
 //!
-//! | Allocator | Throughput | avg latency | p99 latency |
-//! |---|---|---|---|
-//! | system (default) | 7,966 tags/s | 1,246 µs | 24,260 µs |
-//! | mimalloc | 57,936 tags/s | 171 µs | 912 µs |
+//! | Allocator | 17 KB tag | 44 KB tag |
+//! |---|---|---|
+//! | system (default) | 1,847 tags/s · 541 µs | 328 tags/s · 3,048 µs |
+//! | mimalloc | 15,760 tags/s · 63 µs | 2,635 tags/s · 380 µs |
 //!
-//! **+628% throughput, p99 drops 26×.**
+//! **mimalloc: ~8× throughput improvement on multi-threaded workloads.**
 //!
 //! > ⚠️ Do **not** set a global allocator in a library crate — it would
 //! > override the allocator for any host process that links you (Go, Python,

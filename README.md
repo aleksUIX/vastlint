@@ -302,7 +302,15 @@ Returns the same structured result as the CLI and library: version, issues with 
 
 ## Performance
 
-Under 100 microseconds per document. 14,000+ files/sec on a single core. A typical OpenRTB bid cycle takes 100-300ms; validation adds less than 0.1% of that budget. An SSAI pipeline doing 1,000 stitches/sec spends more time on DNS than on validating the VAST response.
+Benchmarked on Apple M4 (10-core), production-realistic VAST tags (17–44 KB):
+
+| Metric | 17 KB tag | 44 KB tag |
+|---|---|---|
+| Single-thread throughput | 2,747 tags/sec | 475 tags/sec |
+| Single-thread latency | 363 µs | 2,104 µs |
+| 10-core throughput | 15,760 tags/sec | 2,635 tags/sec |
+
+A typical OpenRTB bid cycle takes 100–300 ms; validation adds less than 2.1% of that budget even on the heaviest tags. An SSAI pipeline doing 1,000 stitches/sec spends more time on DNS than on validating the VAST response.
 
 No async runtime, no regex engine, no schema interpreter. Rules are compiled Rust functions. Three dependencies: `quick-xml`, `url`, and `phf` (compile-time hash maps).
 
