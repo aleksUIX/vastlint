@@ -5,6 +5,7 @@
 [![docs.rs](https://docs.rs/vastlint-core/badge.svg)](https://docs.rs/vastlint-core)
 [![npm](https://img.shields.io/npm/v/vastlint.svg?label=npm)](https://www.npmjs.com/package/vastlint)
 [![Go](https://img.shields.io/github/v/tag/aleksUIX/vastlint-go?label=go&color=00ADD8)](https://github.com/aleksUIX/vastlint-go)
+[![VS Code](https://img.shields.io/visual-studio-marketplace/v/aleksuix.vastlint?label=vs%20code&color=007ACC)](https://marketplace.visualstudio.com/items?itemName=aleksuix.vastlint)
 [![license](https://img.shields.io/crates/l/vastlint-cli.svg)](LICENSE)
 
 A VAST XML validator. Checks ad tags against the IAB Tech Lab VAST specification so you don't have to read it. Over $30 billion in annual CTV and video ad spend flows through VAST XML, and malformed tags are one of the most common causes of lost impressions, broken tracking, and revenue discrepancies between platforms. There is no widely adopted open-source tool that validates VAST XML against the full IAB specification across all published versions.
@@ -274,6 +275,30 @@ result, err := vastlint.ValidateWithOptions(xmlString, vastlint.Options{
 ```
 
 See the [vastlint-go README](https://github.com/aleksUIX/vastlint-go) for the full API reference.
+
+## Use from VS Code
+
+Install the [vastlint extension](https://marketplace.visualstudio.com/items?itemName=aleksuix.vastlint) from the VS Code Marketplace. VAST XML files are validated as you type — errors and warnings appear inline with rule IDs and spec references, no terminal required.
+
+```
+ext install aleksuix.vastlint
+```
+
+Or search for **vastlint** in the VS Code Extensions panel.
+
+## Use as a REST API
+
+Available on [RapidAPI](https://rapidapi.com/aleksUIX/api/vastlint). Send a `POST /validate` request with your VAST XML and get a full validation result back — no SDK, no install.
+
+```sh
+curl -X POST https://vastlint.p.rapidapi.com/validate \
+  -H "Content-Type: application/json" \
+  -H "X-RapidAPI-Key: <your-key>" \
+  -H "X-RapidAPI-Host: vastlint.p.rapidapi.com" \
+  -d '{"xml":"<VAST version=\"4.2\">...</VAST>"}'
+```
+
+Returns the same structured result as the CLI and library: version, issues with rule IDs and line/col positions, and a summary. See the [RapidAPI listing](https://rapidapi.com/aleksUIX/api/vastlint) for full endpoint docs and pricing.
 
 ## Performance
 
