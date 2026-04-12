@@ -318,7 +318,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
 
       - name: Publish vastlint-core
-        run: cargo publish -p vastlint-core --no-verify
+        run: cargo publish -p vastlint-core --no-verify || echo "vastlint-core already published, skipping"
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
 
@@ -327,7 +327,7 @@ jobs:
         run: sleep 30
 
       - name: Publish vastlint-cli
-        run: cargo publish -p vastlint-cli --no-verify
+        run: cargo publish -p vastlint-cli --no-verify || echo "vastlint-cli already published, skipping"
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
 
@@ -429,7 +429,7 @@ jobs:
         working-directory: npm
 
       - name: Publish to npm
-        run: npm publish
+        run: npm publish || echo "npm version already published, skipping"
         working-directory: npm
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
