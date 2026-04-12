@@ -320,6 +320,10 @@ Off by default. CLI only -- the core library has no network code. Enable with `-
 
 Sends one HTTP GET per CLI invocation with: version, OS, anonymous install ID, file count. No file names, no file contents, no personal data. The install ID is a random 128-bit hex value stored in `~/.config/vastlint/id`. The ping fires in a background thread with a 2-second timeout and is silently dropped on any error.
 
+## Roadmap
+
+See [ROADMAP.md](ROADMAP.md) for what's shipped, what's in progress, and what's next.
+
 ## License
 
 See [FREE_FOREVER.md](FREE_FOREVER.md) for the free-use commitment.
