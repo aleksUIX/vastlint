@@ -281,9 +281,87 @@ jobs:
           name: ${{ matrix.archive }}
           path: ${{ matrix.archive }}
 
+  # ── Build precompiled NIFs ───────────────────────────────────────────────────
+  # Builds the vastlint_nif cdylib for the four tier-1 BEAM platforms.
+  # RustlerPrecompiled downloads these at `mix deps.get` so Elixir/Erlang users
+  # never need a local Rust toolchain.
+  #
+  # Output naming follows the RustlerPrecompiled convention:
+  #   libvastlint_nif-<version>-nif-<otp>-<arch>-<os>.so / .dylib
+  # We ship a canonical tarball and let the checksum file pin the version.
+  build-nif:
+    name: Build NIF ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    needs: smoke-test
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+            lib: libvastlint_nif.so
+            archive: vastlint-nif-linux-x86_64.tar.gz
+
+          - target: aarch64-unknown-linux-gnu
+            os: ubuntu-latest
+            lib: libvastlint_nif.so
+            archive: vastlint-nif-linux-aarch64.tar.gz
+
+          - target: x86_64-apple-darwin
+            os: macos-latest
+            lib: libvastlint_nif.dylib
+            archive: vastlint-nif-macos-x86_64.tar.gz
+
+          - target: aarch64-apple-darwin
+            os: macos-latest
+            lib: libvastlint_nif.dylib
+            archive: vastlint-nif-macos-aarch64.tar.gz
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Install cross (Linux aarch64)
+        if: matrix.target == 'aarch64-unknown-linux-gnu'
+        run: cargo install cross --locked
+
+      - name: Build NIF crate (cross — Linux aarch64)
+        if: matrix.target == 'aarch64-unknown-linux-gnu'
+        run: cross build --release --target ${{ matrix.target }} -p vastlint_nif
+
+      - name: Build NIF crate (cargo — all others)
+        if: matrix.target != 'aarch64-unknown-linux-gnu'
+        run: cargo build --release --target ${{ matrix.target }} -p vastlint_nif
+
+      - name: Package NIF artifact
+        run: |
+          OUTDIR=target/${{ matrix.target }}/release
+          STAGING=nif-staging
+          mkdir -p "$STAGING"
+
+          # Rust names the output libvastlint_nif.{so,dylib}.
+          # Derive extension from matrix.lib via bash parameter expansion.
+          LIB="${{ matrix.lib }}"
+          EXT="${LIB##*.}"
+          cp "$OUTDIR/${LIB}" "$STAGING/${LIB}"
+
+          tar czf ${{ matrix.archive }} -C "$STAGING" .
+
+      - name: Upload NIF artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.archive }}
+          path: ${{ matrix.archive }}
+
   release:
     name: Create GitHub Release
-    needs: [build, build-ffi]
+    needs: [build, build-ffi, build-nif]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -590,3 +668,87 @@ jobs:
           git tag -f "$TAG"
           git push origin "$TAG" --force
 
+  # ── Sync vastlint-erlang ─────────────────────────────────────────────────────
+  # After a successful release, push the updated prebuilt NIF tarballs and
+  # checksum file into the vastlint-erlang repo and tag it at the same version.
+  #
+  # Prerequisites (one-time setup):
+  #   1. Generate an SSH deploy key for vastlint-erlang:
+  #        ssh-keygen -t ed25519 -f vastlint_erlang_deploy -C "vastlint release bot"
+  #   2. Add the PUBLIC key as a deploy key in vastlint-erlang (Settings → Deploy
+  #      keys) with write access.
+  #   3. Add the PRIVATE key as a secret in this repo (Settings → Secrets →
+  #      Actions) named VASTLINT_ERLANG_DEPLOY_KEY.
+  #
+  # Set ENABLE_ERLANG_SYNC to "true" in repo variables to activate this job.
+  sync-erlang:
+    name: Sync vastlint-erlang
+    needs: [build-nif, release]
+    runs-on: ubuntu-latest
+    if: vars.ENABLE_ERLANG_SYNC == 'true'
+
+    steps:
+      - name: Download all NIF artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: nif-artifacts
+          pattern: vastlint-nif-*
+          merge-multiple: true
+
+      - name: Checkout vastlint-erlang via deploy key
+        uses: actions/checkout@v4
+        with:
+          repository: aleksUIX/vastlint-erlang
+          ssh-key: ${{ secrets.VASTLINT_ERLANG_DEPLOY_KEY }}
+          path: vastlint-erlang
+
+      - name: Update mix.exs version
+        run: |
+          TAG="${{ github.ref_name }}"
+          VERSION="${TAG#v}"
+          sed -i "s/@version \"[^\"]*\"/@version \"${VERSION}\"/" \
+            vastlint-erlang/mix.exs
+          echo "Updated mix.exs to ${VERSION}"
+
+      - name: Regenerate checksum file
+        run: |
+          TAG="${{ github.ref_name }}"
+          VERSION="${TAG#v}"
+
+          CHECKSUM_FILE="vastlint-erlang/checksum-Elixir.VastlintNif.exs"
+
+          # Write a fresh checksum map.  RustlerPrecompiled resolves tarballs by
+          # the base_url + filename convention; keys must match exactly.
+          echo '%{' > "$CHECKSUM_FILE"
+
+          for TARBALL in nif-artifacts/vastlint-nif-*.tar.gz; do
+            BASENAME=$(basename "$TARBALL")
+            SHA256=$(sha256sum "$TARBALL" | awk '{print $1}')
+            echo "  \"${BASENAME}\" => \"sha256:${SHA256}\"," >> "$CHECKSUM_FILE"
+          done
+
+          echo '}' >> "$CHECKSUM_FILE"
+          echo "Wrote $CHECKSUM_FILE"
+          cat "$CHECKSUM_FILE"
+
+      - name: Commit and push
+        run: |
+          TAG="${{ github.ref_name }}"
+          VERSION="${TAG#v}"
+
+          cd vastlint-erlang
+          git config user.name  "vastlint release bot"
+          git config user.email "bot@vastlint.org"
+
+          git add mix.exs checksum-Elixir.VastlintNif.exs
+          git diff --cached --quiet && echo "nothing to commit" && exit 0
+
+          git commit -m "chore: update prebuilt NIFs to ${TAG}"
+          git push origin main
+
+      - name: Tag vastlint-erlang
+        run: |
+          TAG="${{ github.ref_name }}"
+          cd vastlint-erlang
+          git tag -f "$TAG"
+          git push origin "$TAG" --force

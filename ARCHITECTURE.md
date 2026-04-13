@@ -345,6 +345,256 @@ crates/vastlint-ffi/
 
 ---
 
+## Erlang / Elixir NIF Binding
+
+### Approach: Rustler DirtyCpu NIF, direct dependency on vastlint-core
+
+The Erlang binding does **not** go through the C FFI layer (`vastlint-ffi`). It uses
+[Rustler](https://github.com/rusterlium/rustler) to bind Rust directly to the BEAM
+via the `erl_nif.h` ABI. Rustler is a zero-overhead abstraction over the same NIF
+mechanism you would use writing C by hand — the difference is compile-time type
+mapping and no manual `enif_make_*` bookkeeping.
+
+**Why not the C FFI layer?**
+
+The Go binding uses the C layer because CGo is the only option. Rustler gives Rust
+first-class access to BEAM term types, so the NIF can build the result as a native
+Erlang map directly — no JSON serialization/deserialization crossing the boundary.
+The Go binding spends ~19µs per call on JSON roundtrip. The NIF eliminates that
+entirely. On a 17 KB production tag (363µs total), that is a ~5% saving, and it
+removes a class of encoding bugs.
+
+**Why DirtyCpu, not a regular NIF?**
+
+A regular NIF must return in under ~1ms or it blocks a BEAM scheduler thread,
+degrading the entire VM. At production tag sizes (17–44 KB), `vastlint-core`
+takes 363–2,104µs — well above the safe threshold for a regular NIF on large tags.
+`DirtyCpu` moves execution to the BEAM's dedicated dirty scheduler pool, which runs
+on separate OS threads that never block the normal schedulers. This is a one-line
+annotation in Rustler (`schedule = DirtyCpu`) and is the correct model for any
+CPU-bound NIF with non-trivial runtime.
+
+**Why not write a native Erlang implementation?**
+
+The BEAM is not designed for CPU-bound XML parsing. A pure Erlang re-implementation
+of the same 108 rules and `quick-xml`-backed parser would be 10–50× slower than
+Rust for this class of computation. The validation logic lives in `vastlint-core`
+exactly once. The NIF is a thin call boundary, not a reimplementation.
+
+**Why not a port (external OS process)?**
+
+Ports give crash isolation (a crashing port never takes down the VM) but add
+1–5ms of IPC overhead per call. On a 363µs operation that is 3–14× the validation
+cost. For a high-throughput BEAM ad server this is unacceptable. The DirtyCpu NIF
+gives the same isolation at the scheduler level (dirty schedulers are independent
+of normal ones) with microsecond-range call overhead.
+
+### Crate: `crates/vastlint-nif`
+
+New crate added to the monorepo workspace. Never published to crates.io separately
+— it exists only as the native library compiled into the hex.pm package.
+
+```toml
+# crates/vastlint-nif/Cargo.toml
+[package]
+name    = "vastlint_nif"
+version = "0.1.0"   # version-locked to monorepo tag at release time
+
+[lib]
+name       = "vastlint_nif"
+crate-type = ["cdylib"]   # .so / .dylib loaded by the BEAM at runtime
+
+[dependencies]
+vastlint-core = { path = "../vastlint-core" }
+rustler       = "0.36"
+# NOTE: do NOT add mimalloc here. The BEAM owns the process allocator.
+# Setting a global allocator in a cdylib loaded into the BEAM will corrupt
+# the heap. The BEAM's own allocator (erts_alloc) is tuned for concurrent
+# workloads and performs adequately without override.
+```
+
+### Exported NIFs
+
+```rust
+// All three are registered in rustler::init!
+
+/// Validate a VAST XML binary with default settings.
+/// Marked DirtyCpu — runs on dirty scheduler, never blocks normal schedulers.
+#[rustler::nif(schedule = "DirtyCpu")]
+fn validate(xml: Binary) -> NifResult<Term>
+
+/// Validate with caller-supplied options.
+/// wrapper_depth, max_wrapper_depth, rule_overrides (map of binary→binary).
+#[rustler::nif(schedule = "DirtyCpu")]
+fn validate_with_opts(
+    xml: Binary,
+    wrapper_depth: u32,
+    max_wrapper_depth: u32,
+    rule_overrides: HashMap<String, String>,
+) -> NifResult<Term>
+
+/// Return the vastlint-core version string as a binary.
+/// Fast path — regular NIF, not dirty (nanosecond runtime).
+#[rustler::nif]
+fn version() -> &'static str
+```
+
+### Result term shape
+
+The NIF builds the result as a native Erlang map — no JSON crosses the boundary.
+Rustler's `Term` API constructs the map directly on the BEAM heap.
+
+```erlang
+%% {:ok, result} on success, {:error, reason} on bad input
+{:ok, %{
+  version:  "4.2" | :undefined,
+  valid:    true | false,
+  errors:   non_neg_integer(),
+  warnings: non_neg_integer(),
+  infos:    non_neg_integer(),
+  issues: [
+    %{
+      id:       binary(),     # e.g. "VAST-4.2-3.4.1"
+      severity: :error | :warning | :info,
+      message:  binary(),
+      path:     binary() | :undefined,
+      spec_ref: binary()      # e.g. "IAB VAST 4.2 §3.4.1"
+    }
+  ]
+}}
+```
+
+Severity values are Erlang atoms (`:error`, `:warning`, `:info`), not binaries.
+Atoms are interned in the BEAM atom table and compare in O(1). Pattern matching
+on severity in Erlang/Elixir code is therefore a single instruction.
+
+Nullable fields (`version`, `path`) use the atom `:undefined` rather than
+`nil`/`null`. This is idiomatic Erlang. The Elixir wrapper module translates
+`:undefined` to `nil` for Elixir callers.
+
+### Repository: `vastlint-erlang`
+
+Separate repo, mirrors the `vastlint-go` pattern. Does not require a Rust
+toolchain to install — precompiled `.so`/`.dylib` NIFs are bundled per platform
+via `RustlerPrecompiled`.
+
+```
+vastlint-erlang/
+  mix.exs                     # Elixir package definition, hex.pm metadata
+  lib/
+    vastlint.ex               # public Elixir API (validate/1, validate!/1, version/0)
+    vastlint/result.ex        # %Vastlint.Result{} and %Vastlint.Issue{} structs
+  src/
+    vastlint.erl              # pure Erlang module for rebar3 / OTP callers
+  native/
+    vastlint_nif/             # the Rust NIF crate (symlinked or vendored)
+  priv/
+    native/                   # compiled .so/.dylib lands here at runtime
+  test/
+    vastlint_test.exs
+  README.md
+  LICENSE                     # Apache-2.0, matches core
+```
+
+**Elixir public API** (`lib/vastlint.ex`):
+
+```elixir
+# Returns {:ok, %Vastlint.Result{}} or {:error, reason}
+Vastlint.validate(xml :: binary()) :: {:ok, Result.t()} | {:error, term()}
+
+# Returns %Vastlint.Result{} or raises Vastlint.ValidationError
+Vastlint.validate!(xml :: binary()) :: Result.t()
+
+# Returns {:ok, %Vastlint.Result{}} with options
+Vastlint.validate(xml, opts :: keyword()) :: {:ok, Result.t()} | {:error, term()}
+# opts: [wrapper_depth: 0, max_wrapper_depth: 5, rule_overrides: %{"VAST-..." => "off"}]
+
+Vastlint.version() :: binary()
+```
+
+**Pure Erlang API** (`src/vastlint.erl`) — same calls without Elixir conventions,
+for `rebar3` projects that do not use Mix:
+
+```erlang
+vastlint:validate(Xml :: binary()) -> {ok, map()} | {error, term()}.
+vastlint:validate_with_opts(Xml, WrapperDepth, MaxDepth, Overrides) -> {ok, map()} | {error, term()}.
+vastlint:version() -> binary().
+```
+
+### Allocator note (important)
+
+`mimalloc` **must not** be set as the global allocator in `vastlint_nif`. The
+BEAM process owns the allocator. Loading a `cdylib` that overrides `GlobalAlloc`
+will corrupt the BEAM heap and produce non-deterministic crashes, potentially
+hours after the override takes effect.
+
+The measured 8× throughput gain from mimalloc applies to standalone Rust processes
+(CLI, server) where Rust owns the process. It does not apply here. Under concurrent
+load from multiple BEAM dirty schedulers, `erts_alloc` performs well for this
+workload — each dirty scheduler thread has its own carrier, so contention is low.
+
+### Precompiled NIF strategy
+
+Users must not need a Rust toolchain. `RustlerPrecompiled` fetches the correct
+`.so`/`.dylib` from GitHub Releases at `mix deps.get` time, matching the same
+4-platform matrix as `build-ffi`:
+
+| Platform | NIF artifact |
+|---|---|
+| `x86_64-unknown-linux-gnu` | `vastlint_nif-x86_64-linux.so.tar.gz` |
+| `aarch64-unknown-linux-gnu` | `vastlint_nif-aarch64-linux.so.tar.gz` |
+| `x86_64-apple-darwin` | `vastlint_nif-x86_64-macos.dylib.tar.gz` |
+| `aarch64-apple-darwin` | `vastlint_nif-aarch64-macos.dylib.tar.gz` |
+
+Checksums are embedded in `mix.exs` and verified at install time. If a precompiled
+NIF is not available for the target platform, `RustlerPrecompiled` falls back to
+compiling from source (requires Rust toolchain — documented in README).
+
+### Release workflow additions
+
+New job `build-nif` in `release.yml` — same 4-platform matrix as `build-ffi`,
+runs after `smoke-test`:
+
+```yaml
+build-nif:
+  name: Build NIF ${{ matrix.target }}
+  needs: smoke-test
+  strategy:
+    matrix:
+      include:
+        - { target: x86_64-unknown-linux-gnu,   os: ubuntu-latest }
+        - { target: aarch64-unknown-linux-gnu,  os: ubuntu-latest }
+        - { target: x86_64-apple-darwin,        os: macos-latest  }
+        - { target: aarch64-apple-darwin,       os: macos-latest  }
+  steps:
+    - build cdylib for vastlint_nif
+    - package as vastlint_nif-{platform}.tar.gz with checksum
+    - upload-artifact
+    - attach to GitHub Release
+```
+
+New job `sync-erlang` (gated `ENABLE_ERLANG_SYNC=true`, deploy key secret
+`VASTLINT_ERLANG_DEPLOY_KEY`) — mirrors `sync-go`:
+- Checks out `vastlint-erlang`
+- Updates NIF artifact checksums in `mix.exs`
+- Bumps package version to match tag
+- Commits, pushes, tags
+- Triggers `vastlint-erlang` CI (`mix test` on ubuntu + macos, OTP 26+)
+
+### Maintenance contract
+
+Adding a new VAST spec version to `vastlint-core` requires zero changes to
+`vastlint-nif`. The NIF crate has no knowledge of rule IDs, version numbers, or
+issue structure — it calls `vastlint_core::validate()` and maps the
+`ValidationResult` to BEAM terms. New rules appear automatically in the result
+map's `issues` list. The Erlang/Elixir API surface is unchanged.
+
+The only thing that changes on a `vastlint-core` version bump is the `Cargo.toml`
+dependency version in `vastlint-nif`, which is updated automatically by the
+monorepo release workflow.
+
+---
+
 ## Dependencies
 
 Intentionally minimal.

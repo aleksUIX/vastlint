@@ -1,0 +1,35 @@
+[package]
+name = "vastlint_nif"
+version = "0.2.6"
+edition = "2021"
+rust-version = "1.75"
+authors = ["Aleks <aleks@vastlint.org>"]
+description = "Erlang/Elixir NIF bindings for vastlint-core — DirtyCpu Rustler NIF for high-throughput VAST validation on the BEAM"
+license = "Apache-2.0"
+repository = "https://github.com/aleksUIX/vastlint"
+homepage = "https://github.com/aleksUIX/vastlint"
+keywords = ["vast", "xml", "validator", "adtech", "erlang"]
+categories = ["external-ffi-bindings", "development-tools"]
+
+[lib]
+# cdylib only — this is a .so/.dylib loaded by the BEAM at runtime via
+# erl_nif. No staticlib needed: Erlang NIFs are always dynamically linked.
+name = "vastlint_nif"
+crate-type = ["cdylib"]
+
+[dependencies]
+vastlint-core = { path = "../vastlint-core" }
+rustler = "0.36"
+
+# !! DO NOT ADD mimalloc HERE !!
+#
+# The BEAM process owns the global allocator (erts_alloc). This crate is
+# loaded into a running BEAM VM as a cdylib. Overriding GlobalAlloc inside
+# a cdylib loaded into a foreign runtime corrupts the host heap and produces
+# non-deterministic crashes. The measured 8x throughput gain from mimalloc
+# applies only to standalone Rust processes (CLI, server) where Rust owns
+# the process allocator. It does not apply here.
+#
+# erts_alloc is designed for concurrent workloads: each dirty scheduler
+# thread has its own carrier pool, so inter-thread allocation contention
+# under concurrent NIF calls is already low without any override.

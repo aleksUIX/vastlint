@@ -336,6 +336,11 @@ If you distribute vastlint or a derivative work, include the NOTICE file verbati
 
 See [CONTRIBUTING.md](CONTRIBUTING.md).
 
+## Research
+
+Sekowski, A. (2026). *VAST XML Validation at Bid-Time Scale: Latency Analysis and Integration Patterns for Programmatic Video Pipelines*. Preprint.
+DOI: [10.13140/RG.2.2.11404.27520](https://doi.org/10.13140/RG.2.2.11404.27520)
+
 ## Community
 
 Using vastlint in production or in your workflow? [Let us know!](https://github.com/aleksUIX/vastlint/discussions/1)

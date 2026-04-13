@@ -22,12 +22,12 @@ Where vastlint is today and where it's going.
 | Milestone | Detail |
 |---|---|
 | **Language bindings** | Go bindings shipped. Python, Ruby, and Java bindings in progress — all backed by the same `vastlint-core`. |
+| **Erlang / Elixir bindings** | Rustler DirtyCpu NIF — native BEAM terms, zero JSON overhead. `vastlint_nif` crate complete, Elixir/Erlang package scaffolded, precompiled NIF CI pipeline wired. Available on hex.pm shortly. |
 
 ## 🗺️ Upcoming
 
 | Milestone | Detail |
 |---|---|
-| **Erlang / Elixir bindings** | NIFs for BEAM-based ad servers and RTB platforms. High-throughput VAST validation inside your OTP supervision tree. |
 | **Agentic workflows** | MCP server + REST API integrations so AI agents and LLM-powered pipelines can validate and fix VAST tags inline during code generation, creative QA, and campaign launch. |
 | **AWS Marketplace** | Deploy vastlint as a private Lambda or container in your own AWS account — no data leaves your infrastructure. |
 | **Realtime pipeline integration** | Continuous validation of live VAST traffic — per-partner error rates, alerting, and revenue impact dashboards. |
