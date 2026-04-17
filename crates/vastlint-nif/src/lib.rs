@@ -140,8 +140,10 @@ fn validate_with_opts<'a>(
 
     // Build the catalog ID lookup once — maps &str key to &'static str from
     // the catalog so we can store static references in the override map.
-    let catalog_ids: std::collections::HashMap<&str, &'static str> =
-        vastlint_core::all_rules().iter().map(|r| (r.id, r.id)).collect();
+    let catalog_ids: std::collections::HashMap<&str, &'static str> = vastlint_core::all_rules()
+        .iter()
+        .map(|r| (r.id, r.id))
+        .collect();
 
     let overrides: Option<std::collections::HashMap<&'static str, RuleLevel>> = {
         let mut map = std::collections::HashMap::new();
@@ -161,7 +163,11 @@ fn validate_with_opts<'a>(
             };
             map.insert(static_id, level);
         }
-        if map.is_empty() { None } else { Some(map) }
+        if map.is_empty() {
+            None
+        } else {
+            Some(map)
+        }
     };
 
     let ctx = ValidationContext {
@@ -233,19 +239,37 @@ fn encode_result<'a>(env: Env<'a>, result: ValidationResult) -> Term<'a> {
         Some(v) => v.as_str().encode(env),
         None => atoms::undefined().encode(env),
     };
-    let map = map.map_put(atoms::version().encode(env), version_term).unwrap();
+    let map = map
+        .map_put(atoms::version().encode(env), version_term)
+        .unwrap();
 
     // valid: boolean
     let valid = result.summary.is_valid();
-    let map = map.map_put(atoms::valid().encode(env), valid.encode(env)).unwrap();
+    let map = map
+        .map_put(atoms::valid().encode(env), valid.encode(env))
+        .unwrap();
 
     // errors / warnings / infos: non_neg_integer
-    let map = map.map_put(atoms::errors().encode(env), result.summary.errors.encode(env)).unwrap();
-    let map = map.map_put(atoms::warnings().encode(env), result.summary.warnings.encode(env)).unwrap();
-    let map = map.map_put(atoms::infos().encode(env), result.summary.infos.encode(env)).unwrap();
+    let map = map
+        .map_put(
+            atoms::errors().encode(env),
+            result.summary.errors.encode(env),
+        )
+        .unwrap();
+    let map = map
+        .map_put(
+            atoms::warnings().encode(env),
+            result.summary.warnings.encode(env),
+        )
+        .unwrap();
+    let map = map
+        .map_put(atoms::infos().encode(env), result.summary.infos.encode(env))
+        .unwrap();
 
     // issues: list of maps
-    let map = map.map_put(atoms::issues().encode(env), issues_list.encode(env)).unwrap();
+    let map = map
+        .map_put(atoms::issues().encode(env), issues_list.encode(env))
+        .unwrap();
 
     map
 }
@@ -255,7 +279,9 @@ fn encode_issue<'a>(env: Env<'a>, issue: &vastlint_core::Issue) -> Term<'a> {
     let map = rustler::types::map::map_new(env);
 
     // id: binary
-    let map = map.map_put(atoms::id().encode(env), issue.id.encode(env)).unwrap();
+    let map = map
+        .map_put(atoms::id().encode(env), issue.id.encode(env))
+        .unwrap();
 
     // severity: atom :error | :warning | :info
     let sev_atom = match issue.severity {
@@ -263,10 +289,14 @@ fn encode_issue<'a>(env: Env<'a>, issue: &vastlint_core::Issue) -> Term<'a> {
         vastlint_core::Severity::Warning => atoms::warning(),
         vastlint_core::Severity::Info => atoms::info(),
     };
-    let map = map.map_put(atoms::severity().encode(env), sev_atom.encode(env)).unwrap();
+    let map = map
+        .map_put(atoms::severity().encode(env), sev_atom.encode(env))
+        .unwrap();
 
     // message: binary
-    let map = map.map_put(atoms::message().encode(env), issue.message.encode(env)).unwrap();
+    let map = map
+        .map_put(atoms::message().encode(env), issue.message.encode(env))
+        .unwrap();
 
     // path: binary | :undefined
     let path_term = match &issue.path {
@@ -276,7 +306,9 @@ fn encode_issue<'a>(env: Env<'a>, issue: &vastlint_core::Issue) -> Term<'a> {
     let map = map.map_put(atoms::path().encode(env), path_term).unwrap();
 
     // spec_ref: binary
-    let map = map.map_put(atoms::spec_ref().encode(env), issue.spec_ref.encode(env)).unwrap();
+    let map = map
+        .map_put(atoms::spec_ref().encode(env), issue.spec_ref.encode(env))
+        .unwrap();
 
     map
 }
