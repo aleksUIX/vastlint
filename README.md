@@ -7,6 +7,9 @@
 [![Go](https://img.shields.io/github/v/tag/aleksUIX/vastlint-go?label=go&color=00ADD8)](https://github.com/aleksUIX/vastlint-go)
 [![VS Code](https://img.shields.io/visual-studio-marketplace/v/aleksuix.vastlint?label=vs%20code&color=007ACC)](https://marketplace.visualstudio.com/items?itemName=aleksuix.vastlint)
 [![license](https://img.shields.io/crates/l/vastlint-cli.svg)](LICENSE)
+[![website](https://img.shields.io/badge/vastlint.org-docs%20%26%20validator-blue)](https://vastlint.org)
+
+**Website & web validator:** [vastlint.org](https://vastlint.org) — paste a VAST tag and get results in your browser, no install required.
 
 A VAST XML validator. Checks ad tags against the IAB Tech Lab VAST specification so you don't have to read it. Over $30 billion in annual CTV and video ad spend flows through VAST XML, and malformed tags are one of the most common causes of lost impressions, broken tracking, and revenue discrepancies between platforms. There is no widely adopted open-source tool that validates VAST XML against the full IAB specification across all published versions.
 
@@ -20,6 +23,8 @@ Validates VAST documents against:
 - [Ad-ID](https://www.ad-id.org/) registry format (UniversalAdId)
 
 108 rules across required fields, schema validation, structural correctness, security, consistency, deprecated features, ambiguous usage, and value formats. See [common errors](docs/common-errors.md) for the ones that cost real money. New to vastlint? Start with the [tutorial](docs/tutorial.md).
+
+Full rule reference with examples and fix instructions: [vastlint.org/docs/rules](https://vastlint.org/docs/rules)
 
 ## Install
 
@@ -299,6 +304,10 @@ curl -X POST https://vastlint.p.rapidapi.com/validate \
 ```
 
 Returns the same structured result as the CLI and library: version, issues with rule IDs and line/col positions, and a summary. See the [RapidAPI listing](https://rapidapi.com/aleksUIX/api/vastlint) for full endpoint docs and pricing.
+
+## Use from a browser
+
+Paste any VAST tag into the web validator at **[vastlint.org/validate](https://vastlint.org/validate)** — no install, no account, nothing stored. Runs the same 108 rules as the CLI, entirely in your browser via WebAssembly.
 
 ## Performance
 
