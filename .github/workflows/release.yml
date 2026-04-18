@@ -546,7 +546,9 @@ jobs:
           if [ "$HTTP" = "200" ]; then
             echo "vastlint-core ${VERSION} already published — skipping"
           else
-            cargo publish -p vastlint-core
+            # Exit code 101 = crate version already exists; treat as success.
+            cargo publish -p vastlint-core || \
+              { RC=$?; [ $RC -eq 101 ] && echo "already published, skipping" || exit $RC; }
           fi
 
       # Wait for crates.io to index the core crate before publishing the CLI.
@@ -563,7 +565,8 @@ jobs:
           if [ "$HTTP" = "200" ]; then
             echo "vastlint-cli ${VERSION} already published — skipping"
           else
-            cargo publish -p vastlint-cli
+            cargo publish -p vastlint-cli || \
+              { RC=$?; [ $RC -eq 101 ] && echo "already published, skipping" || exit $RC; }
           fi
 
   # ── Docker Hub ──────────────────────────────────────────────────────────────
