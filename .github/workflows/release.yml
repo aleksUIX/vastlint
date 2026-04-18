@@ -505,6 +505,7 @@ jobs:
       base64-subjects: "${{ needs.hash-artifacts.outputs.hashes }}"
       upload-assets: true
       upload-tag-name: "${{ github.ref_name }}"
+      private-repository: true
 
   publish:
     name: Publish to crates.io
