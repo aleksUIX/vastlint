@@ -2,7 +2,7 @@
 name = "vastlint-ffi"
 version = "0.3.1"
 edition = "2021"
-rust-version = "1.75"
+rust-version = "1.86"
 authors = ["Aleks <aleks@vastlint.org>"]
 description = "C FFI bindings for vastlint-core — foundation for Go, Ruby, Java, and other language bindings"
 license = "Apache-2.0"

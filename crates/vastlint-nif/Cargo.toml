@@ -2,7 +2,7 @@
 name = "vastlint_nif"
 version = "0.3.1"
 edition = "2021"
-rust-version = "1.75"
+rust-version = "1.86"
 authors = ["Aleks <aleks@vastlint.org>"]
 description = "Erlang/Elixir NIF bindings for vastlint-core — DirtyCpu Rustler NIF for high-throughput VAST validation on the BEAM"
 license = "Apache-2.0"

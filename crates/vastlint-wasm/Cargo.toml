@@ -2,7 +2,7 @@
 name = "vastlint-wasm"
 version = "0.3.1"
 edition = "2021"
-rust-version = "1.75"
+rust-version = "1.86"
 authors = ["Aleks <aleks@vastlint.org>"]
 description = "WASM bindings for vastlint-core — validate VAST XML in the browser, Node, Deno, and edge workers"
 license = "Apache-2.0"

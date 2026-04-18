@@ -2,7 +2,7 @@
 name = "vastlint-core"
 version = "0.3.1"
 edition = "2021"
-rust-version = "1.75"
+rust-version = "1.86"
 authors = ["Aleks <aleks@vastlint.org>"]
 description = "VAST XML validator core — checks tags against IAB VAST 2.0 through 4.3"
 license = "Apache-2.0"
