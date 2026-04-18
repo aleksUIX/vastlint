@@ -1,15 +1,32 @@
 # vastlint
 
+<table><tr>
+<td valign="top">
+
+**Packages**<br>
 [![crates.io](https://img.shields.io/crates/v/vastlint-cli.svg?label=crates.io)](https://crates.io/crates/vastlint-cli)
 [![crates.io](https://img.shields.io/crates/v/vastlint-core.svg?label=vastlint-core)](https://crates.io/crates/vastlint-core)
-[![docs.rs](https://docs.rs/vastlint-core/badge.svg)](https://docs.rs/vastlint-core)
 [![npm](https://img.shields.io/npm/v/vastlint.svg?label=npm)](https://www.npmjs.com/package/vastlint)
 [![Go](https://img.shields.io/github/v/tag/aleksUIX/vastlint-go?label=go&color=00ADD8)](https://github.com/aleksUIX/vastlint-go)
-[![VS Code](https://img.shields.io/visual-studio-marketplace/v/aleksuix.vastlint?label=vs%20code&color=007ACC)](https://marketplace.visualstudio.com/items?itemName=aleksuix.vastlint)
 [![license](https://img.shields.io/crates/l/vastlint-cli.svg)](LICENSE)
+
+</td>
+<td valign="top">
+
+**Extensions & Docs**<br>
+[![VS Code](https://img.shields.io/visual-studio-marketplace/v/aleksuix.vastlint?label=vs%20code&color=007ACC)](https://marketplace.visualstudio.com/items?itemName=aleksuix.vastlint)
+[![docs.rs](https://docs.rs/vastlint-core/badge.svg)](https://docs.rs/vastlint-core)
 [![website](https://img.shields.io/badge/vastlint.org-docs%20%26%20validator-blue)](https://vastlint.org)
+
+</td>
+<td valign="top">
+
+**Security**<br>
 [![SLSA 3](https://slsa.dev/images/gh-badge-level3.svg)](https://slsa.dev)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/aleksUIX/vastlint/badge)](https://scorecard.dev/viewer/?uri=github.com/aleksUIX/vastlint)
+
+</td>
+</tr></table>
 
 **Website & web validator:** [VAST tag validator](https://vastlint.org) — paste a VAST tag and get results in your browser, no install required.
 
