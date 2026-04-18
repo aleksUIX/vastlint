@@ -34,7 +34,7 @@
     "commands": [
       {
         "command": "vastlint.fixAll",
-        "title": "vastlint: Fix All Auto-fixable Issues"
+        "title": "vastlint: Fix All Auto-fixable Issues (Experimental)"
       }
     ],
     "languages": [

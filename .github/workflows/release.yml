@@ -723,6 +723,15 @@ jobs:
         env:
           VSCE_PAT: ${{ secrets.VSCE_PAT }}
 
+      - name: Install ovsx
+        run: npm install -g ovsx
+
+      - name: Publish to Open VSX Registry
+        run: ovsx publish vastlint-${{ steps.ext_version.outputs.version }}.vsix --pat "$OVSX_TOKEN" || echo "Open VSX version already published, skipping"
+        working-directory: vscode
+        env:
+          OVSX_TOKEN: ${{ secrets.OVSX_TOKEN }}
+
   # ── Sync vastlint-go ────────────────────────────────────────────────────────
   # After a successful release, push the updated prebuilt libs and header into
   # the vastlint-go repo and tag it at the same version.

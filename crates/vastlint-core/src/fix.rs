@@ -54,8 +54,30 @@
 //! assert!(result.xml.contains("https://cdn.example.com/ad.mp4"));
 //! ```
 
-use crate::parse::{Node, VastDocument};
 use crate::{Issue, ValidationContext};
+
+/// All element names whose text content is a URL (used to classify which
+/// HTTPS rule ID to report in AppliedFix).
+const URL_TEXT_ELEMENTS: &[&str] = &[
+    "MediaFile",
+    "Impression",
+    "Error",
+    "ClickThrough",
+    "ClickTracking",
+    "CustomClick",
+    "IconClickThrough",
+    "IconClickTracking",
+    "IconViewTracking",
+    "NonLinearClickThrough",
+    "NonLinearClickTracking",
+    "CompanionClickThrough",
+    "CompanionClickTracking",
+    "Viewable",
+    "NotViewable",
+    "ViewUndetermined",
+    "VASTAdTagURI",
+    "Tracking",
+];
 
 // ── Public types ──────────────────────────────────────────────────────────────
 
@@ -101,20 +123,53 @@ pub fn fix(input: &str) -> FixResult {
 /// Use this when you need to declare wrapper chain depth or override rule
 /// severity. For simple repair, prefer [`fix`].
 pub fn fix_with_context(input: &str, context: ValidationContext) -> FixResult {
-    // Parse once; clone the tree so we can mutate it.
-    let doc = crate::parse::parse(input);
-    let mut root = doc.root.clone();
+    let mut xml = input.to_owned();
     let mut applied: Vec<AppliedFix> = Vec::new();
 
-    // Apply fix passes in order. Each pass walks the tree and mutates nodes.
-    apply_https_fixes(&mut root, "/VAST", &mut applied);
-    apply_deprecated_attr_fixes(&mut root, "/VAST", &mut applied);
+    // ── HTTPS upgrade — raw string replacement ────────────────────────────────
+    // Operate directly on the raw XML string so CDATA sections, comments, and
+    // all formatting are preserved exactly. We replace every occurrence of
+    // "http://" with "https://"; in a VAST document the only http:// values
+    // are tracking/media URLs which should all be upgraded.
+    let http_count = xml.matches("http://").count();
+    if http_count > 0 {
+        xml = xml.replace("http://", "https://");
 
-    // Serialize the fixed tree back to XML.
-    let xml = serialize_doc(&VastDocument {
-        root,
-        parse_error: doc.parse_error,
-    });
+        // Record one AppliedFix per affected URL element type found in the doc.
+        // Parse the pre-fix document to check which element types had http:// URLs.
+        let pre_doc = crate::parse::parse(input);
+        let mut had_mediafile_http = false;
+        let mut had_tracking_http = false;
+        check_http_elements(&pre_doc.root, &mut had_mediafile_http, &mut had_tracking_http);
+
+        if had_mediafile_http {
+            applied.push(AppliedFix {
+                rule_id: "VAST-2.0-mediafile-https",
+                description: format!("Upgraded {} HTTP URL(s) to HTTPS", http_count),
+                path: "/VAST".to_owned(),
+            });
+        }
+        if had_tracking_http {
+            applied.push(AppliedFix {
+                rule_id: "VAST-2.0-tracking-https",
+                description: format!("Upgraded {} HTTP URL(s) to HTTPS", http_count),
+                path: "/VAST".to_owned(),
+            });
+        }
+    }
+
+    // ── conditionalAd removal — raw string replacement ────────────────────────
+    // Remove conditionalAd="..." (any quote style) from <Ad ...> tags.
+    // This preserves all other formatting.
+    let without_cond = remove_conditional_ad_attr(&xml);
+    if without_cond != xml {
+        applied.push(AppliedFix {
+            rule_id: "VAST-4.0-conditionalad",
+            description: "Removed deprecated conditionalAd attribute from <Ad>".to_owned(),
+            path: "/VAST".to_owned(),
+        });
+        xml = without_cond;
+    }
 
     // Re-validate the repaired XML to find what remains.
     let remaining = crate::validate_with_context(&xml, context).issues;
@@ -126,150 +181,55 @@ pub fn fix_with_context(input: &str, context: ValidationContext) -> FixResult {
     }
 }
 
-// ── Fix pass: HTTP → HTTPS ────────────────────────────────────────────────────
+/// Walk the parsed element tree and check which URL element types had http:// text.
+fn check_http_elements(node: &crate::parse::Node, had_mediafile: &mut bool, had_tracking: &mut bool) {
+    if node.text.starts_with("http://") {
+        if node.name == "MediaFile" {
+            *had_mediafile = true;
+        } else if URL_TEXT_ELEMENTS.contains(&node.name.as_str()) {
+            *had_tracking = true;
+        }
+    }
+    for child in &node.children {
+        check_http_elements(child, had_mediafile, had_tracking);
+    }
+}
 
-/// All element names whose text content is expected to be a URL.
-/// Matches the set checked by `security.rs`.
-const URL_TEXT_ELEMENTS: &[&str] = &[
-    "MediaFile",
-    "Impression",
-    "Error",
-    "ClickThrough",
-    "ClickTracking",
-    "CustomClick",
-    "IconClickThrough",
-    "IconClickTracking",
-    "IconViewTracking",
-    "NonLinearClickThrough",
-    "NonLinearClickTracking",
-    "CompanionClickThrough",
-    "CompanionClickTracking",
-    "Viewable",
-    "NotViewable",
-    "ViewUndetermined",
-    "VASTAdTagURI",
-    "Tracking",
-];
-
-fn apply_https_fixes(node: &mut Node, path: &str, applied: &mut Vec<AppliedFix>) {
-    if URL_TEXT_ELEMENTS.contains(&node.name.as_str()) && node.text.starts_with("http://") {
-        let rule_id: &'static str = if node.name == "MediaFile" {
-            "VAST-2.0-mediafile-https"
+/// Remove `conditionalAd="..."` or `conditionalAd='...'` from any tag in the
+/// raw XML string. Uses a simple state-machine scan to avoid regex dependency.
+fn remove_conditional_ad_attr(input: &str) -> String {
+    const NEEDLE: &str = "conditionalAd=";
+    let mut out = String::with_capacity(input.len());
+    let mut rest = input;
+    while !rest.is_empty() {
+        // Look for conditionalAd= at the current position.
+        if rest.starts_with(NEEDLE) {
+            // Walk back to remove any preceding whitespace.
+            while out.ends_with(' ') || out.ends_with('\t') {
+                out.pop();
+            }
+            // Skip past "conditionalAd=" and the quoted value.
+            rest = &rest[NEEDLE.len()..];
+            if let Some(quote_char) = rest.chars().next() {
+                if quote_char == '"' || quote_char == '\'' {
+                    rest = &rest[quote_char.len_utf8()..]; // skip opening quote
+                    // Advance past the attribute value until the closing quote.
+                    let close = rest.find(quote_char).unwrap_or(rest.len());
+                    rest = &rest[close..];
+                    // Skip the closing quote if present.
+                    if rest.starts_with(quote_char) {
+                        rest = &rest[quote_char.len_utf8()..];
+                    }
+                }
+            }
         } else {
-            "VAST-2.0-tracking-https"
-        };
-        node.text = format!("https://{}", &node.text["http://".len()..]);
-        applied.push(AppliedFix {
-            rule_id,
-            description: format!("Upgraded HTTP URL to HTTPS in <{}>", node.name),
-            path: path.to_owned(),
-        });
-    }
-
-    // Recurse into children. Collect names+indices first to build paths.
-    for i in 0..node.children.len() {
-        let child_path = format!("{}/{}[{}]", path, node.children[i].name, i);
-        apply_https_fixes(&mut node.children[i], &child_path, applied);
-    }
-}
-
-// ── Fix pass: deprecated attributes ──────────────────────────────────────────
-
-fn apply_deprecated_attr_fixes(node: &mut Node, path: &str, applied: &mut Vec<AppliedFix>) {
-    // `conditionalAd` on <Ad> is deprecated as of VAST 4.1.
-    // Remove it regardless of detected version — it's never load-bearing.
-    if node.name == "Ad" {
-        if let Some(pos) = node.attrs.iter().position(|a| a.name == "conditionalAd") {
-            node.attrs.remove(pos);
-            applied.push(AppliedFix {
-                rule_id: "VAST-4.0-conditionalad",
-                description: "Removed deprecated conditionalAd attribute from <Ad>".to_owned(),
-                path: path.to_owned(),
-            });
+            // Advance one Unicode character at a time to stay on valid boundaries.
+            let ch = rest.chars().next().unwrap();
+            out.push(ch);
+            rest = &rest[ch.len_utf8()..];
         }
     }
-
-    for i in 0..node.children.len() {
-        let child_path = format!("{}/{}[{}]", path, node.children[i].name, i);
-        apply_deprecated_attr_fixes(&mut node.children[i], &child_path, applied);
-    }
-}
-
-// ── Serializer ────────────────────────────────────────────────────────────────
-
-/// Serialize a `VastDocument` back to an XML string.
-///
-/// The output is well-formed XML with a standard declaration header and
-/// two-space indentation. XML comments, processing instructions, and DOCTYPE
-/// declarations are not preserved (they are stripped during parsing).
-fn serialize_doc(doc: &VastDocument) -> String {
-    let mut out = String::with_capacity(4096);
-    out.push_str("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
-    serialize_node(&doc.root, &mut out, 0);
     out
-}
-
-fn serialize_node(node: &Node, out: &mut String, depth: usize) {
-    let indent = "  ".repeat(depth);
-
-    out.push_str(&indent);
-    out.push('<');
-    out.push_str(&node.name);
-
-    for attr in &node.attrs {
-        out.push(' ');
-        out.push_str(&attr.name);
-        out.push_str("=\"");
-        out.push_str(&escape_attr(&attr.value));
-        out.push('"');
-    }
-
-    if node.children.is_empty() && node.text.is_empty() {
-        // Self-closing element.
-        out.push_str("/>\n");
-        return;
-    }
-
-    out.push('>');
-
-    if !node.children.is_empty() {
-        // Block form: children on their own lines, text (if any) as last child.
-        out.push('\n');
-        for child in &node.children {
-            serialize_node(child, out, depth + 1);
-        }
-        if !node.text.is_empty() {
-            // Unusual: mixed content (children + text). Emit text as a
-            // final indented line. In practice this shouldn't occur in VAST.
-            out.push_str(&indent);
-            out.push_str("  ");
-            out.push_str(&escape_text(&node.text));
-            out.push('\n');
-        }
-        out.push_str(&indent);
-    } else {
-        // Inline form: <Element>text content</Element>.
-        out.push_str(&escape_text(&node.text));
-    }
-
-    out.push_str("</");
-    out.push_str(&node.name);
-    out.push_str(">\n");
-}
-
-#[inline]
-fn escape_attr(s: &str) -> String {
-    s.replace('&', "&amp;")
-        .replace('"', "&quot;")
-        .replace('<', "&lt;")
-        .replace('>', "&gt;")
-}
-
-#[inline]
-fn escape_text(s: &str) -> String {
-    s.replace('&', "&amp;")
-        .replace('<', "&lt;")
-        .replace('>', "&gt;")
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────

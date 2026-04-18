@@ -175,7 +175,7 @@ fn fix_tracking_upgrades_all_tracking_urls() {
     assert!(result.xml.contains("https://track.example.com/start"));
     assert!(result.xml.contains("https://track.example.com/complete"));
     assert!(!result.xml.contains("http://track.example.com/"));
-    // Two tracking URLs → two applied fixes.
+    // One applied fix for the tracking-https rule (covers all URLs in one pass).
     let tracking_fixes: Vec<_> = result
         .applied
         .iter()
@@ -183,8 +183,8 @@ fn fix_tracking_upgrades_all_tracking_urls() {
         .collect();
     assert_eq!(
         tracking_fixes.len(),
-        2,
-        "expected 2 tracking fixes, got {tracking_fixes:#?}"
+        1,
+        "expected 1 tracking-https fix entry, got {tracking_fixes:#?}"
     );
 }
 
@@ -370,11 +370,11 @@ fn fix_multiple_issues_all_rules_applied() {
 #[test]
 fn fix_multiple_issues_applied_count_is_correct() {
     let result = fix(MULTIPLE_ISSUES);
-    // mediafile-https: 1, tracking-https: impression + error + tracking + click = 4, conditionalad: 1
+    // One entry per rule ID: mediafile-https, tracking-https, conditionalad = 3
     assert_eq!(
         result.applied.len(),
-        6,
-        "expected 6 applied fixes, got: {:#?}",
+        3,
+        "expected 3 applied fixes (one per rule), got: {:#?}",
         result.applied
     );
 }

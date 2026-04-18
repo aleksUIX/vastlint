@@ -13,6 +13,7 @@ chrome/node_modules/
 # provenance is tied to the CI run that built them.
 vscode/*.vsix
 vscode/out/
+.vscode/
 # npm package — generated files from wasm-pack + assemble.js.
 # These are built by CI (build-wasm job) and published from there.
 # Hand-written sources (index.js, index.cjs, index.d.ts, package.json,
