@@ -8,7 +8,25 @@ target/
 # Chrome extension build output
 chrome/dist/
 chrome/node_modules/
-# VS Code extension build artefacts — never commit pre-built VSIXs.
+# VS Code extension build artefacts — never commit pre-built VSIXs or compiled output.
 # The release workflow attaches them to GitHub Releases instead so
 # provenance is tied to the CI run that built them.
 vscode/*.vsix
+vscode/out/
+# npm package — generated files from wasm-pack + assemble.js.
+# These are built by CI (build-wasm job) and published from there.
+# Hand-written sources (index.js, index.cjs, index.d.ts, package.json,
+# README.md, scripts/) remain tracked.
+npm/vastlint_wasm.js
+npm/vastlint_wasm.d.ts
+npm/vastlint_wasm_bg.js
+npm/vastlint_wasm_bg.wasm
+npm/vastlint_wasm_bg.wasm.d.ts
+npm/vastlint_wasm_cjs.js
+npm/pkg/
+npm/pkg-node/
+
+# GCP service-account credential files — must never be committed
+gen-lang-client-*.json
+*-service-account*.json
+

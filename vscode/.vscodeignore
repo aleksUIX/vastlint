@@ -1,4 +1,5 @@
-# Exclude source / dev files
+# Exclude source / dev files — only out/, package.json, README.md, icon.png,
+# and LICENSE are needed at runtime.
 src/**
 node_modules/**
 .vscode/**
@@ -6,4 +7,5 @@ node_modules/**
 tsconfig.json
 build.js
 icon.svg
+PROGRESS.md
 *.vsix

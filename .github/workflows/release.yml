@@ -8,6 +8,11 @@ on:
 env:
   CARGO_TERM_COLOR: always
 
+# Workflow-level default: every job gets read-only access unless it explicitly
+# declares broader permissions.  Jobs that publish or attest override below.
+permissions:
+  contents: read
+
 jobs:
   # ── Smoke tests ─────────────────────────────────────────────────────────────
   # All publish / release jobs declare `needs: smoke-test` so no artefact ever
@@ -26,15 +31,16 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4.3.1
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@3c5f7ea28cd621ae0bf5283f0e981fb97b8a7af9  # v (pinned SHA)
         with:
+          toolchain: stable
           targets: wasm32-unknown-unknown
           components: clippy
 
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4  # v2.9.1
 
       # ── 1. Unit + integration tests (core, ffi, cli) ──────────────────────
       - name: cargo test --all
@@ -65,10 +71,10 @@ jobs:
 
       # ── 3. WASM smoke test ────────────────────────────────────────────────
       - name: Install wasm-pack
-        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+        run: cargo install wasm-pack --locked
 
       - name: Install Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
         with:
           node-version: '20'
 
@@ -123,6 +129,58 @@ jobs:
           console.log('WASM invalid fixture ✓ (errors=' + result.summary.errors + ', valid=false)');
           EOF
 
+  # ── WASM build (single canonical build) ─────────────────────────────────────
+  # Builds the npm package once from the attested source tree and uploads it as
+  # a workflow artifact.  publish-npm and publish-vscode both download this
+  # artifact instead of rebuilding — ensuring every consumer publishes the same
+  # bytes that were validated by smoke-test.
+  #
+  # Building independently in each publish job means:
+  #   - Different jobs may produce different binaries (non-reproducible Rust/WASM)
+  #   - The published npm package and the VSIX may embed different WASM blobs
+  #   - Neither matches what was tested in smoke-test
+  #   - The SLSA provenance covers the release binaries but not what npm/vscode ship
+  build-wasm:
+    name: Build WASM npm package
+    runs-on: ubuntu-latest
+    needs: smoke-test
+
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4.3.1
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@3c5f7ea28cd621ae0bf5283f0e981fb97b8a7af9  # v (pinned SHA)
+        with:
+          toolchain: stable
+          targets: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4  # v2.9.1
+
+      - name: Install wasm-pack
+        run: cargo install wasm-pack --locked
+
+      - name: Install Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
+        with:
+          node-version: '20'
+
+      - name: Build WASM (bundler target — ESM)
+        run: wasm-pack build crates/vastlint-wasm --target bundler --out-dir ../../npm/pkg
+
+      - name: Build WASM (nodejs target — CJS)
+        run: wasm-pack build crates/vastlint-wasm --target nodejs --out-dir ../../npm/pkg-node
+
+      - name: Assemble npm package
+        run: node npm/scripts/assemble.js
+
+      - name: Upload assembled npm package
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
+        with:
+          name: wasm-npm-package
+          path: npm/
+          # Retain for the full workflow run so publish jobs can download it.
+          retention-days: 1
+
   build:
     name: Build ${{ matrix.target }}
     runs-on: ${{ matrix.os }}
@@ -152,11 +210,12 @@ jobs:
             archive: vastlint-macos-aarch64.tar.gz
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4.3.1
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@3c5f7ea28cd621ae0bf5283f0e981fb97b8a7af9  # v (pinned SHA)
         with:
+          toolchain: stable
           targets: ${{ matrix.target }}
 
       - name: Install musl tools (Linux)
@@ -183,7 +242,7 @@ jobs:
           tar czf ${{ matrix.archive }} -C $(dirname $BINARY) $(basename $BINARY)
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
         with:
           name: ${{ matrix.archive }}
           path: ${{ matrix.archive }}
@@ -231,14 +290,15 @@ jobs:
             archive: vastlint-ffi-macos-aarch64.tar.gz
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4.3.1
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@3c5f7ea28cd621ae0bf5283f0e981fb97b8a7af9  # v (pinned SHA)
         with:
+          toolchain: stable
           targets: ${{ matrix.target }}
 
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4  # v2.9.1
 
       - name: Install cross (Linux aarch64)
         if: matrix.target == 'aarch64-unknown-linux-gnu'
@@ -276,7 +336,7 @@ jobs:
           tar czf ${{ matrix.archive }} -C "$STAGING" .
 
       - name: Upload FFI artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
         with:
           name: ${{ matrix.archive }}
           path: ${{ matrix.archive }}
@@ -318,14 +378,15 @@ jobs:
             archive: vastlint-nif-macos-aarch64.tar.gz
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4.3.1
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@3c5f7ea28cd621ae0bf5283f0e981fb97b8a7af9  # v (pinned SHA)
         with:
+          toolchain: stable
           targets: ${{ matrix.target }}
 
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4  # v2.9.1
 
       - name: Install cross (Linux aarch64)
         if: matrix.target == 'aarch64-unknown-linux-gnu'
@@ -354,60 +415,139 @@ jobs:
           tar czf ${{ matrix.archive }} -C "$STAGING" .
 
       - name: Upload NIF artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
         with:
           name: ${{ matrix.archive }}
           path: ${{ matrix.archive }}
 
+  # ── Aggregate artifact hashes for SLSA L3 provenance ───────────────────────
+  # Downloads every build artifact and computes SHA-256 hashes so the
+  # slsa-github-generator job can sign them from an isolated environment.
+  # publish-vscode is included so the VSIX is hashed when that job is enabled.
+  hash-artifacts:
+    name: Hash release artifacts
+    needs: [build, build-ffi, build-nif, build-wasm, publish-vscode]
+    runs-on: ubuntu-latest
+    outputs:
+      hashes: ${{ steps.hash.outputs.hashes }}
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093  # v4.3.0
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Compute SHA-256 hashes
+        id: hash
+        run: |
+          cd artifacts
+          echo "hashes=$(sha256sum * | base64 -w0)" >> "$GITHUB_OUTPUT"
+
   release:
     name: Create GitHub Release
-    needs: [build, build-ffi, build-nif, publish-vscode]
+    needs: [build, build-ffi, build-nif, build-wasm, publish-vscode]
     runs-on: ubuntu-latest
+    environment: production  # requires reviewer approval before any release asset is published
     permissions:
-      contents: write
+      contents: write  # create the GitHub Release and upload assets
+      # id-token and attestations are no longer needed here — provenance is
+      # handled by the isolated slsa-github-generator job below (SLSA L3).
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4.3.1
 
       - name: Download all artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093  # v4.3.0
         with:
           path: artifacts
           merge-multiple: true
 
       - name: Create release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65  # v2.6.2
         with:
           files: artifacts/*
           generate_release_notes: true
+
+  # ── SLSA Build Level 3 provenance ──────────────────────────────────────────
+  # Calls the slsa-github-generator reusable workflow, which runs in an
+  # isolated GitHub-managed signing environment.  The build job cannot tamper
+  # with what is signed — the generator hashes artifacts independently and
+  # requests its own OIDC token from GitHub's Sigstore instance.
+  #
+  # Consumers can verify any artifact with:
+  #   gh attestation verify <file> --repo aleksUIX/vastlint
+  #
+  #   slsa-verifier verify-artifact <file> \
+  #     --provenance-path multiple.intoto.jsonl \
+  #     --source-uri github.com/aleksUIX/vastlint
+  #
+  # NOTE: slsa-github-generator is pinned to its commit SHA (v2.0.0).
+  # Verified: the tag is a lightweight tag pointing directly to this commit.
+  # Re-verify after any version bump with:
+  #   git ls-remote https://github.com/slsa-framework/slsa-github-generator.git refs/tags/<new-tag>
+  provenance:
+    name: SLSA L3 provenance
+    needs: [hash-artifacts, release]
+    permissions:
+      actions: read    # read workflow run data used in the provenance statement
+      id-token: write  # request OIDC token from GitHub's Sigstore instance
+      contents: write  # upload .intoto.jsonl to the GitHub Release
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@5a775b367a56d5bd118a224a811bba288150a563  # v2.0.0
+    with:
+      base64-subjects: "${{ needs.hash-artifacts.outputs.hashes }}"
+      upload-assets: true
+      upload-tag-name: "${{ github.ref_name }}"
 
   publish:
     name: Publish to crates.io
     needs: [smoke-test, build]
     runs-on: ubuntu-latest
+    environment: production  # requires reviewer approval before publishing to crates.io
     # Set ENABLE_CRATES_PUBLISH to "true" in repo variables (Settings → Variables)
     # to enable publishing. Without it this job is skipped entirely.
     if: vars.ENABLE_CRATES_PUBLISH == 'true'
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4.3.1
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@3c5f7ea28cd621ae0bf5283f0e981fb97b8a7af9  # v (pinned SHA)
+        with:
+          toolchain: stable
 
       - name: Publish vastlint-core
-        run: cargo publish -p vastlint-core --no-verify || echo "vastlint-core already published, skipping"
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          # Check if this exact version is already on crates.io before publishing.
+          # `cargo search` returns "name = "version"" in the first line when found.
+          PUBLISHED=$(cargo search vastlint-core --limit 1 2>/dev/null \
+            | grep -E '^vastlint-core\s*=' \
+            | grep -F "\"${VERSION}\"" || true)
+          if [ -n "$PUBLISHED" ]; then
+            echo "vastlint-core ${VERSION} already published — skipping"
+          else
+            cargo publish -p vastlint-core
+          fi
 
-      # Wait for crates.io to index the core crate before publishing the CLI
+      # Wait for crates.io to index the core crate before publishing the CLI.
       - name: Wait for crates.io index
         run: sleep 30
 
       - name: Publish vastlint-cli
-        run: cargo publish -p vastlint-cli --no-verify || echo "vastlint-cli already published, skipping"
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          PUBLISHED=$(cargo search vastlint-cli --limit 1 2>/dev/null \
+            | grep -E '^vastlint-cli\s*=' \
+            | grep -F "\"${VERSION}\"" || true)
+          if [ -n "$PUBLISHED" ]; then
+            echo "vastlint-cli ${VERSION} already published — skipping"
+          else
+            cargo publish -p vastlint-cli
+          fi
 
   # ── Docker Hub ──────────────────────────────────────────────────────────────
   # Builds a multi-arch image (amd64 + arm64) and pushes to aleksuix/vastlint.
@@ -424,20 +564,21 @@ jobs:
     name: Publish to Docker Hub
     needs: [smoke-test, build]
     runs-on: ubuntu-latest
+    environment: production  # requires reviewer approval before pushing to Docker Hub
     if: vars.ENABLE_DOCKER_PUBLISH == 'true'
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4.3.1
 
       # QEMU lets buildx cross-compile the arm64 layer on an amd64 runner
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
+        uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130  # v3.7.0
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f  # v3.12.0
 
       - name: Log in to Docker Hub
-        uses: docker/login-action@v3
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9  # v3.7.0
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
@@ -448,7 +589,7 @@ jobs:
         run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
 
       - name: Build and push
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@ca052bb54ab0790a636c9b5f226502c73d547a25  # v5.4.0
         with:
           context: .
           file: Dockerfile
@@ -457,46 +598,40 @@ jobs:
           tags: |
             aleksuix/vastlint:latest
             aleksuix/vastlint:${{ steps.version.outputs.version }}
-          # Inline cache so repeated builds are fast on GitHub's runners
-          cache-from: type=registry,ref=aleksuix/vastlint:buildcache
-          cache-to:   type=registry,ref=aleksuix/vastlint:buildcache,mode=max
+          # Use GitHub Actions cache instead of Docker Hub registry cache.
+          # type=registry sourced from aleksuix/vastlint:buildcache was removed —
+          # a compromised Docker Hub account could poison the cache layer and
+          # inject malicious image layers into the build without detection.
+          # type=gha is scoped to this repo and backed by GitHub's own cache
+          # service; it cannot be written to by external parties.
+          cache-from: type=gha
+          cache-to:   type=gha,mode=max
 
   publish-npm:
     name: Publish to npm
-    needs: [smoke-test, build]
+    needs: [smoke-test, build, build-wasm]
     runs-on: ubuntu-latest
+    environment: production  # requires reviewer approval before publishing to npm
     # Set ENABLE_NPM_PUBLISH to "true" in repo variables (Settings → Variables)
     # to enable publishing. Without it this job is skipped entirely.
     # Requires NPM_TOKEN secret (Settings → Secrets → Actions).
     if: vars.ENABLE_NPM_PUBLISH == 'true'
+    permissions:
+      contents: read
+      id-token: write  # required for --provenance (links package to this CI run)
 
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+      - name: Download assembled npm package
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093  # v4.3.0
         with:
-          targets: wasm32-unknown-unknown
-
-      - uses: Swatinem/rust-cache@v2
-
-      - name: Install wasm-pack
-        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+          name: wasm-npm-package
+          path: npm
 
       - name: Install Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
         with:
           node-version: '20'
           registry-url: 'https://registry.npmjs.org'
-
-      - name: Build WASM (bundler target — ESM)
-        run: wasm-pack build crates/vastlint-wasm --target bundler --out-dir ../../npm/pkg
-
-      - name: Build WASM (nodejs target — CJS)
-        run: wasm-pack build crates/vastlint-wasm --target nodejs --out-dir ../../npm/pkg-node
-
-      - name: Assemble npm package
-        run: node npm/scripts/assemble.js
 
       # Sync npm package version to match the git tag (strips leading "v")
       - name: Set npm version from tag
@@ -512,7 +647,9 @@ jobs:
         working-directory: npm
 
       - name: Publish to npm
-        run: npm publish || echo "npm version already published, skipping"
+        # --provenance links the published package to this exact CI run via
+        # GitHub's OIDC token — consumers can verify with `npm audit signatures`
+        run: npm publish --provenance || echo "npm version already published, skipping"
         working-directory: npm
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
@@ -530,36 +667,24 @@ jobs:
   # Set ENABLE_VSCODE_PUBLISH to "true" in repo variables to activate this job.
   publish-vscode:
     name: Publish VS Code Extension
-    needs: [smoke-test, build]
+    needs: [smoke-test, build, build-wasm]
     runs-on: ubuntu-latest
+    environment: production  # requires reviewer approval before publishing to VS Code Marketplace
     if: vars.ENABLE_VSCODE_PUBLISH == 'true'
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4.3.1
 
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+      - name: Download assembled npm package
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093  # v4.3.0
         with:
-          targets: wasm32-unknown-unknown
-
-      - uses: Swatinem/rust-cache@v2
-
-      - name: Install wasm-pack
-        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+          name: wasm-npm-package
+          path: npm
 
       - name: Install Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
         with:
           node-version: '22'
-
-      - name: Build WASM (bundler target — ESM)
-        run: wasm-pack build crates/vastlint-wasm --target bundler --out-dir ../../npm/pkg
-
-      - name: Build WASM (nodejs target — CJS)
-        run: wasm-pack build crates/vastlint-wasm --target nodejs --out-dir ../../npm/pkg-node
-
-      - name: Assemble npm package
-        run: node npm/scripts/assemble.js
 
       # Sync the extension version to match the git tag (strips leading "v")
       - name: Set extension version from tag
@@ -587,7 +712,7 @@ jobs:
         working-directory: vscode
 
       - name: Upload VSIX as workflow artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
         with:
           name: vastlint-${{ steps.ext_version.outputs.version }}.vsix
           path: vscode/vastlint-${{ steps.ext_version.outputs.version }}.vsix
@@ -613,13 +738,13 @@ jobs:
   # Set ENABLE_GO_SYNC to "true" in repo variables to activate this job.
   sync-go:
     name: Sync vastlint-go
-    needs: [build-ffi, release]
+    needs: [build-ffi, release, provenance]
     runs-on: ubuntu-latest
     if: vars.ENABLE_GO_SYNC == 'true'
 
     steps:
       - name: Download all FFI artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093  # v4.3.0
         with:
           path: ffi-artifacts
           # Download only the FFI tarballs by filtering on name prefix.
@@ -627,7 +752,7 @@ jobs:
           merge-multiple: true
 
       - name: Checkout vastlint-go via deploy key
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4.3.1
         with:
           repository: aleksUIX/vastlint-go
           ssh-key: ${{ secrets.VASTLINT_GO_DEPLOY_KEY }}
@@ -666,6 +791,12 @@ jobs:
             echo "✓ $DIR/libvastlint.a"
           done
 
+      - name: Import bot GPG key
+        run: |
+          echo "${{ secrets.BOT_GPG_KEY }}" | gpg --batch --import
+          # Trust the key fully so git can use it without prompts
+          echo "AEA67F4C8B714AC26E14ACDB67DF23E270B033DB:6:" | gpg --import-ownertrust
+
       - name: Commit and push
         run: |
           TAG="${{ github.ref_name }}"
@@ -674,20 +805,25 @@ jobs:
           cd vastlint-go
           git config user.name  "vastlint release bot"
           git config user.email "bot@vastlint.org"
+          git config user.signingkey "67DF23E270B033DB"
+          git config commit.gpgsign  true
 
           git add libs/ vastlint.h
           git diff --cached --quiet && echo "nothing to commit" && exit 0
 
-          git commit -m "chore: update prebuilt libs to ${TAG}"
+          git commit -S -m "chore: update prebuilt libs to ${TAG}"
           git push origin main
 
       - name: Tag vastlint-go
         run: |
           TAG="${{ github.ref_name }}"
           cd vastlint-go
-          # Force-overwrite in case the tag was pushed manually before this job ran.
-          git tag -f "$TAG"
-          git push origin "$TAG" --force
+          # Fail loudly if the tag already exists — never silently overwrite.
+          if git ls-remote --tags origin "$TAG" | grep -q "$TAG"; then
+            echo "::error::Tag $TAG already exists on vastlint-go. Refusing to overwrite." && exit 1
+          fi
+          git tag "$TAG"
+          git push origin "$TAG"
 
   # ── Sync vastlint-erlang ─────────────────────────────────────────────────────
   # After a successful release, push the updated prebuilt NIF tarballs and
@@ -704,20 +840,20 @@ jobs:
   # Set ENABLE_ERLANG_SYNC to "true" in repo variables to activate this job.
   sync-erlang:
     name: Sync vastlint-erlang
-    needs: [build-nif, release]
+    needs: [build-nif, release, provenance]
     runs-on: ubuntu-latest
     if: vars.ENABLE_ERLANG_SYNC == 'true'
 
     steps:
       - name: Download all NIF artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093  # v4.3.0
         with:
           path: nif-artifacts
           pattern: vastlint-nif-*
           merge-multiple: true
 
       - name: Checkout vastlint-erlang via deploy key
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4.3.1
         with:
           repository: aleksUIX/vastlint-erlang
           ssh-key: ${{ secrets.VASTLINT_ERLANG_DEPLOY_KEY }}
@@ -752,6 +888,11 @@ jobs:
           echo "Wrote $CHECKSUM_FILE"
           cat "$CHECKSUM_FILE"
 
+      - name: Import bot GPG key
+        run: |
+          echo "${{ secrets.BOT_GPG_KEY }}" | gpg --batch --import
+          echo "AEA67F4C8B714AC26E14ACDB67DF23E270B033DB:6:" | gpg --import-ownertrust
+
       - name: Commit and push
         run: |
           TAG="${{ github.ref_name }}"
@@ -760,16 +901,22 @@ jobs:
           cd vastlint-erlang
           git config user.name  "vastlint release bot"
           git config user.email "bot@vastlint.org"
+          git config user.signingkey "67DF23E270B033DB"
+          git config commit.gpgsign  true
 
           git add mix.exs checksum-Elixir.VastlintNif.exs
           git diff --cached --quiet && echo "nothing to commit" && exit 0
 
-          git commit -m "chore: update prebuilt NIFs to ${TAG}"
+          git commit -S -m "chore: update prebuilt NIFs to ${TAG}"
           git push origin main
 
       - name: Tag vastlint-erlang
         run: |
           TAG="${{ github.ref_name }}"
           cd vastlint-erlang
-          git tag -f "$TAG"
-          git push origin "$TAG" --force
+          # Fail loudly if the tag already exists — never silently overwrite.
+          if git ls-remote --tags origin "$TAG" | grep -q "$TAG"; then
+            echo "::error::Tag $TAG already exists on vastlint-erlang. Refusing to overwrite." && exit 1
+          fi
+          git tag "$TAG"
+          git push origin "$TAG"

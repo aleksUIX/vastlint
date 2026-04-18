@@ -186,8 +186,12 @@ function buildDiagnostics(
     const fixHint = FIX_HINTS[issue.id];
 
     // Build the hover message as Markdown.
+    // isTrusted is intentionally left false (default): issue.message,
+    // issue.spec_ref, and issue.path are derived from XML content and could
+    // be attacker-controlled.  isTrusted=true would enable command: URIs,
+    // creating an RCE-on-hover vector.  No command: URIs are used here,
+    // so there is no functional cost to keeping it untrusted.
     const md = new vscode.MarkdownString('', true);
-    md.isTrusted = true;
     md.appendMarkdown(`**vastlint** \`${issue.id}\`\n\n`);
     md.appendMarkdown(`${issue.message}\n\n`);
     if (fixHint) {
@@ -326,8 +330,10 @@ class VastlintHoverProvider implements vscode.HoverProvider {
     const hits = diags.filter((d) => d.range.contains(position) && d._meta);
     if (hits.length === 0) return undefined;
 
+    // isTrusted is intentionally left false (default): d.message, m.id,
+    // m.specRef, and m.path are derived from XML content and could be
+    // attacker-controlled.  No command: URIs are used here.
     const md = new vscode.MarkdownString('', true);
-    md.isTrusted = true;
 
     for (const d of hits) {
       const m = d._meta!;
@@ -424,8 +430,8 @@ export function activate(context: vscode.ExtensionContext): void {
       let fixResult: ReturnType<typeof fix>;
       try {
         fixResult = fix(xml);
-      } catch {
-        vscode.window.showErrorMessage('vastlint: fix failed');
+      } catch (e) {
+        vscode.window.showErrorMessage(`vastlint: fix failed — ${e}`);
         return;
       }
       if (fixResult.applied.length === 0) {
@@ -440,7 +446,7 @@ export function activate(context: vscode.ExtensionContext): void {
       edit.replace(doc.uri, fullRange, fixResult.xml);
       vscode.workspace.applyEdit(edit).then(() => {
         vscode.window.showInformationMessage(
-          `vastlint: applied ${fixResult.applied.length} fix${fixResult.applied.length === 1 ? '' : 'es'}`,
+          `vastlint: applied ${fixResult.applied.length} fix${fixResult.applied.length === 1 ? '' : 'es'} ⚠️ Auto-fix is experimental — review changes before saving.`,
         );
       });
     }),

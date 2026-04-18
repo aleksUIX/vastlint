@@ -1,0 +1,10 @@
+# CODEOWNERS — https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+#
+# Require explicit review by the project owner for any changes to:
+#   - CI/CD workflows (supply-chain attack surface)
+#   - Security policy
+#   - This file itself
+
+/.github/workflows/   @aleksUIX
+/.github/CODEOWNERS   @aleksUIX
+/SECURITY.md          @aleksUIX
