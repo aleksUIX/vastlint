@@ -97,6 +97,18 @@ vastlint check tag.xml --telemetry
 
 # list all rules with default severity
 vastlint rules
+
+# automatically fix common issues and overwrite the file
+vastlint fix tag.xml
+
+# fix and write to a new path instead of overwriting
+vastlint fix tag.xml --out tag-fixed.xml
+
+# preview what would change without writing anything
+vastlint fix tag.xml --dry-run
+
+# fix from stdin, repaired XML goes to stdout
+cat tag.xml | vastlint fix -
 ```
 
 Example output:
@@ -112,6 +124,29 @@ tag.xml  VAST 4.2
 
 ✖ 2 errors, 0 warnings, 1 info
 ```
+
+## Auto-fix
+
+`vastlint fix` repairs fixable issues and writes the corrected XML back to the file (or to a separate path with `--out`):
+
+```sh
+# overwrite the file in place
+vastlint fix tag.xml
+
+# write to a new file
+vastlint fix tag.xml --out tag-fixed.xml
+
+# preview changes without writing (shows what would be repaired)
+vastlint fix tag.xml --dry-run
+
+# JSON report of what was fixed
+vastlint fix tag.xml --format json
+
+# pipe from stdin → repaired XML to stdout
+cat tag.xml | vastlint fix -
+```
+
+Not every rule is auto-fixable — some require human judgment (e.g. choosing the right `<AdSystem>` value). After running `fix`, re-run `check` to confirm the remaining issues.
 
 ## Exit codes
 

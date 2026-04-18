@@ -174,13 +174,12 @@ pub fn parse(input: &str) -> VastDocument {
                 stack.push(Node::new(name, attrs, line, col));
             }
 
-            Ok(Event::End(_)) => {
-                if stack.len() > 1 {
-                    let finished = stack.pop().unwrap();
-                    stack.last_mut().unwrap().children.push(finished);
-                }
+            Ok(Event::End(_)) if stack.len() > 1 => {
+                let finished = stack.pop().unwrap();
+                stack.last_mut().unwrap().children.push(finished);
                 // If stack has exactly one element, that's the root — leave it.
             }
+            Ok(Event::End(_)) => {}
 
             Ok(Event::Empty(e)) => {
                 // Self-closing tag: push and immediately pop.

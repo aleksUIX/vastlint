@@ -1117,3 +1117,250 @@ fn multiple_ads_each_validated_independently() {
     );
     assert!(!result.summary.is_valid());
 }
+
+// ── mediafile attribute completeness ─────────────────────────────────────────
+
+#[test]
+fn mediafile_missing_type_fires_error() {
+    let result = validate(&load("err_mediafile_missing_type.xml"));
+    assert!(
+        has_issue(&result, "VAST-2.0-mediafile-type"),
+        "expected VAST-2.0-mediafile-type, got: {:#?}",
+        result.issues
+    );
+    assert!(!result.summary.is_valid());
+}
+
+// ── ad structure edge cases ───────────────────────────────────────────────────
+
+#[test]
+fn ad_with_both_inline_and_wrapper_fires_error() {
+    let result = validate(&load("err_ad_both_inline_and_wrapper.xml"));
+    assert!(
+        has_issue(&result, "VAST-2.0-ad-has-inline-or-wrapper"),
+        "expected VAST-2.0-ad-has-inline-or-wrapper for ad with both InLine and Wrapper, got: {:#?}",
+        result.issues
+    );
+    assert!(!result.summary.is_valid());
+}
+
+// ── URL validation ────────────────────────────────────────────────────────────
+
+#[test]
+fn empty_url_fires_error() {
+    let result = validate(&load("err_url_empty.xml"));
+    assert!(
+        has_issue(&result, "VAST-2.0-url-empty"),
+        "expected VAST-2.0-url-empty, got: {:#?}",
+        result.issues
+    );
+    assert!(!result.summary.is_valid());
+}
+
+#[test]
+fn invalid_url_fires_warning() {
+    let result = validate(&load("warn_url_invalid.xml"));
+    assert!(
+        has_issue(&result, "VAST-2.0-url-invalid"),
+        "expected VAST-2.0-url-invalid, got: {:#?}",
+        result.issues
+    );
+}
+
+// ── bitrate rules ─────────────────────────────────────────────────────────────
+
+#[test]
+fn bitrate_conflict_fires_warning() {
+    let result = validate(&load("warn_bitrate_conflict.xml"));
+    assert!(
+        has_issue(&result, "VAST-3.0-bitrate-conflict"),
+        "expected VAST-3.0-bitrate-conflict, got: {:#?}",
+        result.issues
+    );
+}
+
+// ── progress tracking format ──────────────────────────────────────────────────
+
+#[test]
+fn progress_offset_bad_format_fires_warning() {
+    let result = validate(&load("warn_progress_offset_bad_format.xml"));
+    assert!(
+        has_issue(&result, "VAST-3.0-progress-offset-format"),
+        "expected VAST-3.0-progress-offset-format, got: {:#?}",
+        result.issues
+    );
+}
+
+// ── icon resource ─────────────────────────────────────────────────────────────
+
+#[test]
+fn icon_missing_resource_fires_error() {
+    let result = validate(&load("err_icon_missing_resource.xml"));
+    assert!(
+        has_issue(&result, "VAST-3.0-icon-resource"),
+        "expected VAST-3.0-icon-resource, got: {:#?}",
+        result.issues
+    );
+    assert!(!result.summary.is_valid());
+}
+
+#[test]
+fn icon_missing_recommended_attrs_fires_warning() {
+    // err_icon_required_attrs.xml has no program/width/height/xPosition/yPosition —
+    // the ambiguous.rs check fires VAST-3.0-icon-attrs as a Warning in addition to
+    // the required.rs errors.
+    let result = validate(&load("err_icon_required_attrs.xml"));
+    assert!(
+        has_issue(&result, "VAST-3.0-icon-attrs"),
+        "expected VAST-3.0-icon-attrs warning, got: {:#?}",
+        result.issues
+    );
+}
+
+// ── companion rules ───────────────────────────────────────────────────────────
+
+#[test]
+fn companion_required_attr_bad_value_fires_warning() {
+    let result = validate(&load("warn_companion_required_attr.xml"));
+    assert!(
+        has_issue(&result, "VAST-3.0-companion-required-attr"),
+        "expected VAST-3.0-companion-required-attr, got: {:#?}",
+        result.issues
+    );
+}
+
+#[test]
+fn companion_clicktracking_missing_id_fires_error() {
+    let result = validate(&load("err_companion_clicktracking_no_id.xml"));
+    assert!(
+        has_issue(&result, "VAST-4.0-companion-clicktracking-id"),
+        "expected VAST-4.0-companion-clicktracking-id, got: {:#?}",
+        result.issues
+    );
+    assert!(!result.summary.is_valid());
+}
+
+#[test]
+fn companion_renderingmode_bad_value_fires_warning() {
+    let result = validate(&load("warn_companion_renderingmode.xml"));
+    assert!(
+        has_issue(&result, "VAST-4.1-companion-renderingmode-value"),
+        "expected VAST-4.1-companion-renderingmode-value, got: {:#?}",
+        result.issues
+    );
+}
+
+// ── UniversalAdId value rules ─────────────────────────────────────────────────
+
+#[test]
+fn universaladid_no_idvalue_in_4_0_fires_error() {
+    let result = validate(&load("err_universaladid_no_value.xml"));
+    assert!(
+        has_issue(&result, "VAST-4.0-universaladid-idvalue"),
+        "expected VAST-4.0-universaladid-idvalue, got: {:#?}",
+        result.issues
+    );
+    assert!(!result.summary.is_valid());
+}
+
+#[test]
+fn universaladid_idvalue_attr_in_4_1_fires_warning() {
+    let result = validate(&load("warn_universaladid_idvalue_removed.xml"));
+    assert!(
+        has_issue(&result, "VAST-4.1-universaladid-idvalue-removed"),
+        "expected VAST-4.1-universaladid-idvalue-removed, got: {:#?}",
+        result.issues
+    );
+    // It's a Warning — document is still considered valid.
+    assert!(result.summary.is_valid());
+}
+
+// ── wrapper-specific rules ────────────────────────────────────────────────────
+
+#[test]
+fn wrapper_clickthrough_in_4_1_fires_warning() {
+    let result = validate(&load("warn_wrapper_clickthrough_v41.xml"));
+    assert!(
+        has_issue(&result, "VAST-4.0-wrapper-clickthrough"),
+        "expected VAST-4.0-wrapper-clickthrough for VAST 4.1 wrapper, got: {:#?}",
+        result.issues
+    );
+    assert!(result.summary.is_valid());
+}
+
+#[test]
+fn blockedadcategories_missing_authority_fires_warning() {
+    let result = validate(&load("warn_blockedadcategories_no_authority.xml"));
+    assert!(
+        has_issue(&result, "VAST-4.1-blockedadcategories-no-authority"),
+        "expected VAST-4.1-blockedadcategories-no-authority, got: {:#?}",
+        result.issues
+    );
+}
+
+// ── deprecated attribute rules ────────────────────────────────────────────────
+
+#[test]
+fn conditionalad_in_4_1_fires_warning() {
+    let result = validate(&load("warn_conditionalad_deprecated.xml"));
+    assert!(
+        has_issue(&result, "VAST-4.0-conditionalad"),
+        "expected VAST-4.0-conditionalad, got: {:#?}",
+        result.issues
+    );
+    assert!(result.summary.is_valid());
+}
+
+// ── adType value validation ───────────────────────────────────────────────────
+
+#[test]
+fn adtype_invalid_value_fires_warning() {
+    let result = validate(&load("warn_adtype_invalid.xml"));
+    assert!(
+        has_issue(&result, "VAST-4.1-adtype-value"),
+        "expected VAST-4.1-adtype-value, got: {:#?}",
+        result.issues
+    );
+}
+
+// ── ad sequence / pod rules ───────────────────────────────────────────────────
+
+#[test]
+fn ad_sequence_mixed_fires_warning() {
+    let result = validate(&load("warn_ad_sequence_mixed.xml"));
+    assert!(
+        has_issue(&result, "VAST-2.0-ad-sequence"),
+        "expected VAST-2.0-ad-sequence, got: {:#?}",
+        result.issues
+    );
+}
+
+// ── wrapper depth ─────────────────────────────────────────────────────────────
+
+#[test]
+fn wrapper_depth_exceeded_fires_error() {
+    use vastlint_core::{validate_with_context, ValidationContext};
+
+    let xml = r#"<VAST version="4.1">
+  <Ad id="1">
+    <Wrapper>
+      <AdSystem>Test</AdSystem>
+      <Impression><![CDATA[https://track.example.com/impression]]></Impression>
+      <VASTAdTagURI><![CDATA[https://ad.example.com/vast.xml]]></VASTAdTagURI>
+    </Wrapper>
+  </Ad>
+</VAST>"#;
+
+    let ctx = ValidationContext {
+        wrapper_depth: 6,
+        max_wrapper_depth: 5,
+        ..Default::default()
+    };
+    let result = validate_with_context(xml, ctx);
+    assert!(
+        has_issue(&result, "VAST-2.0-wrapper-depth"),
+        "expected VAST-2.0-wrapper-depth when depth exceeds max, got: {:#?}",
+        result.issues
+    );
+    assert!(!result.summary.is_valid());
+}

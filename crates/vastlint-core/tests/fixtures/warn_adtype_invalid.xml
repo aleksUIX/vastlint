@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- WARNING: VAST-4.1-adtype-value — Ad adType attribute value not in allowed set (video/audio/hybrid) -->
+<VAST version="4.1">
+  <Ad id="ad-001" adType="display">
+    <InLine>
+      <AdSystem>Test</AdSystem>
+      <AdTitle>Test Ad</AdTitle>
+      <AdServingId>test-serving-id-001</AdServingId>
+      <Impression><![CDATA[https://track.example.com/impression]]></Impression>
+      <Creatives>
+        <Creative>
+          <UniversalAdId idRegistry="ad-id.org">TEST-001</UniversalAdId>
+          <Linear>
+            <Duration>00:00:30</Duration>
+            <MediaFiles>
+              <MediaFile delivery="progressive" type="video/mp4" width="1920" height="1080">
+                <![CDATA[https://cdn.example.com/video.mp4]]>
+              </MediaFile>
+            </MediaFiles>
+          </Linear>
+        </Creative>
+      </Creatives>
+    </InLine>
+  </Ad>
+</VAST>

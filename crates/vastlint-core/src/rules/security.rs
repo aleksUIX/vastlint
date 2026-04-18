@@ -59,7 +59,7 @@ fn check_url_elements(node: &Node, path: &str, ctx: &ValidationContext, issues: 
     ];
 
     // Check MediaFile URLs.
-    if node.name == "MediaFile" && !node.text.is_empty() {
+    if node.name == "MediaFile" {
         check_url_value(&node.text, path, ctx, issues);
         // VAST-2.0-mediafile-https
         // Info: media files should be served over HTTPS in modern environments.
@@ -78,7 +78,7 @@ fn check_url_elements(node: &Node, path: &str, ctx: &ValidationContext, issues: 
     }
 
     // Check Tracking elements (event-based pixels).
-    if node.name == "Tracking" && !node.text.is_empty() {
+    if node.name == "Tracking" {
         check_url_value(&node.text, path, ctx, issues);
         if node.text.starts_with("http://") {
             emit(
@@ -95,7 +95,7 @@ fn check_url_elements(node: &Node, path: &str, ctx: &ValidationContext, issues: 
     }
 
     // Check named URL elements.
-    if URL_ELEMENTS.contains(&node.name.as_str()) && !node.text.is_empty() {
+    if URL_ELEMENTS.contains(&node.name.as_str()) {
         check_url_value(&node.text, path, ctx, issues);
         if node.text.starts_with("http://") {
             emit(

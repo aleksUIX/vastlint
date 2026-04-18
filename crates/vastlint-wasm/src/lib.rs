@@ -56,6 +56,20 @@ struct JsRuleMeta {
     description: &'static str,
 }
 
+#[derive(Serialize)]
+struct JsAppliedFix {
+    rule_id: &'static str,
+    description: String,
+    path: String,
+}
+
+#[derive(Serialize)]
+struct JsFixResult {
+    xml: String,
+    applied: Vec<JsAppliedFix>,
+    remaining: Vec<JsIssue>,
+}
+
 // ── Public API ────────────────────────────────────────────────────────────────
 
 /// Validate a VAST XML string.
@@ -159,6 +173,87 @@ pub fn rules() -> Result<JsValue, JsValue> {
     serde_wasm_bindgen::to_value(&catalog).map_err(|e| JsValue::from_str(&e.to_string()))
 }
 
+/// Fix common VAST issues and return the repaired XML alongside a report.
+///
+/// Returns a plain JavaScript object shaped like:
+/// ```ts
+/// {
+///   xml: string,           // repaired VAST XML
+///   applied: Array<{
+///     rule_id: string,
+///     description: string,
+///     path: string,
+///   }>,
+///   remaining: Array<{    // issues that could not be auto-fixed
+///     id: string,
+///     severity: "error" | "warning" | "info",
+///     message: string,
+///     path: string | null,
+///     spec_ref: string,
+///     line: number | null,
+///     col: number | null,
+///   }>,
+/// }
+/// ```
+#[wasm_bindgen]
+pub fn fix(xml: &str) -> Result<JsValue, JsValue> {
+    let result = vastlint_core::fix(xml);
+    fix_to_js(result)
+}
+
+/// Fix a VAST XML string with caller-supplied options.
+///
+/// Accepts the same `options` object as `validateWithOptions`.
+#[wasm_bindgen(js_name = fixWithOptions)]
+pub fn fix_with_options(xml: &str, options: JsValue) -> Result<JsValue, JsValue> {
+    use std::collections::HashMap;
+    use vastlint_core::{RuleLevel, ValidationContext};
+
+    #[derive(serde::Deserialize, Default)]
+    struct Opts {
+        wrapper_depth: Option<u8>,
+        max_wrapper_depth: Option<u8>,
+        rule_overrides: Option<HashMap<String, String>>,
+    }
+
+    let ctx = if options.is_null() || options.is_undefined() {
+        ValidationContext::default()
+    } else {
+        let opts: Opts = serde_wasm_bindgen::from_value(options)
+            .map_err(|e| JsValue::from_str(&e.to_string()))?;
+
+        let catalog_ids: HashMap<&str, &'static str> = vastlint_core::all_rules()
+            .iter()
+            .map(|r| (r.id, r.id))
+            .collect();
+
+        let rule_overrides = opts.rule_overrides.map(|map| {
+            map.iter()
+                .filter_map(|(k, v)| {
+                    let static_id = *catalog_ids.get(k.as_str())?;
+                    let level = match v.as_str() {
+                        "error" => RuleLevel::Error,
+                        "warning" => RuleLevel::Warning,
+                        "info" => RuleLevel::Info,
+                        "off" => RuleLevel::Off,
+                        _ => return None,
+                    };
+                    Some((static_id, level))
+                })
+                .collect()
+        });
+
+        ValidationContext {
+            wrapper_depth: opts.wrapper_depth.unwrap_or(0),
+            max_wrapper_depth: opts.max_wrapper_depth.unwrap_or(5),
+            rule_overrides,
+        }
+    };
+
+    let result = vastlint_core::fix_with_context(xml, ctx);
+    fix_to_js(result)
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 fn to_js(result: vastlint_core::ValidationResult) -> Result<JsValue, JsValue> {
@@ -214,6 +309,72 @@ fn to_js(result: vastlint_core::ValidationResult) -> Result<JsValue, JsValue> {
         };
         js_sys::Reflect::set(&issue_obj, &line_key, &line_val).ok();
         js_sys::Reflect::set(&issue_obj, &col_key, &col_val).ok();
+    }
+
+    Ok(val)
+}
+
+fn fix_to_js(result: vastlint_core::FixResult) -> Result<JsValue, JsValue> {
+    // Collect line/col from remaining issues before serde consumes them.
+    let line_cols: Vec<(Option<u32>, Option<u32>)> =
+        result.remaining.iter().map(|i| (i.line, i.col)).collect();
+
+    let applied: Vec<JsAppliedFix> = result
+        .applied
+        .into_iter()
+        .map(|f| JsAppliedFix {
+            rule_id: f.rule_id,
+            description: f.description,
+            path: f.path,
+        })
+        .collect();
+
+    let remaining: Vec<JsIssue> = result
+        .remaining
+        .into_iter()
+        .map(|i| JsIssue {
+            id: i.id,
+            severity: i.severity.as_str(),
+            message: i.message,
+            path: i.path,
+            spec_ref: i.spec_ref,
+            line: i.line.map(|v| v as f64),
+            col: i.col.map(|v| v as f64),
+        })
+        .collect();
+
+    let js_result = JsFixResult {
+        xml: result.xml,
+        applied,
+        remaining,
+    };
+
+    let val =
+        serde_wasm_bindgen::to_value(&js_result).map_err(|e| JsValue::from_str(&e.to_string()))?;
+
+    // Patch line/col on remaining issues (same serde-wasm-bindgen 0.6 workaround).
+    let remaining_arr = js_sys::Reflect::get(&val, &JsValue::from_str("remaining"))?;
+    let remaining_arr = js_sys::Array::from(&remaining_arr);
+    for (idx, (line, col)) in line_cols.iter().enumerate() {
+        let issue_obj = remaining_arr.get(idx as u32);
+        js_sys::Reflect::set(
+            &issue_obj,
+            &JsValue::from_str("line"),
+            &match line {
+                Some(v) => JsValue::from_f64(*v as f64),
+                None => JsValue::NULL,
+            },
+        )
+        .ok();
+        js_sys::Reflect::set(
+            &issue_obj,
+            &JsValue::from_str("col"),
+            &match col {
+                Some(v) => JsValue::from_f64(*v as f64),
+                None => JsValue::NULL,
+            },
+        )
+        .ok();
     }
 
     Ok(val)

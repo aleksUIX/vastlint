@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- ERROR: VAST-4.0-companion-clicktracking-id — <CompanionClickTracking> missing id attribute -->
+<VAST version="4.2">
+  <Ad id="ad-001">
+    <InLine>
+      <AdSystem>Test</AdSystem>
+      <AdTitle>Test Ad</AdTitle>
+      <AdServingId>test-serving-id-001</AdServingId>
+      <Impression><![CDATA[https://track.example.com/impression]]></Impression>
+      <Creatives>
+        <Creative>
+          <UniversalAdId idRegistry="ad-id.org">TEST-001</UniversalAdId>
+          <CompanionAds>
+            <Companion width="300" height="250">
+              <StaticResource creativeType="image/png">
+                <![CDATA[https://cdn.example.com/companion.png]]>
+              </StaticResource>
+              <CompanionClickTracking>
+                <![CDATA[https://track.example.com/companion-click]]>
+              </CompanionClickTracking>
+            </Companion>
+          </CompanionAds>
+        </Creative>
+      </Creatives>
+    </InLine>
+  </Ad>
+</VAST>

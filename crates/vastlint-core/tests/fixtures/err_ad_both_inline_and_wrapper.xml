@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- ERROR: VAST-2.0-ad-has-inline-or-wrapper — <Ad> contains BOTH <InLine> and <Wrapper> -->
+<VAST version="2.0">
+  <Ad id="ad-001">
+    <InLine>
+      <AdSystem>Test</AdSystem>
+      <AdTitle>Test Ad</AdTitle>
+      <Impression><![CDATA[https://track.example.com/impression]]></Impression>
+      <Creatives>
+        <Creative>
+          <Linear>
+            <Duration>00:00:30</Duration>
+            <MediaFiles>
+              <MediaFile delivery="progressive" type="video/mp4" width="1920" height="1080">
+                <![CDATA[https://cdn.example.com/video.mp4]]>
+              </MediaFile>
+            </MediaFiles>
+          </Linear>
+        </Creative>
+      </Creatives>
+    </InLine>
+    <Wrapper>
+      <AdSystem>Test Wrapper</AdSystem>
+      <Impression><![CDATA[https://track.example.com/wrapper-impression]]></Impression>
+      <VASTAdTagURI><![CDATA[https://ad.example.com/vast.xml]]></VASTAdTagURI>
+    </Wrapper>
+  </Ad>
+</VAST>

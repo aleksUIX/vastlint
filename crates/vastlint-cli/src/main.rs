@@ -10,7 +10,8 @@ use anstream::eprintln;
 use anstyle::{AnsiColor, Color, Style};
 use clap::{Parser, Subcommand, ValueEnum};
 use vastlint_core::{
-    validate_with_context, Issue, RuleLevel, Severity, ValidationContext, ValidationResult,
+    fix_with_context, validate_with_context, FixResult, Issue, RuleLevel, Severity,
+    ValidationContext, ValidationResult,
 };
 
 mod telemetry;
@@ -63,6 +64,37 @@ enum Command {
     },
     /// List all known rule IDs with their default severity
     Rules,
+    /// Automatically fix common VAST issues and write repaired XML
+    Fix {
+        /// File to fix. Pass - to read from stdin and write repaired XML to stdout.
+        #[arg(required = true)]
+        file: String,
+
+        /// Write repaired XML to this path instead of overwriting the input file.
+        /// When reading from stdin, output always goes to stdout regardless of this flag.
+        #[arg(long, value_name = "PATH")]
+        out: Option<String>,
+
+        /// Show what would be changed without writing any files.
+        #[arg(long)]
+        dry_run: bool,
+
+        /// Output format for the fix report
+        #[arg(long, default_value = "plain")]
+        format: Format,
+
+        /// Disable colour output
+        #[arg(long)]
+        no_color: bool,
+
+        /// Path to a vastlint.toml config file. Defaults to searching up from CWD.
+        #[arg(long, value_name = "PATH")]
+        config: Option<String>,
+
+        /// Skip config file loading entirely
+        #[arg(long)]
+        no_config: bool,
+    },
 }
 
 #[derive(ValueEnum, Clone)]
@@ -102,6 +134,20 @@ fn main() -> ExitCode {
         Command::Rules => {
             run_rules();
             ExitCode::SUCCESS
+        }
+        Command::Fix {
+            file,
+            out,
+            dry_run,
+            format,
+            no_color,
+            config,
+            no_config,
+        } => {
+            if no_color {
+                std::env::set_var("NO_COLOR", "1");
+            }
+            run_fix(file, out, dry_run, format, config, no_config)
         }
     }
 }
@@ -450,6 +496,181 @@ fn json_escape(s: &str) -> String {
         .replace('\n', "\\n")
         .replace('\r', "\\r")
         .replace('\t', "\\t")
+}
+
+// ── fix subcommand ────────────────────────────────────────────────────────────
+
+fn run_fix(
+    file: String,
+    out: Option<String>,
+    dry_run: bool,
+    format: Format,
+    config_path: Option<String>,
+    no_config: bool,
+) -> ExitCode {
+    let cfg = match load_config(config_path, no_config) {
+        Ok(c) => c,
+        Err(e) => {
+            eprintln!("error: {}", e);
+            return ExitCode::from(EXIT_USAGE_ERROR);
+        }
+    };
+
+    let rule_overrides = cfg.and_then(|c| c.rule_overrides);
+    let ctx = ValidationContext {
+        rule_overrides,
+        ..Default::default()
+    };
+
+    let input = match read_input(&file) {
+        Ok(s) => s,
+        Err(e) => {
+            eprintln!("{}: {}", file, e);
+            return ExitCode::from(EXIT_USAGE_ERROR);
+        }
+    };
+
+    let result = fix_with_context(&input, ctx);
+    let is_stdin = file == "-";
+
+    match format {
+        Format::Plain => print_fix_plain(&file, &result, dry_run),
+        Format::Json => print_fix_json(&file, &result),
+    }
+
+    if !dry_run {
+        if is_stdin {
+            // stdin → stdout: write repaired XML directly.
+            print!("{}", result.xml);
+        } else {
+            let dest = out.as_deref().unwrap_or(file.as_str());
+
+            // Write a .bak backup only when writing in-place (no --out flag).
+            if out.is_none() {
+                let bak = format!("{}.bak", file);
+                if let Err(e) = std::fs::copy(&file, &bak) {
+                    eprintln!("error: failed to write backup {}: {}", bak, e);
+                    return ExitCode::from(EXIT_USAGE_ERROR);
+                }
+            }
+
+            if let Err(e) = std::fs::write(dest, &result.xml) {
+                eprintln!("error: failed to write {}: {}", dest, e);
+                return ExitCode::from(EXIT_USAGE_ERROR);
+            }
+        }
+    }
+
+    // Exit 0 when no remaining errors; exit 1 when issues remain.
+    if result
+        .remaining
+        .iter()
+        .any(|i| i.severity == Severity::Error)
+    {
+        ExitCode::from(EXIT_VALIDATION_ERROR)
+    } else {
+        ExitCode::SUCCESS
+    }
+}
+
+fn print_fix_plain(file: &str, result: &FixResult, dry_run: bool) {
+    let dry_label = if dry_run { " (dry run)" } else { "" };
+    println!(
+        "\n{}{}{}{}",
+        UNDERLINE_STYLE.render(),
+        file,
+        UNDERLINE_STYLE.render_reset(),
+        dry_label,
+    );
+
+    if result.applied.is_empty() {
+        println!(
+            "  {}✓ nothing to fix{}",
+            OK_STYLE.render(),
+            OK_STYLE.render_reset()
+        );
+    } else {
+        for fix in &result.applied {
+            println!(
+                "  {}fixed{}  {}  {}{}{}",
+                OK_STYLE.render(),
+                OK_STYLE.render_reset(),
+                fix.description,
+                DIM_STYLE.render(),
+                fix.rule_id,
+                DIM_STYLE.render_reset(),
+            );
+            println!(
+                "  {}         {}{}",
+                DIM_STYLE.render(),
+                fix.path,
+                DIM_STYLE.render_reset(),
+            );
+        }
+    }
+
+    if !result.remaining.is_empty() {
+        println!(
+            "\n  {}Remaining issues (not auto-fixable):{}",
+            BOLD_STYLE.render(),
+            BOLD_STYLE.render_reset()
+        );
+        for issue in &result.remaining {
+            print_issue(issue);
+        }
+    }
+
+    let n = result.applied.len();
+    println!(
+        "\n  {} fix{} applied, {} remaining\n",
+        n,
+        if n == 1 { "" } else { "es" },
+        result.remaining.len(),
+    );
+}
+
+fn print_fix_json(file: &str, result: &FixResult) {
+    let applied_json: Vec<String> = result
+        .applied
+        .iter()
+        .map(|f| {
+            format!(
+                "{{\"rule_id\":\"{}\",\"description\":\"{}\",\"path\":\"{}\"}}",
+                f.rule_id,
+                json_escape(&f.description),
+                json_escape(&f.path),
+            )
+        })
+        .collect();
+
+    let remaining_json: Vec<String> = result
+        .remaining
+        .iter()
+        .map(|i| {
+            let path = match &i.path {
+                Some(p) => format!("\"{}\"", json_escape(p)),
+                None => "null".to_owned(),
+            };
+            format!(
+                "{{\"id\":\"{}\",\"severity\":\"{}\",\"message\":\"{}\",\"path\":{}}}",
+                i.id,
+                i.severity.as_str(),
+                json_escape(i.message),
+                path,
+            )
+        })
+        .collect();
+
+    println!(
+        "{{\"file\":\"{}\",\"applied\":[{}],\"remaining\":[{}],\"valid\":{}}}",
+        json_escape(file),
+        applied_json.join(","),
+        remaining_json.join(","),
+        result
+            .remaining
+            .iter()
+            .all(|i| i.severity != Severity::Error),
+    );
 }
 
 // ── rules subcommand ──────────────────────────────────────────────────────────

@@ -79,7 +79,24 @@ Each issue has:
 
 Errors mean the tag violates a "must" or "required" rule in the spec. Most ad SDKs and players will reject or mishandle the tag. Warnings are "should" or "recommended" rules. Info is advisory.
 
-## Fixing the issues
+## Auto-fix
+
+For issues that have a safe, unambiguous fix, vastlint can repair the file for you:
+
+```
+vastlint fix tag.xml
+```
+
+This overwrites the file with the corrected XML and prints a report of what changed. Use `--dry-run` to preview without writing, or `--out` to write to a separate path:
+
+```
+vastlint fix tag.xml --dry-run
+vastlint fix tag.xml --out tag-fixed.xml
+```
+
+Not every issue is auto-fixable — some require a human decision (for example, choosing the right `<AdSystem>` value). After running `fix`, re-run `check` to confirm the remaining issues and address any that need manual attention.
+
+## Fixing the issues manually
 
 Work through them top to bottom.
 

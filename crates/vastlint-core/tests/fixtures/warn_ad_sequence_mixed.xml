@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- WARNING: VAST-2.0-ad-sequence — multiple <Ad> elements but sequence only on some -->
+<VAST version="2.0">
+  <Ad id="ad-001" sequence="1">
+    <InLine>
+      <AdSystem>Test</AdSystem>
+      <AdTitle>Test Ad 1</AdTitle>
+      <Impression><![CDATA[https://track.example.com/impression1]]></Impression>
+      <Creatives>
+        <Creative>
+          <Linear>
+            <Duration>00:00:15</Duration>
+            <MediaFiles>
+              <MediaFile delivery="progressive" type="video/mp4" width="1280" height="720">
+                <![CDATA[https://cdn.example.com/video1.mp4]]>
+              </MediaFile>
+            </MediaFiles>
+          </Linear>
+        </Creative>
+      </Creatives>
+    </InLine>
+  </Ad>
+  <Ad id="ad-002">
+    <InLine>
+      <AdSystem>Test</AdSystem>
+      <AdTitle>Test Ad 2</AdTitle>
+      <Impression><![CDATA[https://track.example.com/impression2]]></Impression>
+      <Creatives>
+        <Creative>
+          <Linear>
+            <Duration>00:00:15</Duration>
+            <MediaFiles>
+              <MediaFile delivery="progressive" type="video/mp4" width="1280" height="720">
+                <![CDATA[https://cdn.example.com/video2.mp4]]>
+              </MediaFile>
+            </MediaFiles>
+          </Linear>
+        </Creative>
+      </Creatives>
+    </InLine>
+  </Ad>
+</VAST>

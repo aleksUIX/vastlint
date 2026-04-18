@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- WARNING: VAST-3.0-companion-required-attr — CompanionAds required attribute has invalid value -->
+<VAST version="3.0">
+  <Ad id="ad-001">
+    <InLine>
+      <AdSystem>Test</AdSystem>
+      <AdTitle>Test Ad</AdTitle>
+      <Impression><![CDATA[https://track.example.com/impression]]></Impression>
+      <Creatives>
+        <Creative>
+          <CompanionAds required="mandatory">
+            <Companion width="300" height="250">
+              <StaticResource creativeType="image/png">
+                <![CDATA[https://cdn.example.com/companion.png]]>
+              </StaticResource>
+            </Companion>
+          </CompanionAds>
+        </Creative>
+      </Creatives>
+    </InLine>
+  </Ad>
+</VAST>

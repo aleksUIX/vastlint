@@ -8,6 +8,8 @@
 //!
 //! - [`validate`] -- validate with default settings (most callers want this)
 //! - [`validate_with_context`] -- validate with rule overrides or wrapper depth
+//! - [`fix`] -- fix deterministic issues and return repaired XML
+//! - [`fix_with_context`] -- fix with rule overrides or wrapper depth
 //! - [`all_rules`] -- list the full 108-rule catalog
 //!
 //! # Performance — allocator recommendation
@@ -85,9 +87,12 @@
 //! and `phf` (compile-time hash maps).
 
 mod detect;
+mod fix;
 mod parse;
 mod rules;
 mod summarize;
+
+pub use fix::{fix, fix_with_context, AppliedFix, FixResult};
 
 use std::collections::HashMap;
 
@@ -404,7 +409,14 @@ pub fn validate_with_context(input: &str, context: ValidationContext) -> Validat
     }
 }
 
-// ── Rule catalog ──────────────────────────────────────────────────────────────
+// ── Test helpers (integration tests only) ────────────────────────────────────
+
+/// Re-exports the internal parser for integration tests that need to verify
+/// the repaired XML round-trips without parse errors.
+#[doc(hidden)]
+pub fn _test_parse(xml: &str) -> parse::VastDocument {
+    parse::parse(xml)
+}
 
 /// Metadata about a single rule, as exposed by the public catalog.
 pub struct RuleMeta {

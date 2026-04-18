@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- WARNING: VAST-4.0-wrapper-clickthrough — ClickThrough in Wrapper VideoClicks removed in VAST 4.0 -->
+<VAST version="4.1">
+  <Ad id="ad-001">
+    <Wrapper>
+      <AdSystem>Test</AdSystem>
+      <Impression><![CDATA[https://track.example.com/impression]]></Impression>
+      <VASTAdTagURI><![CDATA[https://ad.example.com/vast.xml]]></VASTAdTagURI>
+      <Creatives>
+        <Creative>
+          <Linear>
+            <VideoClicks>
+              <ClickThrough><![CDATA[https://advertiser.example.com/landing]]></ClickThrough>
+              <ClickTracking id="ct1"><![CDATA[https://track.example.com/click]]></ClickTracking>
+            </VideoClicks>
+          </Linear>
+        </Creative>
+      </Creatives>
+    </Wrapper>
+  </Ad>
+</VAST>
