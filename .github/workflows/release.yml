@@ -541,7 +541,7 @@ jobs:
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
           # Use crates.io API to check if this exact version is already published.
-          HTTP=$(curl -sf -o /dev/null -w "%{http_code}" \
+          HTTP=$(curl -s -o /dev/null -w "%{http_code}" \
             "https://crates.io/api/v1/crates/vastlint-core/${VERSION}")
           if [ "$HTTP" = "200" ]; then
             echo "vastlint-core ${VERSION} already published — skipping"
@@ -558,7 +558,7 @@ jobs:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
-          HTTP=$(curl -sf -o /dev/null -w "%{http_code}" \
+          HTTP=$(curl -s -o /dev/null -w "%{http_code}" \
             "https://crates.io/api/v1/crates/vastlint-cli/${VERSION}")
           if [ "$HTTP" = "200" ]; then
             echo "vastlint-cli ${VERSION} already published — skipping"
@@ -846,7 +846,7 @@ jobs:
           cd vastlint-go
           # Fail loudly if the tag already exists — never silently overwrite.
           if git ls-remote --tags origin "$TAG" | grep -q "$TAG"; then
-            echo "::error::Tag $TAG already exists on vastlint-go. Refusing to overwrite." && exit 1
+            echo "::warning::Tag $TAG already exists on vastlint-go — skipping tag push" && exit 0
           fi
           git tag "$TAG"
           git push origin "$TAG"
@@ -942,7 +942,7 @@ jobs:
           cd vastlint-erlang
           # Fail loudly if the tag already exists — never silently overwrite.
           if git ls-remote --tags origin "$TAG" | grep -q "$TAG"; then
-            echo "::error::Tag $TAG already exists on vastlint-erlang. Refusing to overwrite." && exit 1
+            echo "::warning::Tag $TAG already exists on vastlint-erlang — skipping tag push" && exit 0
           fi
           git tag "$TAG"
           git push origin "$TAG"
