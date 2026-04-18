@@ -255,8 +255,10 @@ class VastlintCodeActionProvider implements vscode.CodeActionProvider {
     _range: vscode.Range,
     context: vscode.CodeActionContext,
   ): vscode.CodeAction[] {
-    // Only act on fixable vastlint diagnostics present in this context.
-    const fixableDiags = context.diagnostics.filter(
+    // Use all diagnostics for the document, not just those in the cursor range.
+    // context.diagnostics is often empty when the cursor isn't on the squiggle.
+    const allDiags = (this.collection.get(document.uri) ?? []) as vscode.Diagnostic[];
+    const fixableDiags = allDiags.filter(
       (d) => d.source === 'vastlint' && FIXABLE_RULE_IDS.has(d.code as string),
     );
     if (fixableDiags.length === 0) return [];
@@ -277,8 +279,10 @@ class VastlintCodeActionProvider implements vscode.CodeActionProvider {
 
     const actions: vscode.CodeAction[] = [];
 
-    // One quick-fix action per fixable diagnostic (all apply the same whole-doc repair).
+    // One quick-fix per fixable diagnostic whose rule was actually applied.
+    const appliedIds = new Set(fixResult.applied.map((f) => f.rule_id));
     for (const diag of fixableDiags) {
+      if (!appliedIds.has(diag.code as string)) continue;
       const action = new vscode.CodeAction(
         `vastlint: Fix \`${diag.code as string}\``,
         vscode.CodeActionKind.QuickFix,
@@ -291,18 +295,16 @@ class VastlintCodeActionProvider implements vscode.CodeActionProvider {
       actions.push(action);
     }
 
-    // "Fix all" source action when more than one fixable issue exists.
-    if (fixResult.applied.length > 1 || fixableDiags.length > 1) {
-      const fixAll = new vscode.CodeAction(
-        `vastlint: Fix all auto-fixable issues (${fixResult.applied.length} fix${fixResult.applied.length === 1 ? '' : 'es'})`,
-        vscode.CodeActionKind.SourceFixAll,
-      );
-      fixAll.diagnostics = fixableDiags as vscode.Diagnostic[];
-      const edit = new vscode.WorkspaceEdit();
-      edit.replace(document.uri, fullRange, fixResult.xml);
-      fixAll.edit = edit;
-      actions.push(fixAll);
-    }
+    // "Fix all" source action.
+    const fixAll = new vscode.CodeAction(
+      `vastlint: Fix all auto-fixable issues (${fixResult.applied.length} fix${fixResult.applied.length === 1 ? '' : 'es'})`,
+      vscode.CodeActionKind.SourceFixAll,
+    );
+    fixAll.diagnostics = fixableDiags;
+    const edit = new vscode.WorkspaceEdit();
+    edit.replace(document.uri, fullRange, fixResult.xml);
+    fixAll.edit = edit;
+    actions.push(fixAll);
 
     return actions;
   }
@@ -411,6 +413,38 @@ export function activate(context: vscode.ExtensionContext): void {
     },
   );
   context.subscriptions.push(codeActionProvider);
+
+  // Command palette: "vastlint: Fix All Auto-fixable Issues"
+  context.subscriptions.push(
+    vscode.commands.registerCommand('vastlint.fixAll', () => {
+      const editor = vscode.window.activeTextEditor;
+      if (!editor) return;
+      const doc = editor.document;
+      const xml = doc.getText();
+      let fixResult: ReturnType<typeof fix>;
+      try {
+        fixResult = fix(xml);
+      } catch {
+        vscode.window.showErrorMessage('vastlint: fix failed');
+        return;
+      }
+      if (fixResult.applied.length === 0) {
+        vscode.window.showInformationMessage('vastlint: nothing to fix');
+        return;
+      }
+      const fullRange = new vscode.Range(
+        doc.positionAt(0),
+        doc.positionAt(xml.length),
+      );
+      const edit = new vscode.WorkspaceEdit();
+      edit.replace(doc.uri, fullRange, fixResult.xml);
+      vscode.workspace.applyEdit(edit).then(() => {
+        vscode.window.showInformationMessage(
+          `vastlint: applied ${fixResult.applied.length} fix${fixResult.applied.length === 1 ? '' : 'es'}`,
+        );
+      });
+    }),
+  );
 
   // Lint the active editor on startup.
   if (vscode.window.activeTextEditor) {

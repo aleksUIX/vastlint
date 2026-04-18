@@ -8,3 +8,7 @@ target/
 # Chrome extension build output
 chrome/dist/
 chrome/node_modules/
+# VS Code extension build artefacts — never commit pre-built VSIXs.
+# The release workflow attaches them to GitHub Releases instead so
+# provenance is tied to the CI run that built them.
+vscode/*.vsix

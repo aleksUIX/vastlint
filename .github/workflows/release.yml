@@ -361,7 +361,7 @@ jobs:
 
   release:
     name: Create GitHub Release
-    needs: [build, build-ffi, build-nif]
+    needs: [build, build-ffi, build-nif, publish-vscode]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -563,10 +563,12 @@ jobs:
 
       # Sync the extension version to match the git tag (strips leading "v")
       - name: Set extension version from tag
+        id: ext_version
         run: |
           TAG="${{ github.ref_name }}"
           VERSION="${TAG#v}"
           npm version "$VERSION" --no-git-tag-version --allow-same-version
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
         working-directory: vscode
 
       - name: Install vscode extension dependencies
@@ -575,6 +577,20 @@ jobs:
 
       - name: Install vsce
         run: npm install -g @vscode/vsce
+
+      # Package the extension into a .vsix regardless of whether we publish.
+      # This gives VS Code fork users (Cursor, VSCodium, Windsurf, etc.) a
+      # verified artefact built by CI and attached to the GitHub Release —
+      # rather than relying on a binary committed to the repo.
+      - name: Package VSIX
+        run: vsce package --no-update-package-json --out vastlint-${{ steps.ext_version.outputs.version }}.vsix
+        working-directory: vscode
+
+      - name: Upload VSIX as workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: vastlint-${{ steps.ext_version.outputs.version }}.vsix
+          path: vscode/vastlint-${{ steps.ext_version.outputs.version }}.vsix
 
       - name: Publish to VS Code Marketplace
         run: vsce publish --no-update-package-json || echo "VS Code version already published, skipping"
