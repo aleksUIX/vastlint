@@ -503,7 +503,12 @@ jobs:
         run: |
           TAG="${{ github.ref_name }}"
           VERSION="${TAG#v}"
-          npm version "$VERSION" --no-git-tag-version
+          CURRENT=$(node -p "require('./package.json').version")
+          if [ "$CURRENT" != "$VERSION" ]; then
+            npm version "$VERSION" --no-git-tag-version
+          else
+            echo "npm package already at $VERSION — skipping version bump"
+          fi
         working-directory: npm
 
       - name: Publish to npm
