@@ -1,6 +1,6 @@
 {
   "name": "vastlint",
-  "version": "0.2.4",
+  "version": "0.3.0",
   "description": "VAST XML validator — checks ad tags against IAB VAST 2.0 through 4.3",
   "license": "Apache-2.0",
   "author": "Alex Sekowski <alex@vastlint.org>",
