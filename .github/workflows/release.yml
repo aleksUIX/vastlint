@@ -427,6 +427,14 @@ jobs:
   hash-artifacts:
     name: Hash release artifacts
     needs: [build, build-ffi, build-nif, build-wasm, publish-vscode]
+    # Run even if publish-vscode was skipped (ENABLE_VSCODE_PUBLISH not set),
+    # but not if an upstream build job actually failed.
+    if: |
+      always() &&
+      !contains(needs.build.result, 'failure') &&
+      !contains(needs.build-ffi.result, 'failure') &&
+      !contains(needs.build-nif.result, 'failure') &&
+      !contains(needs.build-wasm.result, 'failure')
     runs-on: ubuntu-latest
     outputs:
       hashes: ${{ steps.hash.outputs.hashes }}
@@ -514,6 +522,17 @@ jobs:
         uses: dtolnay/rust-toolchain@3c5f7ea28cd621ae0bf5283f0e981fb97b8a7af9  # v (pinned SHA)
         with:
           toolchain: stable
+
+      - name: Bump crate versions to match git tag
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          # Update every crate's Cargo.toml to the release version so that
+          # `cargo publish` always publishes the tag version, not whatever was
+          # last committed in Cargo.toml.
+          for toml in crates/*/Cargo.toml; do
+            sed -i "s/^version = \".*\"/version = \"${VERSION}\"/" "$toml"
+          done
+          echo "Bumped all crates to ${VERSION}"
 
       - name: Publish vastlint-core
         env:
