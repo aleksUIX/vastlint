@@ -64,7 +64,7 @@ enum Command {
     },
     /// List all known rule IDs with their default severity
     Rules,
-    /// [EXPERIMENTAL] Automatically fix common VAST issues and write repaired XML.
+    /// \[EXPERIMENTAL\] Automatically fix common VAST issues and write repaired XML.
     /// Applies opinionated, deterministic repairs (HTTPS upgrades, conditionalAd removal).
     /// Always review the diff — use --dry-run first. Future releases may make fixes configurable.
     Fix {

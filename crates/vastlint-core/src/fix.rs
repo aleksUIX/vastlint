@@ -140,7 +140,11 @@ pub fn fix_with_context(input: &str, context: ValidationContext) -> FixResult {
         let pre_doc = crate::parse::parse(input);
         let mut had_mediafile_http = false;
         let mut had_tracking_http = false;
-        check_http_elements(&pre_doc.root, &mut had_mediafile_http, &mut had_tracking_http);
+        check_http_elements(
+            &pre_doc.root,
+            &mut had_mediafile_http,
+            &mut had_tracking_http,
+        );
 
         if had_mediafile_http {
             applied.push(AppliedFix {
@@ -182,7 +186,11 @@ pub fn fix_with_context(input: &str, context: ValidationContext) -> FixResult {
 }
 
 /// Walk the parsed element tree and check which URL element types had http:// text.
-fn check_http_elements(node: &crate::parse::Node, had_mediafile: &mut bool, had_tracking: &mut bool) {
+fn check_http_elements(
+    node: &crate::parse::Node,
+    had_mediafile: &mut bool,
+    had_tracking: &mut bool,
+) {
     if node.text.starts_with("http://") {
         if node.name == "MediaFile" {
             *had_mediafile = true;
@@ -213,7 +221,7 @@ fn remove_conditional_ad_attr(input: &str) -> String {
             if let Some(quote_char) = rest.chars().next() {
                 if quote_char == '"' || quote_char == '\'' {
                     rest = &rest[quote_char.len_utf8()..]; // skip opening quote
-                    // Advance past the attribute value until the closing quote.
+                                                           // Advance past the attribute value until the closing quote.
                     let close = rest.find(quote_char).unwrap_or(rest.len());
                     rest = &rest[close..];
                     // Skip the closing quote if present.
