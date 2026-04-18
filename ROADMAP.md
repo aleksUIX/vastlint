@@ -28,7 +28,7 @@ Where vastlint is today and where it's going.
 
 | Milestone | Detail |
 |---|---|
-| **SIMID 1.2 validation** | Validate the VAST 4.x `<InteractiveCreativeFile>` element and `apiFramework="simid"` usage against the SIMID 1.2 spec — required fields, secure session ID format, `<Duration>` pairing, and interaction type rules. SIMID is the IAB-sanctioned VPAID replacement for interactive CTV and video ads. |
+| **SIMID validation (all versions)** | Validate the VAST 4.x `<InteractiveCreativeFile>` element and `apiFramework="simid"` usage across all published SIMID versions (1.0, 1.1, 1.2) — required fields, secure session ID format, `<Duration>` pairing, nonlinear ad support, and interaction type rules. SIMID is the IAB-sanctioned VPAID replacement for interactive CTV and video ads. |
 | **AAMP / ARTF compatibility** | Expose vastlint-core and the REST API as a tool callable by AI buyer and seller agents operating under IAB Tech Lab's [Agentic Advertising Management Protocols (AAMP)](https://iabtechlab.com/standards/aamp-agentic-advertising-management-protocols/). Agents executing VAST delivery via the [Agentic Real Time Framework (ARTF)](https://iabtechlab.com/standards/artf/) can call vastlint inline to validate creatives before impression — catching errors before they cost money. |
 | **MCP server** | Model Context Protocol server wrapping vastlint-core so any MCP-compatible AI agent or LLM pipeline can call `validate_vast` and `fix_vast` as native tools — no REST overhead, direct integration with AAMP buyer/seller agent SDKs. |
 | **AWS Marketplace** | Deploy vastlint as a private Lambda or container in your own AWS account — no data leaves your infrastructure. |

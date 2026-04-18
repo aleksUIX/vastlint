@@ -1,40 +1,25 @@
 # vastlint
 
-<table><tr>
-<td valign="top">
-
-**Packages**<br>
-[![crates.io](https://img.shields.io/crates/v/vastlint-cli.svg?label=crates.io)](https://crates.io/crates/vastlint-cli)
-[![crates.io](https://img.shields.io/crates/v/vastlint-core.svg?label=vastlint-core)](https://crates.io/crates/vastlint-core)
-[![npm](https://img.shields.io/npm/v/vastlint.svg?label=npm)](https://www.npmjs.com/package/vastlint)
-[![Go](https://img.shields.io/github/v/tag/aleksUIX/vastlint-go?label=go&color=00ADD8)](https://github.com/aleksUIX/vastlint-go)
-[![license](https://img.shields.io/crates/l/vastlint-cli.svg)](LICENSE)
-
-</td>
-<td valign="top">
-
-**Extensions & Docs**<br>
-[![VS Code](https://img.shields.io/visual-studio-marketplace/v/aleksuix.vastlint?label=vs%20code&color=007ACC)](https://marketplace.visualstudio.com/items?itemName=aleksuix.vastlint)
-[![docs.rs](https://docs.rs/vastlint-core/badge.svg)](https://docs.rs/vastlint-core)
-[![website](https://img.shields.io/badge/vastlint.org-docs%20%26%20validator-blue)](https://vastlint.org)
-
-</td>
-<td valign="top">
-
-**Security**<br>
-[![SLSA 3](https://slsa.dev/images/gh-badge-level3.svg)](https://slsa.dev)
-[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/aleksUIX/vastlint/badge)](https://scorecard.dev/viewer/?uri=github.com/aleksUIX/vastlint)
-
-</td>
-</tr></table>
-
-**Website & web validator:** [VAST tag validator](https://vastlint.org) — paste a VAST tag and get results in your browser, no install required.
+**Website & web validator:** [VAST tag validator](https://vastlint.org) Paste a VAST tag and get results in your browser, no install required.
 
 A VAST XML validator. Checks ad tags against the IAB Tech Lab VAST specification so you don't have to read it. Over $30 billion in annual CTV and video ad spend flows through VAST XML, and malformed tags are one of the most common causes of lost impressions, broken tracking, and revenue discrepancies between platforms. There is no widely adopted open-source tool that validates VAST XML against the full IAB specification across all published versions.
 
+[![crates.io](https://img.shields.io/crates/v/vastlint-cli.svg?label=crates.io)](https://crates.io/crates/vastlint-cli)
+[![vastlint-core](https://img.shields.io/crates/v/vastlint-core.svg?label=vastlint-core)](https://crates.io/crates/vastlint-core)
+[![npm](https://img.shields.io/npm/v/vastlint.svg?label=npm)](https://www.npmjs.com/package/vastlint)
+[![go](https://img.shields.io/github/v/tag/aleksUIX/vastlint-go?label=go&color=00ADD8)](https://github.com/aleksUIX/vastlint-go)
+[![license](https://img.shields.io/crates/l/vastlint-cli.svg)](LICENSE)
+
+[![VS Code](https://img.shields.io/visual-studio-marketplace/v/aleksuix.vastlint?label=vs%20code&color=007ACC)](https://marketplace.visualstudio.com/items?itemName=aleksuix.vastlint)
+[![docs.rs](https://docs.rs/vastlint-core/badge.svg)](https://docs.rs/vastlint-core)
+[![vastlint.org](https://img.shields.io/badge/vastlint.org-docs%20%26%20validator-blue)](https://vastlint.org)
+
+[![SLSA 3](https://slsa.dev/images/gh-badge-level3.svg)](https://slsa.dev)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/aleksUIX/vastlint/badge)](https://scorecard.dev/viewer/?uri=github.com/aleksUIX/vastlint)
+
 Validates VAST documents against:
 
-- [IAB Tech Lab VAST](https://iabtechlab.com/standards/vast/) 2.0, 3.0, 4.0, 4.1, 4.2, and 4.3 -- structural rules derived from the published XSD schemas and spec prose
+- [IAB Tech Lab VAST](https://iabtechlab.com/standards/vast/) 2.0, 3.0, 4.0, 4.1, 4.2, and 4.3. Structural rules derived from the published XSD schemas and spec prose
 - [W3C XML 1.0](https://www.w3.org/TR/xml/) well-formedness (malformed documents are rejected before any spec rule runs)
 - [RFC 3986](https://www.rfc-editor.org/rfc/rfc3986) URI syntax (all URL fields)
 - [IANA Media Types](https://www.iana.org/assignments/media-types/) (MediaFile and resource MIME types)
