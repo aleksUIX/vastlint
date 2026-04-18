@@ -89,3 +89,41 @@ export declare function validateFiltered(
  * Returns the full catalog of all known validation rules.
  */
 export declare function rules(): RuleMeta[];
+
+/** A single fix that was automatically applied to the document. */
+export interface AppliedFix {
+  /** The rule ID this fix addresses, e.g. `"VAST-2.0-mediafile-https"`. */
+  rule_id: string;
+  /** Human-readable description of what was changed. */
+  description: string;
+  /** XPath-like path to the element that was modified. */
+  path: string;
+}
+
+export interface FixResult {
+  /** The repaired VAST XML string. */
+  xml: string;
+  /** All fixes that were successfully applied, in document order. */
+  applied: AppliedFix[];
+  /** Issues that remain after all fixes were applied (require manual intervention). */
+  remaining: Issue[];
+}
+
+/**
+ * Fix a VAST XML string using default settings.
+ * Upgrades http:// URLs to https:// and removes deprecated attributes.
+ *
+ * @example
+ * import { fix } from 'vastlint';
+ * const result = fix(xml);
+ * console.log(result.xml);           // repaired XML
+ * console.log(result.applied);       // what was changed
+ * console.log(result.remaining);     // issues that need manual attention
+ */
+export declare function fix(xml: string): FixResult;
+
+/**
+ * Fix a VAST XML string with caller-supplied options.
+ * Accepts the same options object as `validateWithOptions`.
+ */
+export declare function fixWithOptions(xml: string, options: ValidateOptions): FixResult;

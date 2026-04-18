@@ -13,6 +13,8 @@ module.exports = {
   validate: wasm.validate,
   validateWithOptions: wasm.validateWithOptions,
   rules: wasm.rules,
+  fix: wasm.fix,
+  fixWithOptions: wasm.fixWithOptions,
   validateFiltered(xml, minSeverity = 'error') {
     const order = { error: 2, warning: 1, info: 0 };
     const min = order[minSeverity] ?? 0;

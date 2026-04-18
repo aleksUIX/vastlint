@@ -4,7 +4,7 @@ import type { Issue, RuleMeta } from 'vastlint';
 // Use the CJS entry directly at runtime — the package has "type":"module" which
 // causes Node v22 to pick the ESM loader, breaking __dirname and WASM init.
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const { validateWithOptions, rules } = require('vastlint/index.cjs') as Pick<typeof import('vastlint'), 'validateWithOptions' | 'rules'>;
+const { validateWithOptions, rules, fix } = require('vastlint/index.cjs') as Pick<typeof import('vastlint'), 'validateWithOptions' | 'rules' | 'fix'>;
 
 // ── Rule catalog ─────────────────────────────────────────────────────────────
 
@@ -238,6 +238,76 @@ interface DiagnosticWithMeta extends vscode.Diagnostic {
   _meta?: DiagnosticMeta;
 }
 
+// ── Auto-fix ──────────────────────────────────────────────────────────────────
+
+/** Rule IDs that vastlint-core can repair automatically. */
+const FIXABLE_RULE_IDS = new Set([
+  'VAST-2.0-mediafile-https',
+  'VAST-2.0-tracking-https',
+  'VAST-4.0-conditionalad',
+]);
+
+class VastlintCodeActionProvider implements vscode.CodeActionProvider {
+  constructor(private readonly collection: vscode.DiagnosticCollection) {}
+
+  provideCodeActions(
+    document: vscode.TextDocument,
+    _range: vscode.Range,
+    context: vscode.CodeActionContext,
+  ): vscode.CodeAction[] {
+    // Only act on fixable vastlint diagnostics present in this context.
+    const fixableDiags = context.diagnostics.filter(
+      (d) => d.source === 'vastlint' && FIXABLE_RULE_IDS.has(d.code as string),
+    );
+    if (fixableDiags.length === 0) return [];
+
+    const xml = document.getText();
+    let fixResult: ReturnType<typeof fix>;
+    try {
+      fixResult = fix(xml);
+    } catch {
+      return [];
+    }
+    if (fixResult.applied.length === 0) return [];
+
+    const fullRange = new vscode.Range(
+      document.positionAt(0),
+      document.positionAt(xml.length),
+    );
+
+    const actions: vscode.CodeAction[] = [];
+
+    // One quick-fix action per fixable diagnostic (all apply the same whole-doc repair).
+    for (const diag of fixableDiags) {
+      const action = new vscode.CodeAction(
+        `vastlint: Fix \`${diag.code as string}\``,
+        vscode.CodeActionKind.QuickFix,
+      );
+      action.diagnostics = [diag];
+      action.isPreferred = true;
+      const edit = new vscode.WorkspaceEdit();
+      edit.replace(document.uri, fullRange, fixResult.xml);
+      action.edit = edit;
+      actions.push(action);
+    }
+
+    // "Fix all" source action when more than one fixable issue exists.
+    if (fixResult.applied.length > 1 || fixableDiags.length > 1) {
+      const fixAll = new vscode.CodeAction(
+        `vastlint: Fix all auto-fixable issues (${fixResult.applied.length} fix${fixResult.applied.length === 1 ? '' : 'es'})`,
+        vscode.CodeActionKind.SourceFixAll,
+      );
+      fixAll.diagnostics = fixableDiags as vscode.Diagnostic[];
+      const edit = new vscode.WorkspaceEdit();
+      edit.replace(document.uri, fullRange, fixResult.xml);
+      fixAll.edit = edit;
+      actions.push(fixAll);
+    }
+
+    return actions;
+  }
+}
+
 // ── Hover provider ────────────────────────────────────────────────────────────
 
 class VastlintHoverProvider implements vscode.HoverProvider {
@@ -325,6 +395,22 @@ export function activate(context: vscode.ExtensionContext): void {
     new VastlintHoverProvider(collection),
   );
   context.subscriptions.push(hoverProvider);
+
+  // Code action provider — offers "Fix" actions for auto-repairable diagnostics.
+  const codeActionProvider = vscode.languages.registerCodeActionsProvider(
+    [
+      { language: 'xml',       scheme: 'file' },
+      { language: 'plaintext', scheme: 'file' },
+    ],
+    new VastlintCodeActionProvider(collection),
+    {
+      providedCodeActionKinds: [
+        vscode.CodeActionKind.QuickFix,
+        vscode.CodeActionKind.SourceFixAll,
+      ],
+    },
+  );
+  context.subscriptions.push(codeActionProvider);
 
   // Lint the active editor on startup.
   if (vscode.window.activeTextEditor) {

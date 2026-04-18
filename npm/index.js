@@ -17,7 +17,7 @@
 // wasm-pack generates vastlint_wasm.js (ESM glue) and vastlint_wasm_bg.wasm.
 // assemble.js copies both to the package root during the build.
 import * as _wasm from './vastlint_wasm.js';
-export const { validate, validateWithOptions, rules } = _wasm;
+export const { validate, validateWithOptions, rules, fix, fixWithOptions } = _wasm;
 
 /**
  * Validate a VAST XML string and return only issues at or above a minimum severity.
