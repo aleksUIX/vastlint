@@ -19,7 +19,24 @@ Part of the [IAB Tech Lab AAMP](https://iabtechlab.com/standards/aamp-agentic-ad
 
 ## Usage
 
-### Claude Desktop
+### Hosted (no install)
+
+Connect directly to the hosted SSE endpoint — no binary required:
+
+```json
+{
+  "mcpServers": {
+    "vastlint": {
+      "type": "sse",
+      "url": "https://vastlint.org/mcp"
+    }
+  }
+}
+```
+
+Works in Claude Desktop, Cursor, and any MCP client that supports SSE transport.
+
+### Claude Desktop (local)
 
 Add to `claude_desktop_config.json`:
 
@@ -35,7 +52,7 @@ Add to `claude_desktop_config.json`:
 
 Then ask Claude: *"Validate this VAST tag"* or *"Why is my VAST failing?"*
 
-### Cursor
+### Cursor (local)
 
 Add to `.cursor/mcp.json`:
 
@@ -57,6 +74,7 @@ Run `vastlint-mcp` as a subprocess. It speaks the MCP stdio transport protocol.
 
 `vastlint-mcp` is the ARTF-compatible validation agent for VAST creatives. Point your
 ARTF agent container at the MCP endpoint to validate VAST tags inline before impression.
+
 
 ---
 

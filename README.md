@@ -332,6 +332,41 @@ ext install aleksuix.vastlint
 
 Or search for **vastlint** in the VS Code Extensions panel.
 
+## Use from an AI agent (MCP)
+
+[`vastlint-mcp`](crates/vastlint-mcp) is a [Model Context Protocol](https://modelcontextprotocol.io) server. It exposes `validate_vast`, `validate_vast_url`, `list_rules`, `explain_rule`, and `fix_vast` as native tools callable by Claude, Cursor, and any MCP-compatible agent.
+
+**No-install hosted endpoint** — connect directly without installing anything:
+
+```json
+{
+  "mcpServers": {
+    "vastlint": {
+      "type": "sse",
+      "url": "https://vastlint.org/mcp"
+    }
+  }
+}
+```
+
+**Local install** (stdio transport):
+
+```sh
+cargo install vastlint-mcp
+```
+
+```json
+{
+  "mcpServers": {
+    "vastlint": {
+      "command": "vastlint-mcp"
+    }
+  }
+}
+```
+
+Listed on the [MCP Registry](https://registry.modelcontextprotocol.io) as `io.github.aleksUIX/vastlint`. See [`crates/vastlint-mcp`](crates/vastlint-mcp/README.md) for the full tool reference.
+
 ## Use as a REST API
 
 Available on [RapidAPI](https://rapidapi.com/aleksUIX/api/vastlint). Send a `POST /validate` request with your VAST XML and get a full validation result back — no SDK, no install.
