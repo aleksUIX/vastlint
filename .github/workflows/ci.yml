@@ -11,6 +11,10 @@ env:
   CARGO_TERM_COLOR: always
   RUST_BACKTRACE: 1
 
+# Default every job to read-only. Jobs that need more declare it explicitly.
+permissions:
+  contents: read
+
 jobs:
   test:
     name: Test (${{ matrix.os }})
@@ -143,3 +147,34 @@ jobs:
         run: cargo doc --no-deps --workspace
         env:
           RUSTDOCFLAGS: -D warnings
+
+  codeql:
+    name: CodeQL (SAST)
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write  # upload SARIF results to GitHub Security tab
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4.3.1
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@66b39da20ccc656acc90dd27ea30f5d458ec33ce  # v3.28.19
+        with:
+          languages: rust
+          queries: security-and-quality
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@3c5f7ea28cd621ae0bf5283f0e981fb97b8a7af9  # v (pinned SHA)
+        with:
+          toolchain: stable
+
+      - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4  # v2.9.1
+
+      - name: Build for CodeQL
+        run: cargo build --all
+
+      - name: Perform CodeQL analysis
+        uses: github/codeql-action/analyze@66b39da20ccc656acc90dd27ea30f5d458ec33ce  # v3.28.19
+        with:
+          category: rust
