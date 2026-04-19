@@ -290,6 +290,16 @@ jobs:
           toolchain: stable
           targets: ${{ matrix.target }}
 
+      # Stamp every crate's Cargo.toml with the release version so that
+      # env!("CARGO_PKG_VERSION") inside the binary matches the git tag.
+      - name: Bump crate versions to match git tag
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          for toml in crates/*/Cargo.toml; do
+            sed -i.bak "s/^version = \".*\"/version = \"${VERSION}\"/" "$toml" && rm "$toml.bak"
+          done
+          echo "Bumped all crates to ${VERSION}"
+
       - name: Install musl tools (Linux)
         if: contains(matrix.target, 'musl')
         run: |
