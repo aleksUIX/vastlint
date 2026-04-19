@@ -15,6 +15,7 @@
 
 import { validateVast } from '../vastlint/validator';
 import { renderPanel } from './panel';
+import { injectXmlViewer } from './xml-viewer';
 import { VAST_SIGNATURE_RE } from '../vastlint/detect';
 import type { ValidationResult } from '../types/vastlint';
 
@@ -57,8 +58,8 @@ let siteDisabled = false;
     await import('../vastlint/validator'); // trigger WASM init
 
     // Special path: full-page XML document (e.g. file://….xml or a text/xml response).
-    // Re-fetch the raw source so we preserve original formatting and avoid
-    // XMLSerializer injecting xmlns/namespace noise.
+    // Re-fetch the raw source, replace the browser's XML tree viewer with our
+    // own styled HTML viewer, then lint against the <pre> element as anchor.
     if (document.contentType === 'text/xml' || document.contentType === 'application/xml') {
       let src: string;
       try {
@@ -67,14 +68,18 @@ let siteDisabled = false;
       } catch {
         src = new XMLSerializer().serializeToString(document);
       }
+
       if (VAST_SIGNATURE_RE.test(src)) {
-        const anchor = document.documentElement;
+        // Replace the XML tree viewer with our HTML viewer and get the <pre> anchor.
+        // injectXmlViewer calls document.open/write/close which resets the DOM —
+        // must happen before any further DOM reads.
+        const { pre: anchor, origToFmt, pathToFmt } = injectXmlViewer(src);
+
         const key = simpleHash(src);
-        if (!seen.has(key) && !lastResults.has(anchor)) {
-          seen.add(key);
-          lintAndRenderAll([{ xml: src, anchor }]);
-        }
+        seen.add(key);
+        lintAndRenderAll([{ xml: src, anchor, origToFmt, pathToFmt }]);
       }
+
       window.addEventListener('pagehide', clearAll);
       return; // no further DOM scanning needed on a pure XML page
     }
@@ -227,6 +232,10 @@ interface Candidate {
   xml: string;
   /** Element to anchor the overlay panel to */
   anchor: Element;
+  /** Maps original XML 1-based line → formatted output 0-based line index (xml-viewer only). */
+  origToFmt?: Map<number, number>;
+  /** Maps vastlint element path → formatted output 0-based line index (xml-viewer only). */
+  pathToFmt?: Map<string, number>;
 }
 
 function collectCandidates(root: Element | Document): Candidate[] {
@@ -279,14 +288,12 @@ function collectCandidates(root: Element | Document): Candidate[] {
 
 // ─── Lint & render ────────────────────────────────────────────────────────────
 
-interface Candidate { xml: string; anchor: Element; }
-
 /** Lint all candidates in parallel, render overlays, then send ONE batched badge message. */
 async function lintAndRenderAll(candidates: Candidate[]) {
   const results = await Promise.all(
-    candidates.map(async ({ xml, anchor }) => {
+    candidates.map(async ({ xml, anchor, origToFmt, pathToFmt }) => {
       const result = await validateVast(xml);
-      renderPanel(result, anchor);
+      renderPanel(result, anchor, origToFmt, pathToFmt);
 
       const adIdMatch = xml.match(/<Ad\b[^>]*\bid=["']([^"']+)["']/i);
       // Reuse existing label if this is a refresh of an already-tracked element

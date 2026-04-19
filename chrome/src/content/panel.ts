@@ -29,7 +29,7 @@ type ViewMode = 'inline' | 'panel';
 
 // ─── Public entry point ───────────────────────────────────────────────────────
 
-export function renderPanel(result: ValidationResult, anchor: Element): void {
+export function renderPanel(result: ValidationResult, anchor: Element, origToFmt?: Map<number, number>, pathToFmt?: Map<string, number>): void {
   const el = anchor as HTMLElement & { _vlCleanup?: () => void };
   el._vlCleanup?.();
 
@@ -38,9 +38,9 @@ export function renderPanel(result: ValidationResult, anchor: Element): void {
     || anchor === document.documentElement;
 
   if (isCode) {
-    renderOverlay(result, anchor as HTMLElement);
+    renderOverlay(result, anchor as HTMLElement, origToFmt, pathToFmt);
   } else {
-    renderFloatingPanel(result, null); // non-code: go straight to floating panel
+    renderFloatingPanel(result, null);
   }
 }
 
@@ -103,14 +103,20 @@ function issueListHTML(issues: Issue[]) {
 
 // ─── Main overlay (code mode) ─────────────────────────────────────────────────
 
-function renderOverlay(result: ValidationResult, anchor: HTMLElement) {
+function renderOverlay(result: ValidationResult, anchor: HTMLElement, origToFmt?: Map<number, number>, pathToFmt?: Map<string, number>) {
   const lineIssues = buildLineIssues(result);
 
-  const host = htmlEl('div');
+  // The anchor may live inside an iframe (e.g. our XML viewer). We must inject
+  // the overlay host into the same document so that position:fixed resolves
+  // correctly relative to that viewport, not the outer XML document.
+  const ownerDoc = (anchor.ownerDocument ?? document) as Document;
+  const ownerWin = (ownerDoc.defaultView ?? window) as Window & typeof globalThis;
+
+  const host = ownerDoc.createElementNS('http://www.w3.org/1999/xhtml', 'div') as HTMLDivElement;
   host.setAttribute('data-vastlint-overlay', 'true');
   // pointer-events:none on the host; individual children opt in
   host.style.cssText = 'all:initial;position:fixed;top:0;left:0;width:0;height:0;pointer-events:none;';
-  (document.body ?? document.documentElement).appendChild(host);
+  (ownerDoc.body ?? ownerDoc.documentElement).appendChild(host);
 
   const shadow = host.attachShadow({ mode: 'open' });
 
@@ -148,9 +154,15 @@ function renderOverlay(result: ValidationResult, anchor: HTMLElement) {
       }
       .sev-btn.active { background:rgba(255,255,255,.12); color:#ccc; border-color:rgba(255,255,255,.35); }
       /* When filter is off, hide matching rows/issues */
-      #layers.hide-error   .row[data-sev="error"],
-      #layers.hide-warning .row[data-sev="warning"],
-      #layers.hide-info    .row[data-sev="info"] { display:none !important; }
+      #layers.hide-error   .highlight[data-sev="error"],
+      #layers.hide-error   .squiggle[data-sev="error"],
+      #layers.hide-error   .inline-label[data-sev="error"],
+      #layers.hide-warning .highlight[data-sev="warning"],
+      #layers.hide-warning .squiggle[data-sev="warning"],
+      #layers.hide-warning .inline-label[data-sev="warning"],
+      #layers.hide-info    .highlight[data-sev="info"],
+      #layers.hide-info    .squiggle[data-sev="info"],
+      #layers.hide-info    .inline-label[data-sev="info"] { display:none !important; }
       #float-body.hide-error   .issue[data-sev="error"],
       #float-body.hide-warning .issue[data-sev="warning"],
       #float-body.hide-info    .issue[data-sev="info"] { display:none !important; }
@@ -161,49 +173,30 @@ function renderOverlay(result: ValidationResult, anchor: HTMLElement) {
         padding:1px 5px; line-height:1.4; font-weight:600;
       }
 
-      /* ── Gutter strip ───────────────────────────────────── */
-      .strip {
-        position:fixed; pointer-events:none; width:6px; border-radius:0 3px 3px 0;
-        box-shadow: 1px 0 6px color-mix(in srgb,var(--sc,#fff) 50%,transparent);
-      }
-
       /* ── Full-line highlight band ────────────────────────── */
       .highlight {
-        position:fixed; pointer-events:none;
-        background:color-mix(in srgb,var(--c) 10%,transparent);
-        border-left:3px solid color-mix(in srgb,var(--c) 70%,transparent);
+        position:fixed; pointer-events:all; cursor:default;
+        background:color-mix(in srgb,var(--c) 18%,transparent);
+        border-left:3px solid color-mix(in srgb,var(--c) 80%,transparent);
       }
 
       /* ── Squiggly underline ──────────────────────────────── */
       .squiggle {
+        position:fixed; pointer-events:none; z-index:1;
+        height:4px; overflow:visible;
+      }
+
+      /* ── Inline label (after line text) ────────────────────── */
+      .inline-label {
         position:fixed; pointer-events:none;
-        height:0; overflow:visible;
-        border-bottom:2px wavy var(--c);
-        opacity:0.75;
-      }
-
-      /* ── Inline badge rows ──────────────────────────────── */
-      .row { position:fixed; pointer-events:all; display:flex; align-items:center; }
-
-      .badge {
-        display:inline-flex; align-items:center; gap:4px;
-        padding:3px 9px; border-radius:4px;
-        font:700 11px/1.4 system-ui,sans-serif;
-        background:color-mix(in srgb,var(--c) 28%,#0d0d1a);
-        color:var(--c); border:1px solid color-mix(in srgb,var(--c) 65%,transparent);
-        cursor:default; white-space:nowrap;
-        box-shadow:0 2px 8px rgba(0,0,0,.6), 0 0 0 1px color-mix(in srgb,var(--c) 25%,transparent);
-        min-width:140px; max-width:260px; justify-content:flex-start;
-        overflow:hidden; text-overflow:ellipsis;
-        text-shadow: 0 0 8px color-mix(in srgb,var(--c) 60%,transparent);
-      }
-      /* on hover expand badge to show full text */
-      .row:hover .badge {
-        background:var(--c); color:#fff;
-        max-width:none; overflow:visible;
-        position:relative; z-index:1;
-        text-shadow:none;
-        box-shadow:0 3px 12px rgba(0,0,0,.7);
+        display:flex; align-items:center;
+        font:600 11px/1 'JetBrains Mono','Fira Code','Consolas',monospace;
+        color:var(--c);
+        white-space:nowrap;
+        padding:0 10px 0 8px;
+        /* translucent background so it never clashes with code behind it */
+        background: color-mix(in srgb,var(--c) 15%, #0d0d17 85%);
+        border-left: 2px solid color-mix(in srgb,var(--c) 60%,transparent);
       }
 
       /* Tooltip — pointer events enabled so rule links are clickable */
@@ -312,11 +305,10 @@ function renderOverlay(result: ValidationResult, anchor: HTMLElement) {
   const floatBody  = shadow.getElementById('float-body') as HTMLElement;
   const tip        = shadow.getElementById('tip')        as HTMLElement;
 
-  // ── Build inline strips + rows ─────────────────────────────────────────────
-  const strips:     HTMLElement[] = [];
-  const rows:       HTMLElement[] = [];
-  const highlights: HTMLElement[] = [];
-  const squiggles:  HTMLElement[] = [];
+  // ── Build inline annotations ───────────────────────────────────────────────
+  const inlineLabels: HTMLElement[] = [];
+  const highlights:   HTMLElement[] = [];
+  const squiggles:    HTMLElement[] = [];
 
   for (const [ln, issues] of lineIssues) {
     const worstSev   = issues.find(x => x.severity === 'error')?.severity
@@ -334,6 +326,7 @@ function renderOverlay(result: ValidationResult, anchor: HTMLElement) {
     highlight.className = 'highlight';
     highlight.style.setProperty('--c', worstColor);
     highlight.dataset.ln    = String(ln);
+    highlight.dataset.sev   = worstSev;
     highlight.dataset.xpath = issuePath;
     layers.appendChild(highlight);
     highlights.push(highlight);
@@ -342,28 +335,20 @@ function renderOverlay(result: ValidationResult, anchor: HTMLElement) {
     squiggle.className = 'squiggle';
     squiggle.style.setProperty('--c', worstColor);
     squiggle.dataset.ln    = String(ln);
+    squiggle.dataset.sev   = worstSev;
     squiggle.dataset.xpath = issuePath;
+    squiggle.dataset.color = worstColor;
     layers.appendChild(squiggle);
     squiggles.push(squiggle);
 
-    const strip = htmlEl('div');
-    strip.className = 'strip';
-    strip.style.background = worstColor;
-    strip.style.setProperty('--sc', worstColor);
-    strip.dataset.ln    = String(ln);
-    strip.dataset.xpath = issuePath;
-    layers.appendChild(strip);
-    strips.push(strip);
-
-    const row = htmlEl('div');
-    row.className = 'row';
-    row.dataset.ln    = String(ln);
-    row.dataset.sev   = worstSev;
-    row.dataset.xpath = issuePath;
-    row.style.setProperty('--c', worstColor);
-    row.innerHTML = `<span class="badge">${escHtml(label)}</span>`;
-    layers.appendChild(row);
-    rows.push(row);
+    const inlineLabel = htmlEl('div');
+    inlineLabel.className = 'inline-label';
+    inlineLabel.dataset.ln  = String(ln);
+    inlineLabel.dataset.sev = worstSev;
+    inlineLabel.style.setProperty('--c', worstColor);
+    inlineLabel.textContent = label;
+    layers.appendChild(inlineLabel);
+    inlineLabels.push(inlineLabel);
 
     // Tooltip: show on mouseenter, positioned below the badge, always on top
     const tipRows = issues.map(iss => {
@@ -384,36 +369,37 @@ function renderOverlay(result: ValidationResult, anchor: HTMLElement) {
       </div>`;
     }).join('');
 
-    row.addEventListener('mouseenter', () => {
+    function showTip(anchorRect: DOMRect) {
       tip.innerHTML = tipRows;
       tip.style.display = 'block';
 
-      const rb      = row.getBoundingClientRect();
-      const MARGIN  = 8;
-
-      // Vertical: prefer below badge, flip above if near viewport bottom
-      const tipH = tip.offsetHeight || 120;
-      if (window.innerHeight - rb.bottom < tipH + MARGIN && rb.top > tipH + MARGIN) {
+      const MARGIN = 8;
+      const tipH   = tip.offsetHeight || 120;
+      // Prefer below the line, flip above if near viewport bottom
+      if (ownerWin.innerHeight - anchorRect.bottom < tipH + MARGIN && anchorRect.top > tipH + MARGIN) {
         tip.style.top    = '';
-        tip.style.bottom = `${window.innerHeight - rb.top + 4}px`;
+        tip.style.bottom = `${ownerWin.innerHeight - anchorRect.top + 4}px`;
       } else {
         tip.style.bottom = '';
-        tip.style.top    = `${rb.bottom + 4}px`;
+        tip.style.top    = `${anchorRect.bottom + 4}px`;
       }
-
-      // Horizontal: anchor to badge left, clamp so it never overflows right edge
+      // Horizontal: anchor to left of line/badge, clamp inside viewport
       tip.style.right = '';
       const tipW    = tip.offsetWidth || 300;
-      const ideal   = rb.left;
-      const maxLeft = window.innerWidth - tipW - MARGIN;
+      const ideal   = anchorRect.left;
+      const maxLeft = ownerWin.innerWidth - tipW - MARGIN;
       tip.style.left = `${Math.max(MARGIN, Math.min(ideal, maxLeft))}px`;
-    });
-    row.addEventListener('mouseleave', () => {
-      // Delay hide so user can move mouse into the tooltip to click links
+    }
+    function hideTip() {
       setTimeout(() => {
         if (!tip.matches(':hover')) tip.style.display = 'none';
       }, 120);
-    });
+    }
+
+    // Hover on the highlight band (whole line) — VS Code-style
+    highlight.addEventListener('mouseenter', () => showTip(highlight.getBoundingClientRect()));
+    highlight.addEventListener('mouseleave', hideTip);
+
     tip.addEventListener('mouseleave', () => { tip.style.display = 'none'; });
   }
 
@@ -487,7 +473,7 @@ function renderOverlay(result: ValidationResult, anchor: HTMLElement) {
   });
   shadow.addEventListener('mouseup', () => { dragging = false; });
   // Also handle when pointer leaves the shadow root entirely
-  document.addEventListener('mouseup', () => { dragging = false; });
+  ownerDoc.addEventListener('mouseup', () => { dragging = false; });
 
   // ── Layout: position bar, strips and rows to track the anchor ─────────────
 
@@ -535,52 +521,130 @@ function renderOverlay(result: ValidationResult, anchor: HTMLElement) {
     // On a pure XML document, document.documentElement has no CSS layout box —
     // its width/height may be 0. Fall back to the viewport as the content area.
     const contentRect = (rect.width === 0 || rect.height === 0)
-      ? new DOMRect(0, 0, window.innerWidth, window.innerHeight)
+      ? new DOMRect(0, 0, ownerWin.innerWidth, ownerWin.innerHeight)
       : rect;
 
-    const cs = window.getComputedStyle(anchor);
+    const cs = ownerWin.getComputedStyle(anchor);
     let defaultLh = parseFloat(cs.lineHeight);
     if (isNaN(defaultLh)) defaultLh = parseFloat(cs.fontSize) * 1.5 || 18;
     const pt = parseFloat(cs.paddingTop)  || 0;
     const pl = parseFloat(cs.paddingLeft) || 0;
 
     bar.style.top  = `${Math.max(0, contentRect.top - 28)}px`;
-    bar.style.left = `${contentRect.left}px`;
+    bar.style.left = `${contentRect.left + 16}px`;
 
-    const BADGE_GAP = 8;
-    for (let i = 0; i < strips.length; i++) {
-      const strip     = strips[i];
-      const row       = rows[i];
-      const highlight = highlights[i];
-      const squiggle  = squiggles[i];
+    for (let i = 0; i < highlights.length; i++) {
+      const inlineLabel = inlineLabels[i];
+      const highlight   = highlights[i];
+      const squiggle    = squiggles[i];
 
       // ── Determine lineY and lh ───────────────────────────────────────────
       let lineY: number;
       let lh = defaultLh;
 
-      if (isXmlDoc && strip.dataset.xpath) {
-        // XML doc: try the XPath element's real bounding rect first.
-        // Chrome's tree viewer DOES lay out XML nodes, but some (e.g. the root)
-        // report zero dimensions. If we get a zero rect, fall through to line math.
-        const el = elementForPath(strip.dataset.xpath);
+      const ln = parseInt(highlight.dataset.ln!, 10);
+      const issuePath = highlight.dataset.xpath ?? '';
+
+      // ── Resolve which formatted line span to highlight ───────────────────
+      // Priority 1: exact path match via pathToFmt.
+      //   vastlint omits [0] for elements that happen to be unique children.
+      //   Normalize by adding [0] to every segment that lacks an index.
+      //   Our formatter always emits [n], so /Wrapper becomes /Wrapper[0] etc.
+      // Priority 2: data-orig exact match (works when source XML is not minified).
+      // Priority 3: origToFmt fuzzy ±5.
+      // Priority 4: treat ln as 1-based index directly.
+
+      function normalisePath(p: string): string {
+        return p.replace(/\/([A-Za-z][\w:.-]*)(?!\[)/g, '/$1[0]');
+      }
+
+      let lineSpan: HTMLElement | null = null;
+
+      if (issuePath && pathToFmt) {
+        const norm = normalisePath(issuePath);
+        const fmtIdx = pathToFmt.get(norm);
+        if (fmtIdx !== undefined) {
+          lineSpan = anchor.querySelector(`.ln[data-ln="${fmtIdx}"]`) as HTMLElement | null;
+        }
+        // Fallback: also try the DOM attribute (handles path → span directly)
+        if (!lineSpan) {
+          lineSpan = anchor.querySelector(`.ln[data-path="${norm.replace(/"/g, '\\"')}"]`) as HTMLElement | null;
+        }
+      }
+
+      if (!lineSpan) {
+        lineSpan = anchor.querySelector(`.ln[data-orig="${ln}"]`) as HTMLElement | null;
+      }
+
+      // For XML viewer: if we have origToFmt but NO path resolved the line,
+      // only use the raw line number if the source is NOT minified.
+      // "Minified" = origToFmt has very few distinct keys relative to total lines
+      // (i.e., nearly everything is on line 1). Heuristic: if origToFmt exists but
+      // the max raw line across all entries is <= 5, the source is minified and
+      // raw line numbers are useless — pin the issue to the document root instead.
+      const isMiniXml = origToFmt && (() => {
+        let maxLine = 0;
+        for (const k of origToFmt.keys()) if (k > maxLine) maxLine = k;
+        return maxLine <= 5;
+      })();
+
+      if (!lineSpan && origToFmt && !isMiniXml) {
+        let fmtIdx = origToFmt.get(ln);
+        if (fmtIdx === undefined) {
+          for (let d = 1; d <= 5 && fmtIdx === undefined; d++) {
+            fmtIdx = origToFmt.get(ln - d) ?? origToFmt.get(ln + d);
+          }
+        }
+        if (fmtIdx !== undefined) {
+          lineSpan = anchor.querySelector(`.ln[data-ln="${fmtIdx}"]`) as HTMLElement | null;
+        }
+      }
+
+      // Last resort for non-XML pages: treat ln as 1-based line index directly
+      if (!lineSpan && !origToFmt) {
+        lineSpan = anchor.querySelector(`.ln[data-ln="${ln - 1}"]`) as HTMLElement | null;
+      }
+
+      // If still no span (minified XML, no path), pin to the document root line (ln=0)
+      if (!lineSpan && origToFmt) {
+        lineSpan = anchor.querySelector('.ln[data-ln="0"]') as HTMLElement | null;
+      }
+
+      if (lineSpan) {
+        const sr = lineSpan.getBoundingClientRect();
+        if (sr.height > 0) {
+          lineY = sr.top;
+          // Extend height to cover attr-continuation lines (spans with no data-orig)
+          let bottomY = sr.bottom;
+          let next = parseInt(lineSpan.dataset.ln!, 10) + 1;
+          while (true) {
+            const ns = anchor.querySelector(`.ln[data-ln="${next}"]`) as HTMLElement | null;
+            if (!ns || ns.dataset.orig) break;
+            const nr = ns.getBoundingClientRect();
+            if (nr.height === 0) break;
+            bottomY = nr.bottom;
+            next++;
+          }
+          lh = bottomY - sr.top;
+        } else {
+          lineY = contentRect.top + pt + (ln - 1) * defaultLh;
+        }
+      } else if (isXmlDoc && issuePath) {
+        const el = elementForPath(issuePath);
         const er = el?.getBoundingClientRect();
         if (er && er.height > 2) {
           lineY = er.top;
           lh    = er.height;
         } else {
-          // Fallback: line-number math relative to viewport top
-          const ln = parseInt(strip.dataset.ln!, 10);
           lineY = contentRect.top + pt + (ln - 1) * defaultLh;
         }
       } else {
-        // HTML page: line-number pixel math
-        const ln = parseInt(strip.dataset.ln!, 10);
         lineY = contentRect.top + pt + (ln - 1) * lh;
       }
 
-      const inView = lineY + lh > 0 && lineY < window.innerHeight;
+      const inView = lineY + lh > 0 && lineY < ownerWin.innerHeight;
       const show   = inView && mode === 'inline';
-      strip.style.display = row.style.display = highlight.style.display = squiggle.style.display = show ? '' : 'none';
+      inlineLabel.style.display = highlight.style.display = squiggle.style.display = show ? '' : 'none';
       if (!show) continue;
 
       // Full-line highlight band
@@ -589,21 +653,26 @@ function renderOverlay(result: ValidationResult, anchor: HTMLElement) {
       highlight.style.width  = `${contentRect.width}px`;
       highlight.style.height = `${lh}px`;
 
-      // Squiggly underline — sits at the line bottom
-      squiggle.style.left  = `${contentRect.left + pl + 8}px`;
-      squiggle.style.top   = `${lineY + lh - 3}px`;
-      squiggle.style.width = `${Math.max(0, contentRect.width - pl - 16)}px`;
+      // Squiggly underline — from text left to text right
+      const innerSpan = lineSpan?.querySelector('span');
+      const innerRect = innerSpan?.getBoundingClientRect();
+      const textLeft  = innerRect ? innerRect.left  : contentRect.left + pl + 8;
+      const textRight = innerRect ? innerRect.right : contentRect.left + pl + 200;
 
-      // Left gutter strip
-      strip.style.left   = `${contentRect.left + pl - 6}px`;
-      strip.style.top    = `${lineY}px`;
-      strip.style.height = `${lh}px`;
+      const sqColor     = squiggle.dataset.color ?? '#e53935';
+      const squiggleSvg = `<svg xmlns='http://www.w3.org/2000/svg' width='6' height='4'><path d='M0 3 Q1.5 0 3 3 Q4.5 6 6 3' fill='none' stroke='${encodeURIComponent(sqColor)}' stroke-width='1.5'/></svg>`;
+      squiggle.style.backgroundImage  = `url("data:image/svg+xml,${squiggleSvg}")`;
+      squiggle.style.backgroundRepeat = 'repeat-x';
+      squiggle.style.backgroundSize   = '6px 4px';
+      squiggle.style.left  = `${textLeft}px`;
+      squiggle.style.top   = `${lineY + lh - 6}px`;
+      squiggle.style.width = `${Math.max(0, textRight - textLeft)}px`;
 
-      // Right-side badge — clamp inside viewport
-      const rightOffset = Math.max(BADGE_GAP, window.innerWidth - contentRect.right - BADGE_GAP);
-      row.style.top    = `${lineY}px`;
-      row.style.right  = `${rightOffset}px`;
-      row.style.height = `${lh}px`;
+      // Inline label — pinned to the right edge of the content area
+      inlineLabel.style.right  = `${Math.max(8, ownerWin.innerWidth - (contentRect.left + contentRect.width))}px`;
+      inlineLabel.style.left   = '';
+      inlineLabel.style.top    = `${lineY}px`;
+      inlineLabel.style.height = `${lh}px`;
     }
   }
 
@@ -613,7 +682,7 @@ function renderOverlay(result: ValidationResult, anchor: HTMLElement) {
 
   (anchor as HTMLElement & { _vlCleanup?: () => void })._vlCleanup = () => {
     cancelAnimationFrame(rafId);
-    document.removeEventListener('mouseup', () => { dragging = false; });
+    ownerDoc.removeEventListener('mouseup', () => { dragging = false; });
     host.remove();
   };
 }
