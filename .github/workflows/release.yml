@@ -118,7 +118,7 @@ jobs:
         run: cargo install wasm-pack --locked
 
       - name: Install Node.js
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
+        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f  # v6.3.0
         with:
           node-version: '20'
 
@@ -204,7 +204,7 @@ jobs:
         run: cargo install wasm-pack --locked
 
       - name: Install Node.js
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
+        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f  # v6.3.0
         with:
           node-version: '20'
 
@@ -218,7 +218,7 @@ jobs:
         run: node npm/scripts/assemble.js
 
       - name: Upload assembled npm package
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
         with:
           name: wasm-npm-package
           path: npm/
@@ -324,7 +324,7 @@ jobs:
           tar czf ${{ matrix.archive }} -C $(dirname $BINARY) $(basename $BINARY)
 
       - name: Upload artifact
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
         with:
           name: ${{ matrix.archive }}
           path: ${{ matrix.archive }}
@@ -418,7 +418,7 @@ jobs:
           tar czf ${{ matrix.archive }} -C "$STAGING" .
 
       - name: Upload FFI artifact
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
         with:
           name: ${{ matrix.archive }}
           path: ${{ matrix.archive }}
@@ -497,7 +497,7 @@ jobs:
           tar czf ${{ matrix.archive }} -C "$STAGING" .
 
       - name: Upload NIF artifact
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
         with:
           name: ${{ matrix.archive }}
           path: ${{ matrix.archive }}
@@ -535,7 +535,7 @@ jobs:
       hashes: ${{ steps.hash.outputs.hashes }}
     steps:
       - name: Download all artifacts
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093  # v4.3.0
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c  # v8.0.1
         with:
           path: artifacts
           merge-multiple: true
@@ -560,13 +560,13 @@ jobs:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4.3.1
 
       - name: Download all artifacts
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093  # v4.3.0
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c  # v8.0.1
         with:
           path: artifacts
           merge-multiple: true
 
       - name: Create release
-        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65  # v2.6.2
+        uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda  # v3.0.0
         with:
           files: artifacts/*
           generate_release_notes: true
@@ -584,7 +584,7 @@ jobs:
   #     --provenance-path multiple.intoto.jsonl \
   #     --source-uri github.com/aleksUIX/vastlint
   #
-  # NOTE: slsa-github-generator is pinned to its commit SHA (v2.0.0).
+  # NOTE: slsa-github-generator is pinned to its commit SHA (v2.1.0).
   # Verified: the tag is a lightweight tag pointing directly to this commit.
   # Re-verify after any version bump with:
   #   git ls-remote https://github.com/slsa-framework/slsa-github-generator.git refs/tags/<new-tag>
@@ -595,7 +595,7 @@ jobs:
       actions: read    # read workflow run data used in the provenance statement
       id-token: write  # request OIDC token from GitHub's Sigstore instance
       contents: write  # upload .intoto.jsonl to the GitHub Release
-    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.0.0
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@f7dd8c54c2067bafc12ca7a55595d5ee9b75204a  # v2.1.0
     with:
       base64-subjects: "${{ needs.hash-artifacts.outputs.hashes }}"
       upload-assets: true
@@ -685,13 +685,13 @@ jobs:
 
       # QEMU lets buildx cross-compile the arm64 layer on an amd64 runner
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130  # v3.7.0
+        uses: docker/setup-qemu-action@ce360397dd3f832beb865e1373c09c0e9f86d70a  # v4.0.0
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f  # v3.12.0
+        uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd  # v4.0.0
 
       - name: Log in to Docker Hub
-        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9  # v3.7.0
+        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121  # v4.1.0
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
@@ -702,7 +702,7 @@ jobs:
         run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
 
       - name: Build and push
-        uses: docker/build-push-action@ca052bb54ab0790a636c9b5f226502c73d547a25  # v5.4.0
+        uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f  # v7.1.0
         with:
           context: .
           file: Dockerfile
@@ -734,13 +734,13 @@ jobs:
 
     steps:
       - name: Download assembled npm package
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093  # v4.3.0
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c  # v8.0.1
         with:
           name: wasm-npm-package
           path: npm
 
       - name: Install Node.js
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
+        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f  # v6.3.0
         with:
           node-version: '20'
           registry-url: 'https://registry.npmjs.org'
@@ -787,13 +787,13 @@ jobs:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4.3.1
 
       - name: Download assembled npm package
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093  # v4.3.0
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c  # v8.0.1
         with:
           name: wasm-npm-package
           path: npm
 
       - name: Install Node.js
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
+        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f  # v6.3.0
         with:
           node-version: '22'
 
@@ -823,7 +823,7 @@ jobs:
         working-directory: vscode
 
       - name: Upload VSIX as workflow artifact
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4.6.2
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
         with:
           name: vastlint-${{ steps.ext_version.outputs.version }}.vsix
           path: vscode/vastlint-${{ steps.ext_version.outputs.version }}.vsix
@@ -870,7 +870,7 @@ jobs:
       # artifact published to the registry. Other platforms are available on
       # the GitHub Release but the registry stores only one package entry.
       - name: Download vastlint-mcp linux-x86_64 artifact
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093  # v4.3.0
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c  # v8.0.1
         with:
           name: vastlint-mcp-linux-x86_64.tar.gz
           path: .
@@ -931,7 +931,7 @@ jobs:
 
     steps:
       - name: Download all FFI artifacts
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093  # v4.3.0
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c  # v8.0.1
         with:
           path: ffi-artifacts
           # Download only the FFI tarballs by filtering on name prefix.
@@ -1033,7 +1033,7 @@ jobs:
 
     steps:
       - name: Download all NIF artifacts
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093  # v4.3.0
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c  # v8.0.1
         with:
           path: nif-artifacts
           pattern: vastlint-nif-*
