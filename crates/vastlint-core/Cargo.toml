@@ -15,6 +15,6 @@ categories = ["parser-implementations", "development-tools"]
 [dependencies]
 quick-xml = { version = "0.37", features = [] }
 url = "2"
-phf = { version = "0.11", features = ["macros"] }
+phf = { version = "0.13", features = ["macros"] }
 
 [dev-dependencies]
