@@ -1,0 +1,36 @@
+[package]
+name = "vastlint-mcp"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.86"
+authors = ["Aleks <aleks@vastlint.org>"]
+description = "MCP server for vastlint — exposes VAST XML validation as tools callable by AI agents and ARTF-compliant buyer/seller agent systems"
+license = "Apache-2.0"
+repository = "https://github.com/aleksUIX/vastlint"
+homepage = "https://vastlint.org"
+readme = "README.md"
+keywords = ["vast", "mcp", "ai-agent", "adtech", "iab"]
+categories = ["development-tools", "command-line-utilities"]
+
+[[bin]]
+name = "vastlint-mcp"
+path = "src/main.rs"
+
+[dependencies]
+vastlint-core = { path = "../vastlint-core", version = "0.3.3" }
+
+# MCP SDK — stdio transport (spec-compliant, works with Claude, Cursor, ARTF)
+rmcp = { version = "0.1", features = ["server", "transport-io"] }
+
+# Async runtime
+tokio = { version = "1", features = ["full"] }
+
+# JSON serialization for tool inputs/outputs
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# Fetch VAST from URL (validate_vast_url tool)
+reqwest = { version = "0.12", features = ["rustls-tls"], default-features = false }
+
+# Fast allocator — critical for concurrent agent workloads
+mimalloc = { version = "0.1", default-features = false }

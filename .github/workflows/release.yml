@@ -23,7 +23,10 @@ jobs:
   #   2. vastlint-cli                  — build release binary, run against a
   #                                      valid fixture (expect exit 0) and an
   #                                      invalid fixture (expect exit 1)
-  #   3. vastlint-wasm                 — wasm-pack build (nodejs target) then
+  #   3. vastlint-mcp                  — build release binary, drive initialize +
+  #                                      tools/list via stdin, assert 5 tools
+  #                                      returned with correct names
+  #   4. vastlint-wasm                 — wasm-pack build (nodejs target) then
   #                                      a Node.js script that imports the
   #                                      package and validates the same fixtures
   smoke-test:
@@ -69,7 +72,48 @@ jobs:
           fi
           echo "Exit code $CODE (expected non-zero) ✓"
 
-      # ── 3. WASM smoke test ────────────────────────────────────────────────
+      # ── 3. MCP smoke test ─────────────────────────────────────────────────
+      - name: Build MCP server (release)
+        run: cargo build --release -p vastlint-mcp
+
+      - name: MCP smoke — initialize + tools/list returns 5 tools
+        run: |
+          RESPONSE=$(
+            (
+              echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"ci","version":"1.0"}}}'
+              sleep 0.2
+              echo '{"jsonrpc":"2.0","method":"notifications/initialized","params":{}}'
+              sleep 0.2
+              echo '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}'
+              sleep 1
+            ) | ./target/release/vastlint-mcp 2>/dev/null
+          )
+
+          echo "$RESPONSE" | grep -q '"tools"' || {
+            echo "FAIL: initialize response missing tools capability"
+            echo "$RESPONSE"
+            exit 1
+          }
+          echo "capabilities.tools present ✓"
+
+          TOOL_COUNT=$(echo "$RESPONSE" | grep -o '"name":"' | wc -l | tr -d ' ')
+          if [ "$TOOL_COUNT" -ne 5 ]; then
+            echo "FAIL: expected 5 tools, got $TOOL_COUNT"
+            echo "$RESPONSE"
+            exit 1
+          fi
+          echo "tools/list returned $TOOL_COUNT tools ✓"
+
+          for TOOL in validate_vast validate_vast_url fix_vast list_rules explain_rule; do
+            echo "$RESPONSE" | grep -q "\"$TOOL\"" || {
+              echo "FAIL: tool '$TOOL' missing from tools/list"
+              echo "$RESPONSE"
+              exit 1
+            }
+            echo "  $TOOL ✓"
+          done
+
+      # ── 4. WASM smoke test ────────────────────────────────────────────────
       - name: Install wasm-pack
         run: cargo install wasm-pack --locked
 
@@ -192,22 +236,50 @@ jobs:
           - target: x86_64-unknown-linux-musl
             os: ubuntu-latest
             binary: vastlint
+            crate: vastlint-cli
             archive: vastlint-linux-x86_64.tar.gz
 
           - target: aarch64-unknown-linux-musl
             os: ubuntu-latest
             binary: vastlint
+            crate: vastlint-cli
             archive: vastlint-linux-aarch64.tar.gz
 
           - target: x86_64-apple-darwin
             os: macos-latest
             binary: vastlint
+            crate: vastlint-cli
             archive: vastlint-macos-x86_64.tar.gz
 
           - target: aarch64-apple-darwin
             os: macos-latest
             binary: vastlint
+            crate: vastlint-cli
             archive: vastlint-macos-aarch64.tar.gz
+
+          - target: x86_64-unknown-linux-musl
+            os: ubuntu-latest
+            binary: vastlint-mcp
+            crate: vastlint-mcp
+            archive: vastlint-mcp-linux-x86_64.tar.gz
+
+          - target: aarch64-unknown-linux-musl
+            os: ubuntu-latest
+            binary: vastlint-mcp
+            crate: vastlint-mcp
+            archive: vastlint-mcp-linux-aarch64.tar.gz
+
+          - target: x86_64-apple-darwin
+            os: macos-latest
+            binary: vastlint-mcp
+            crate: vastlint-mcp
+            archive: vastlint-mcp-macos-x86_64.tar.gz
+
+          - target: aarch64-apple-darwin
+            os: macos-latest
+            binary: vastlint-mcp
+            crate: vastlint-mcp
+            archive: vastlint-mcp-macos-aarch64.tar.gz
 
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4.3.1
@@ -230,11 +302,11 @@ jobs:
 
       - name: Build (cross — Linux aarch64)
         if: matrix.target == 'aarch64-unknown-linux-musl'
-        run: cross build --release --target ${{ matrix.target }} -p vastlint-cli
+        run: cross build --release --target ${{ matrix.target }} -p ${{ matrix.crate }}
 
       - name: Build (cargo — all others)
         if: matrix.target != 'aarch64-unknown-linux-musl'
-        run: cargo build --release --target ${{ matrix.target }} -p vastlint-cli
+        run: cargo build --release --target ${{ matrix.target }} -p ${{ matrix.crate }}
 
       - name: Package
         run: |
@@ -752,8 +824,74 @@ jobs:
         env:
           OVSX_TOKEN: ${{ secrets.OVSX_TOKEN }}
 
-  # ── Sync vastlint-go ────────────────────────────────────────────────────────
-  # After a successful release, push the updated prebuilt libs and header into
+  # ── MCP Registry ────────────────────────────────────────────────────────────
+  # Publishes vastlint-mcp to registry.modelcontextprotocol.io after the GitHub
+  # Release is created so the download URL in server.json is live.
+  #
+  # Authentication: GitHub OIDC (no secrets needed — just id-token: write).
+  # The server namespace io.github.aleksUIX/ is validated against the OIDC
+  # token issued for this repo, so only CI runs in aleksUIX/vastlint can publish.
+  #
+  # Prerequisites (one-time setup):
+  #   None — OIDC is automatic. Just set ENABLE_MCP_REGISTRY_PUBLISH = "true"
+  #   in repo variables (Settings → Variables → Actions) to activate this job.
+  publish-mcp-registry:
+    name: Publish to MCP Registry
+    needs: [smoke-test, build, release]
+    runs-on: ubuntu-latest
+    environment: production  # requires reviewer approval before publishing
+    if: vars.ENABLE_MCP_REGISTRY_PUBLISH == 'true'
+    permissions:
+      id-token: write  # required for GitHub OIDC authentication
+      contents: read
+
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4.3.1
+
+      # Download the linux-x86_64 MCP binary — this is the canonical mcpb
+      # artifact published to the registry. Other platforms are available on
+      # the GitHub Release but the registry stores only one package entry.
+      - name: Download vastlint-mcp linux-x86_64 artifact
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093  # v4.3.0
+        with:
+          name: vastlint-mcp-linux-x86_64.tar.gz
+          path: .
+
+      # Derive version and compute SHA-256 so server.json is fully populated
+      # before we call mcp-publisher.
+      - name: Patch server.json with version and fileSha256
+        run: |
+          TAG="${GITHUB_REF_NAME}"          # e.g. v1.2.3
+          VERSION="${TAG#v}"                # e.g. 1.2.3
+          SHA256=$(openssl dgst -sha256 -hex vastlint-mcp-linux-x86_64.tar.gz \
+                    | awk '{print $2}')
+          IDENTIFIER="https://github.com/aleksUIX/vastlint/releases/download/${TAG}/vastlint-mcp-linux-x86_64.tar.gz"
+
+          jq \
+            --arg v   "$VERSION" \
+            --arg sha "$SHA256" \
+            --arg url "$IDENTIFIER" \
+            '.version = $v | .packages[0].fileSha256 = $sha | .packages[0].identifier = $url' \
+            crates/vastlint-mcp/server.json > server.tmp
+          mv server.tmp crates/vastlint-mcp/server.json
+          echo "Patched server.json:"
+          cat crates/vastlint-mcp/server.json
+
+      - name: Install mcp-publisher
+        run: |
+          curl -fsSL \
+            "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz" \
+            | tar xz mcp-publisher
+          chmod +x mcp-publisher
+
+      - name: Authenticate to MCP Registry (GitHub OIDC)
+        run: ./mcp-publisher login github-oidc
+
+      - name: Publish to MCP Registry
+        run: ./mcp-publisher publish
+        working-directory: crates/vastlint-mcp
+
+  # ── Sync vastlint-go ────────────────────────────────────────────────────────  # After a successful release, push the updated prebuilt libs and header into
   # the vastlint-go repo and tag it at the same version.
   #
   # Prerequisites (one-time setup):

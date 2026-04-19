@@ -1,0 +1,21 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.aleksUIX/vastlint",
+  "title": "vastlint",
+  "description": "VAST XML validator — checks IAB VAST 2.0–4.3 ad tags for spec compliance.",
+  "repository": {
+    "url": "https://github.com/aleksUIX/vastlint",
+    "source": "github"
+  },
+  "version": "0.0.0",
+  "packages": [
+    {
+      "registryType": "mcpb",
+      "identifier": "https://github.com/aleksUIX/vastlint/releases/download/v0.0.0/vastlint-mcp-linux-x86_64.tar.gz",
+      "fileSha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "transport": {
+        "type": "stdio"
+      }
+    }
+  ]
+}
