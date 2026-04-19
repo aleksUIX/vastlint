@@ -530,6 +530,7 @@ jobs:
       - name: Compute SHA-256 hashes
         id: hash
         run: |
+          mkdir -p artifacts
           cd artifacts
           echo "hashes=$(sha256sum * | base64 -w0)" >> "$GITHUB_OUTPUT"
 
