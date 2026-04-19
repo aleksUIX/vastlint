@@ -1,7 +1,6 @@
 use rmcp::{
-    ServerHandler,
     model::{Implementation, ServerCapabilities, ServerInfo, ToolsCapability},
-    schemars, tool,
+    schemars, tool, ServerHandler,
 };
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -27,12 +26,16 @@ pub struct ValidateVastInput {
 pub struct ValidateVastUrlInput {
     #[schemars(description = "URL of a VAST tag to fetch and validate.")]
     pub url: String,
-    #[schemars(description = "Maximum wrapper chain depth to follow. Default: 5 (IAB VAST 4.x recommendation).")]
+    #[schemars(
+        description = "Maximum wrapper chain depth to follow. Default: 5 (IAB VAST 4.x recommendation)."
+    )]
     #[serde(default = "default_max_depth")]
     pub max_depth: u8,
 }
 
-fn default_max_depth() -> u8 { 5 }
+fn default_max_depth() -> u8 {
+    5
+}
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 pub struct FixVastInput {
@@ -45,7 +48,9 @@ pub struct FixVastInput {
 
 #[derive(Debug, Deserialize, schemars::JsonSchema)]
 pub struct ExplainRuleInput {
-    #[schemars(description = "Rule ID to explain, e.g. \"VAST-4.1-adservingid-missing\". Use list_rules to get valid IDs.")]
+    #[schemars(
+        description = "Rule ID to explain, e.g. \"VAST-4.1-adservingid-missing\". Use list_rules to get valid IDs."
+    )]
     pub rule_id: String,
 }
 
@@ -53,10 +58,12 @@ pub struct ExplainRuleInput {
 
 #[tool(tool_box)]
 impl VastlintServer {
-    #[tool(description = "Validate a VAST XML tag against the IAB VAST 2.0-4.3 specification. \
+    #[tool(
+        description = "Validate a VAST XML tag against the IAB VAST 2.0-4.3 specification. \
         Returns all issues found with severity, rule ID, location, and spec reference. \
         A document is valid when errors == 0, regardless of warning or info count. \
-        Use wrapper_depth when validating a document inside a wrapper chain.")]
+        Use wrapper_depth when validating a document inside a wrapper chain."
+    )]
     async fn validate_vast(&self, #[tool(aggr)] input: ValidateVastInput) -> String {
         let ctx = ValidationContext {
             wrapper_depth: input.wrapper_depth,
@@ -64,26 +71,32 @@ impl VastlintServer {
         };
         let result = validate_with_context(&input.xml, ctx);
 
-        let issues: Vec<Value> = result.issues.iter().map(|issue| {
-            let mut obj = json!({
-                "id": issue.id,
-                "severity": issue.severity.as_str(),
-                "message": issue.message,
-                "spec_ref": issue.spec_ref,
-            });
-            if let Some(path) = &issue.path {
-                obj["path"] = json!(path);
-            }
-            if let Some(line) = issue.line {
-                obj["line"] = json!(line);
-            }
-            if let Some(col) = issue.col {
-                obj["col"] = json!(col);
-            }
-            obj
-        }).collect();
+        let issues: Vec<Value> = result
+            .issues
+            .iter()
+            .map(|issue| {
+                let mut obj = json!({
+                    "id": issue.id,
+                    "severity": issue.severity.as_str(),
+                    "message": issue.message,
+                    "spec_ref": issue.spec_ref,
+                });
+                if let Some(path) = &issue.path {
+                    obj["path"] = json!(path);
+                }
+                if let Some(line) = issue.line {
+                    obj["line"] = json!(line);
+                }
+                if let Some(col) = issue.col {
+                    obj["col"] = json!(col);
+                }
+                obj
+            })
+            .collect();
 
-        let version_str = result.version.best()
+        let version_str = result
+            .version
+            .best()
             .map(|v| v.as_str())
             .unwrap_or("unknown");
 
@@ -96,7 +109,8 @@ impl VastlintServer {
                 "infos": result.summary.infos,
             },
             "issues": issues,
-        }).to_string()
+        })
+        .to_string()
     }
 
     #[tool(description = "Fetch a VAST tag from a URL and validate it. \
@@ -116,7 +130,9 @@ impl VastlintServer {
         let xml = match client.get(&input.url).send().await {
             Ok(resp) => match resp.text().await {
                 Ok(text) => text,
-                Err(e) => return json!({"error": format!("Failed to read response: {e}")}).to_string(),
+                Err(e) => {
+                    return json!({"error": format!("Failed to read response: {e}")}).to_string()
+                }
             },
             Err(e) => return json!({"error": format!("Failed to fetch URL: {e}")}).to_string(),
         };
@@ -128,23 +144,29 @@ impl VastlintServer {
         };
         let result = validate_with_context(&xml, ctx);
 
-        let issues: Vec<Value> = result.issues.iter().map(|issue| {
-            let mut obj = json!({
-                "id": issue.id,
-                "severity": issue.severity.as_str(),
-                "message": issue.message,
-                "spec_ref": issue.spec_ref,
-            });
-            if let Some(path) = &issue.path {
-                obj["path"] = json!(path);
-            }
-            if let Some(line) = issue.line {
-                obj["line"] = json!(line);
-            }
-            obj
-        }).collect();
+        let issues: Vec<Value> = result
+            .issues
+            .iter()
+            .map(|issue| {
+                let mut obj = json!({
+                    "id": issue.id,
+                    "severity": issue.severity.as_str(),
+                    "message": issue.message,
+                    "spec_ref": issue.spec_ref,
+                });
+                if let Some(path) = &issue.path {
+                    obj["path"] = json!(path);
+                }
+                if let Some(line) = issue.line {
+                    obj["line"] = json!(line);
+                }
+                obj
+            })
+            .collect();
 
-        let version_str = result.version.best()
+        let version_str = result
+            .version
+            .best()
             .map(|v| v.as_str())
             .unwrap_or("unknown");
 
@@ -158,14 +180,17 @@ impl VastlintServer {
                 "infos": result.summary.infos,
             },
             "issues": issues,
-        }).to_string()
+        })
+        .to_string()
     }
 
-    #[tool(description = "Auto-fix a VAST XML tag. Applies all deterministic, safe fixes: \
+    #[tool(
+        description = "Auto-fix a VAST XML tag. Applies all deterministic, safe fixes: \
         HTTP → HTTPS upgrades in all URL-bearing elements, and removal of deprecated attributes. \
         Returns the repaired XML, a list of every fix applied (rule ID + description + path), \
         and any remaining issues that require manual intervention. \
-        Always re-validate the returned xml with validate_vast to confirm no errors remain.")]
+        Always re-validate the returned xml with validate_vast to confirm no errors remain."
+    )]
     async fn fix_vast(&self, #[tool(aggr)] input: FixVastInput) -> String {
         let ctx = ValidationContext {
             wrapper_depth: input.wrapper_depth,
@@ -173,27 +198,37 @@ impl VastlintServer {
         };
         let result = fix_with_context(&input.xml, ctx);
 
-        let applied: Vec<Value> = result.applied.iter().map(|f| json!({
-            "rule_id": f.rule_id,
-            "description": f.description,
-            "path": f.path,
-        })).collect();
+        let applied: Vec<Value> = result
+            .applied
+            .iter()
+            .map(|f| {
+                json!({
+                    "rule_id": f.rule_id,
+                    "description": f.description,
+                    "path": f.path,
+                })
+            })
+            .collect();
 
-        let remaining: Vec<Value> = result.remaining.iter().map(|issue| {
-            let mut obj = json!({
-                "id": issue.id,
-                "severity": issue.severity.as_str(),
-                "message": issue.message,
-                "spec_ref": issue.spec_ref,
-            });
-            if let Some(path) = &issue.path {
-                obj["path"] = json!(path);
-            }
-            if let Some(line) = issue.line {
-                obj["line"] = json!(line);
-            }
-            obj
-        }).collect();
+        let remaining: Vec<Value> = result
+            .remaining
+            .iter()
+            .map(|issue| {
+                let mut obj = json!({
+                    "id": issue.id,
+                    "severity": issue.severity.as_str(),
+                    "message": issue.message,
+                    "spec_ref": issue.spec_ref,
+                });
+                if let Some(path) = &issue.path {
+                    obj["path"] = json!(path);
+                }
+                if let Some(line) = issue.line {
+                    obj["line"] = json!(line);
+                }
+                obj
+            })
+            .collect();
 
         json!({
             "xml": result.xml,
@@ -201,32 +236,41 @@ impl VastlintServer {
             "remaining_count": remaining.len(),
             "applied": applied,
             "remaining": remaining,
-        }).to_string()
+        })
+        .to_string()
     }
 
-    #[tool(description = "List the full catalog of VAST validation rules available in vastlint. \
+    #[tool(
+        description = "List the full catalog of VAST validation rules available in vastlint. \
         Returns rule IDs, default severities, and descriptions. \
         Call this once and cache the result -- the catalog is static. \
-        Use rule IDs from this list with explain_rule for full details and fix guidance.")]
+        Use rule IDs from this list with explain_rule for full details and fix guidance."
+    )]
     async fn list_rules(&self) -> String {
-        let rules: Vec<Value> = all_rules().iter().map(|r| {
-            json!({
-                "id": r.id,
-                "severity": r.default_severity.as_str(),
-                "description": r.description,
+        let rules: Vec<Value> = all_rules()
+            .iter()
+            .map(|r| {
+                json!({
+                    "id": r.id,
+                    "severity": r.default_severity.as_str(),
+                    "description": r.description,
+                })
             })
-        }).collect();
+            .collect();
 
         json!({
             "count": rules.len(),
             "rules": rules,
-        }).to_string()
+        })
+        .to_string()
     }
 
-    #[tool(description = "Get full details for a specific VAST validation rule: description, \
+    #[tool(
+        description = "Get full details for a specific VAST validation rule: description, \
         spec reference, severity, what triggers it, and how to fix it. \
         Use rule IDs from list_rules. This is the primary tool for understanding \
-        and fixing VAST issues flagged by validate_vast.")]
+        and fixing VAST issues flagged by validate_vast."
+    )]
     async fn explain_rule(&self, #[tool(aggr)] input: ExplainRuleInput) -> String {
         match all_rules().iter().find(|r| r.id == input.rule_id.as_str()) {
             None => json!({
@@ -234,13 +278,15 @@ impl VastlintServer {
                     "Rule '{}' not found. Call list_rules to see all available rule IDs.",
                     input.rule_id
                 ),
-            }).to_string(),
+            })
+            .to_string(),
             Some(r) => json!({
                 "id": r.id,
                 "severity": r.default_severity.as_str(),
                 "description": r.description,
                 "hint": explain_hint(r.id),
-            }).to_string(),
+            })
+            .to_string(),
         }
     }
 }
@@ -263,9 +309,7 @@ impl ServerHandler for VastlintServer {
                     .into(),
             ),
             capabilities: ServerCapabilities {
-                tools: Some(ToolsCapability {
-                    list_changed: None,
-                }),
+                tools: Some(ToolsCapability { list_changed: None }),
                 ..Default::default()
             },
             ..Default::default()

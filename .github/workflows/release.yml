@@ -911,6 +911,62 @@ jobs:
         run: ./mcp-publisher publish
         working-directory: crates/vastlint-mcp
 
+  # ── Publish to Smithery ─────────────────────────────────────────────────────
+  # Publishes vastlint-mcp to smithery.ai after the GitHub Release is created.
+  #
+  # Prerequisites (one-time setup):
+  #   1. Create a Smithery account at https://smithery.ai and get an API key
+  #      from Account → API Keys.
+  #   2. Add the key as a secret named SMITHERY_API_KEY in this repo
+  #      (Settings → Secrets → Actions).
+  #
+  # Set ENABLE_SMITHERY_PUBLISH = "true" in repo variables to activate this job.
+  publish-smithery:
+    name: Publish to Smithery
+    needs: [approve, build, release]
+    runs-on: ubuntu-latest
+    if: vars.ENABLE_SMITHERY_PUBLISH == 'true'
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5  # v4.3.1
+
+      - name: Download vastlint-mcp linux-x86_64 artifact
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c  # v8.0.1
+        with:
+          name: vastlint-mcp-linux-x86_64.tar.gz
+          path: .
+
+      - name: Patch server.json with version and fileSha256
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          VERSION="${TAG#v}"
+          SHA256=$(openssl dgst -sha256 -hex vastlint-mcp-linux-x86_64.tar.gz \
+                    | awk '{print $2}')
+          IDENTIFIER="https://github.com/aleksUIX/vastlint/releases/download/${TAG}/vastlint-mcp-linux-x86_64.tar.gz"
+
+          jq \
+            --arg v   "$VERSION" \
+            --arg sha "$SHA256" \
+            --arg url "$IDENTIFIER" \
+            '.version = $v | .packages[0].fileSha256 = $sha | .packages[0].identifier = $url' \
+            crates/vastlint-mcp/server.json > server.tmp
+          mv server.tmp crates/vastlint-mcp/server.json
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020  # v4.4.0
+        with:
+          node-version: '20'
+
+      - name: Publish to Smithery
+        env:
+          SMITHERY_API_KEY: ${{ secrets.SMITHERY_API_KEY }}
+        run: |
+          npx --yes @smithery/cli@latest publish \
+            --config crates/vastlint-mcp/server.json \
+            --key "$SMITHERY_API_KEY"
+
   # ── Sync vastlint-go ────────────────────────────────────────────────────────  # After a successful release, push the updated prebuilt libs and header into
   # the vastlint-go repo and tag it at the same version.
   #
