@@ -502,6 +502,19 @@ jobs:
           name: ${{ matrix.archive }}
           path: ${{ matrix.archive }}
 
+  # ── Single approval gate ────────────────────────────────────────────────────
+  # One reviewer click unblocks every downstream publish job simultaneously.
+  # All publish/release jobs declare `needs: approve` instead of independently
+  # declaring `environment: production`, which previously triggered a separate
+  # approval prompt per job.
+  approve:
+    name: Approve release
+    needs: [smoke-test, build, build-ffi, build-nif, build-wasm]
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - run: echo "Release approved — proceeding with all publish jobs"
+
   # ── Aggregate artifact hashes for SLSA L3 provenance ───────────────────────
   # Downloads every build artifact and computes SHA-256 hashes so the
   # slsa-github-generator job can sign them from an isolated environment.
@@ -536,9 +549,8 @@ jobs:
 
   release:
     name: Create GitHub Release
-    needs: [build, build-ffi, build-nif, build-wasm, publish-vscode]
+    needs: [approve, build, build-ffi, build-nif, build-wasm, publish-vscode]
     runs-on: ubuntu-latest
-    environment: production  # requires reviewer approval before any release asset is published
     permissions:
       contents: write  # create the GitHub Release and upload assets
       # id-token and attestations are no longer needed here — provenance is
@@ -592,9 +604,8 @@ jobs:
 
   publish:
     name: Publish to crates.io
-    needs: [smoke-test, build]
+    needs: [approve, build]
     runs-on: ubuntu-latest
-    environment: production  # requires reviewer approval before publishing to crates.io
     # Set ENABLE_CRATES_PUBLISH to "true" in repo variables (Settings → Variables)
     # to enable publishing. Without it this job is skipped entirely.
     if: vars.ENABLE_CRATES_PUBLISH == 'true'
@@ -665,9 +676,8 @@ jobs:
   # Set ENABLE_DOCKER_PUBLISH to "true" in repo variables to activate this job.
   publish-docker:
     name: Publish to Docker Hub
-    needs: [smoke-test, build]
+    needs: [approve, build]
     runs-on: ubuntu-latest
-    environment: production  # requires reviewer approval before pushing to Docker Hub
     if: vars.ENABLE_DOCKER_PUBLISH == 'true'
 
     steps:
@@ -712,9 +722,8 @@ jobs:
 
   publish-npm:
     name: Publish to npm
-    needs: [smoke-test, build, build-wasm]
+    needs: [approve, build, build-wasm]
     runs-on: ubuntu-latest
-    environment: production  # requires reviewer approval before publishing to npm
     # Set ENABLE_NPM_PUBLISH to "true" in repo variables (Settings → Variables)
     # to enable publishing. Without it this job is skipped entirely.
     # Requires NPM_TOKEN secret (Settings → Secrets → Actions).
@@ -770,9 +779,8 @@ jobs:
   # Set ENABLE_VSCODE_PUBLISH to "true" in repo variables to activate this job.
   publish-vscode:
     name: Publish VS Code Extension
-    needs: [smoke-test, build, build-wasm]
+    needs: [approve, build, build-wasm]
     runs-on: ubuntu-latest
-    environment: production  # requires reviewer approval before publishing to VS Code Marketplace
     if: vars.ENABLE_VSCODE_PUBLISH == 'true'
 
     steps:
@@ -848,9 +856,8 @@ jobs:
   #   in repo variables (Settings → Variables → Actions) to activate this job.
   publish-mcp-registry:
     name: Publish to MCP Registry
-    needs: [smoke-test, build, release]
+    needs: [approve, build, release]
     runs-on: ubuntu-latest
-    environment: production  # requires reviewer approval before publishing
     if: vars.ENABLE_MCP_REGISTRY_PUBLISH == 'true'
     permissions:
       id-token: write  # required for GitHub OIDC authentication
@@ -894,9 +901,11 @@ jobs:
             "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz" \
             | tar xz mcp-publisher
           chmod +x mcp-publisher
+          mv mcp-publisher crates/vastlint-mcp/mcp-publisher
 
       - name: Authenticate to MCP Registry (GitHub OIDC)
         run: ./mcp-publisher login github-oidc
+        working-directory: crates/vastlint-mcp
 
       - name: Publish to MCP Registry
         run: ./mcp-publisher publish
