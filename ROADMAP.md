@@ -28,9 +28,22 @@ Where vastlint is today and where it's going.
 
 ## 🗺️ Upcoming
 
+### Side-spec validation
+
+vastlint validates VAST XML. The VAST spec is not a standalone document — it references and is extended by several adjacent IAB Tech Lab standards. Each one below introduces elements or attribute values in VAST XML that are currently unvalidated beyond basic structural checks.
+
 | Milestone | Detail |
 |---|---|
-| **SIMID validation (all versions)** | Validate the VAST 4.x `<InteractiveCreativeFile>` element and `apiFramework="simid"` usage across all published SIMID versions (1.0, 1.1, 1.2) — required fields, secure session ID format, `<Duration>` pairing, nonlinear ad support, and interaction type rules. SIMID is the IAB-sanctioned VPAID replacement for interactive CTV and video ads. |
+| **SIMID validation (all versions)** | Validate `<InteractiveCreativeFile apiFramework="SIMID">` and `<IFrameResource apiFramework="SIMID">` against all published SIMID versions (1.0, 1.0.1, 1.1, 1.2) — required `type="text/html"`, HTTPS enforcement, video fallback presence, `variableDuration` semantics, nonlinear element placement, and `apiFramework` casing. SIMID is the IAB-sanctioned VPAID replacement for interactive CTV and video ads. |
+| **OMID validation** | Validate the `<AdVerifications>` / `<Verification>` block introduced in VAST 4.1 against the [Open Measurement Interface Definition](https://iabtechlab.com/standards/open-measurement-sdk/) spec — required `vendor` attribute format (`domain/name`), HTTPS enforcement on `<JavaScriptResource>` and `<ExecutableResource>`, `apiFramework="omid"` casing, duplicate vendor detection, and `verificationParameters` presence. OMID is the IAB standard for third-party viewability and brand-safety measurement. |
+| **VMAP validation** | Validate [VMAP 1.0](https://iabtechlab.com/standards/vmap/) documents — the IAB standard for describing ad break schedules that wrap VAST tags. Structural rules for `<AdBreak>`, `<AdSource>`, `<VASTAdData>` inline VAST embeds, `breakType` enum, `timeOffset` format, and repeat/pod constraints. |
+| **DAAST validation** | Validate [DAAST 1.0](https://iabtechlab.com/standards/daast/) (Digital Audio Ad Serving Template) documents — the audio-first sibling of VAST that shares most structural elements but replaces `<Linear>` video with `<Audio>` creative types. |
+| **IAB Content Taxonomy authority validation** | Validate the `authority` attribute on `<Category>` and `<BlockedAdCategories>` elements against the IAB Content Taxonomy registry — known authority URIs (`iabtechlab.com/IABTC`, `ads.iabtechlab.com`, etc.) and version-qualified formats. |
+
+### Infrastructure
+
+| Milestone | Detail |
+|---|---|
 | **AWS Marketplace** | Deploy vastlint as a private Lambda or container in your own AWS account — no data leaves your infrastructure. |
 | **Realtime pipeline integration** | Continuous validation of live VAST traffic — per-partner error rates, alerting, and revenue impact dashboards. |
 

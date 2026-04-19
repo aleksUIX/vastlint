@@ -453,6 +453,20 @@ cargo +nightly fuzz run validate_wrapper -- -max_total_time=60
 ```
 
 
+## Roadmap
+
+VAST XML is not a standalone spec — it references several adjacent IAB Tech Lab standards that introduce validatable elements and attributes. Upcoming work:
+
+| Upcoming | What it adds |
+|---|---|
+| **SIMID 1.0–1.2** | `<InteractiveCreativeFile apiFramework="SIMID">` — required `type`, HTTPS, video fallback, nonlinear placement |
+| **OMID** | `<AdVerifications><Verification>` — vendor format, HTTPS on JS/executable resources, duplicate detection |
+| **VMAP 1.0** | Ad break schedule documents that embed VAST — `<AdBreak>`, `timeOffset`, `breakType`, pod rules |
+| **DAAST 1.0** | Digital audio ad serving — structural sibling of VAST for audio-first creative types |
+| **IAB Content Taxonomy** | `<Category authority="...">` — known authority URI validation |
+
+See [ROADMAP.md](ROADMAP.md) for the full plan including infrastructure milestones.
+
 ## License
 
 See [FREE_FOREVER.md](FREE_FOREVER.md) for the free-use commitment.

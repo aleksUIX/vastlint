@@ -46,6 +46,17 @@ export function renderPanel(result: ValidationResult, anchor: Element): void {
 
 // ─── Shared helpers ───────────────────────────────────────────────────────────
 
+/**
+ * Create an element in the HTML namespace.
+ * Using document.createElement() on an XML document (e.g. a raw VAST tag
+ * opened directly in the browser) produces an XML-namespace element that does
+ * NOT support attachShadow(), causing the overlay to silently fail. Using
+ * createElementNS with the XHTML namespace works in both HTML and XML docs.
+ */
+function htmlEl<K extends keyof HTMLElementTagNameMap>(tag: K): HTMLElementTagNameMap[K] {
+  return document.createElementNS('http://www.w3.org/1999/xhtml', tag) as HTMLElementTagNameMap[K];
+}
+
 function escHtml(s: string): string {
   return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
@@ -95,7 +106,7 @@ function issueListHTML(issues: Issue[]) {
 function renderOverlay(result: ValidationResult, anchor: HTMLElement) {
   const lineIssues = buildLineIssues(result);
 
-  const host = document.createElement('div');
+  const host = htmlEl('div');
   host.setAttribute('data-vastlint-overlay', 'true');
   // pointer-events:none on the host; individual children opt in
   host.style.cssText = 'all:initial;position:fixed;top:0;left:0;width:0;height:0;pointer-events:none;';
@@ -151,28 +162,48 @@ function renderOverlay(result: ValidationResult, anchor: HTMLElement) {
       }
 
       /* ── Gutter strip ───────────────────────────────────── */
-      .strip { position:fixed; pointer-events:none; width:3px; border-radius:0 2px 2px 0; }
+      .strip {
+        position:fixed; pointer-events:none; width:6px; border-radius:0 3px 3px 0;
+        box-shadow: 1px 0 6px color-mix(in srgb,var(--sc,#fff) 50%,transparent);
+      }
+
+      /* ── Full-line highlight band ────────────────────────── */
+      .highlight {
+        position:fixed; pointer-events:none;
+        background:color-mix(in srgb,var(--c) 10%,transparent);
+        border-left:3px solid color-mix(in srgb,var(--c) 70%,transparent);
+      }
+
+      /* ── Squiggly underline ──────────────────────────────── */
+      .squiggle {
+        position:fixed; pointer-events:none;
+        height:0; overflow:visible;
+        border-bottom:2px wavy var(--c);
+        opacity:0.75;
+      }
 
       /* ── Inline badge rows ──────────────────────────────── */
       .row { position:fixed; pointer-events:all; display:flex; align-items:center; }
 
       .badge {
-        display:inline-flex; align-items:center; gap:3px;
-        padding:2px 7px; border-radius:3px;
-        font:700 10px/1.4 system-ui,sans-serif;
-        background:color-mix(in srgb,var(--c) 18%,#1a1a2e);
-        color:var(--c); border:1px solid color-mix(in srgb,var(--c) 40%,transparent);
+        display:inline-flex; align-items:center; gap:4px;
+        padding:3px 9px; border-radius:4px;
+        font:700 11px/1.4 system-ui,sans-serif;
+        background:color-mix(in srgb,var(--c) 28%,#0d0d1a);
+        color:var(--c); border:1px solid color-mix(in srgb,var(--c) 65%,transparent);
         cursor:default; white-space:nowrap;
-        box-shadow:0 1px 4px rgba(0,0,0,.35);
-        min-width:128px; max-width:240px; justify-content:flex-start;
+        box-shadow:0 2px 8px rgba(0,0,0,.6), 0 0 0 1px color-mix(in srgb,var(--c) 25%,transparent);
+        min-width:140px; max-width:260px; justify-content:flex-start;
         overflow:hidden; text-overflow:ellipsis;
+        text-shadow: 0 0 8px color-mix(in srgb,var(--c) 60%,transparent);
       }
-      /* on hover expand badge to show full text — use a non-layout property so nothing shifts */
+      /* on hover expand badge to show full text */
       .row:hover .badge {
         background:var(--c); color:#fff;
-        max-width:none;
-        overflow:visible;
+        max-width:none; overflow:visible;
         position:relative; z-index:1;
+        text-shadow:none;
+        box-shadow:0 3px 12px rgba(0,0,0,.7);
       }
 
       /* Tooltip — pointer events enabled so rule links are clickable */
@@ -282,8 +313,10 @@ function renderOverlay(result: ValidationResult, anchor: HTMLElement) {
   const tip        = shadow.getElementById('tip')        as HTMLElement;
 
   // ── Build inline strips + rows ─────────────────────────────────────────────
-  const strips: HTMLElement[] = [];
-  const rows:   HTMLElement[] = [];
+  const strips:     HTMLElement[] = [];
+  const rows:       HTMLElement[] = [];
+  const highlights: HTMLElement[] = [];
+  const squiggles:  HTMLElement[] = [];
 
   for (const [ln, issues] of lineIssues) {
     const worstSev   = issues.find(x => x.severity === 'error')?.severity
@@ -294,17 +327,39 @@ function renderOverlay(result: ValidationResult, anchor: HTMLElement) {
     const n = issues.length;
     const label = n === 1 ? `${worstIcon} ${issues[0].id}` : `${worstIcon} ${n} issues`;
 
-    const strip = document.createElement('div');
+    // Store the first available XPath path for XML-doc positioning
+    const issuePath = issues.find(x => x.path)?.path ?? '';
+
+    const highlight = htmlEl('div');
+    highlight.className = 'highlight';
+    highlight.style.setProperty('--c', worstColor);
+    highlight.dataset.ln    = String(ln);
+    highlight.dataset.xpath = issuePath;
+    layers.appendChild(highlight);
+    highlights.push(highlight);
+
+    const squiggle = htmlEl('div');
+    squiggle.className = 'squiggle';
+    squiggle.style.setProperty('--c', worstColor);
+    squiggle.dataset.ln    = String(ln);
+    squiggle.dataset.xpath = issuePath;
+    layers.appendChild(squiggle);
+    squiggles.push(squiggle);
+
+    const strip = htmlEl('div');
     strip.className = 'strip';
-    strip.style.background = SEV_COLOR[worstSev];
-    strip.dataset.ln = String(ln);
+    strip.style.background = worstColor;
+    strip.style.setProperty('--sc', worstColor);
+    strip.dataset.ln    = String(ln);
+    strip.dataset.xpath = issuePath;
     layers.appendChild(strip);
     strips.push(strip);
 
-    const row = document.createElement('div');
+    const row = htmlEl('div');
     row.className = 'row';
-    row.dataset.ln  = String(ln);
-    row.dataset.sev = worstSev;
+    row.dataset.ln    = String(ln);
+    row.dataset.sev   = worstSev;
+    row.dataset.xpath = issuePath;
     row.style.setProperty('--c', worstColor);
     row.innerHTML = `<span class="badge">${escHtml(label)}</span>`;
     layers.appendChild(row);
@@ -435,36 +490,119 @@ function renderOverlay(result: ValidationResult, anchor: HTMLElement) {
   document.addEventListener('mouseup', () => { dragging = false; });
 
   // ── Layout: position bar, strips and rows to track the anchor ─────────────
+
+  /**
+   * Convert a vastlint path (/VAST/Ad[0]/Wrapper) to a standard XPath
+   * expression (/VAST/Ad[1]/Wrapper). vastlint uses 0-based indices; XPath
+   * uses 1-based.  Also strips any attribute selector at the end ([@delivery]).
+   */
+  function vastPathToXPath(path: string): string {
+    return path
+      .replace(/\[@[^\]]*\]/g, '')               // drop [@attr] segments
+      .replace(/\[(\d+)\]/g, (_, n) => `[${parseInt(n, 10) + 1}]`);
+  }
+
+  /**
+   * On a full-page XML document Chrome exposes the actual XML DOM, so we can
+   * use document.evaluate() to find the exact node for each issue path and
+   * read its real bounding rect — far more accurate than line-number pixel math.
+   */
+  const isXmlDoc = document.contentType === 'text/xml' || document.contentType === 'application/xml';
+
+  // Cache element lookups within a layout pass (same path → same node)
+  const xpathCache = new Map<string, Element | null>();
+  function elementForPath(path: string): Element | null {
+    if (!path) return null;
+    if (xpathCache.has(path)) return xpathCache.get(path)!;
+    try {
+      const xp = vastPathToXPath(path);
+      const res = document.evaluate(xp, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
+      const el = res.singleNodeValue as Element | null;
+      xpathCache.set(path, el);
+      return el;
+    } catch {
+      xpathCache.set(path, null);
+      return null;
+    }
+  }
+
   function layout() {
+    // Invalidate cache each layout tick so we pick up any DOM changes
+    xpathCache.clear();
+
     const rect = anchor.getBoundingClientRect();
-    if (rect.width === 0) return;
+
+    // On a pure XML document, document.documentElement has no CSS layout box —
+    // its width/height may be 0. Fall back to the viewport as the content area.
+    const contentRect = (rect.width === 0 || rect.height === 0)
+      ? new DOMRect(0, 0, window.innerWidth, window.innerHeight)
+      : rect;
 
     const cs = window.getComputedStyle(anchor);
-    let lh   = parseFloat(cs.lineHeight);
-    if (isNaN(lh)) lh = parseFloat(cs.fontSize) * 1.5 || 19.5;
+    let defaultLh = parseFloat(cs.lineHeight);
+    if (isNaN(defaultLh)) defaultLh = parseFloat(cs.fontSize) * 1.5 || 18;
     const pt = parseFloat(cs.paddingTop)  || 0;
     const pl = parseFloat(cs.paddingLeft) || 0;
 
-    bar.style.top  = `${Math.max(0, rect.top - 28)}px`;
-    bar.style.left = `${rect.left}px`;
+    bar.style.top  = `${Math.max(0, contentRect.top - 28)}px`;
+    bar.style.left = `${contentRect.left}px`;
 
-    const BADGE_GAP = 6;
+    const BADGE_GAP = 8;
     for (let i = 0; i < strips.length; i++) {
-      const strip = strips[i];
-      const row   = rows[i];
-      const ln    = parseInt(strip.dataset.ln!, 10);
-      const lineY = rect.top + pt + (ln - 1) * lh;
-      const inView = lineY + lh > rect.top && lineY < rect.bottom;
+      const strip     = strips[i];
+      const row       = rows[i];
+      const highlight = highlights[i];
+      const squiggle  = squiggles[i];
 
-      strip.style.display = row.style.display = inView && mode === 'inline' ? '' : 'none';
-      if (!inView || mode !== 'inline') continue;
+      // ── Determine lineY and lh ───────────────────────────────────────────
+      let lineY: number;
+      let lh = defaultLh;
 
-      strip.style.left   = `${rect.left + pl - 4}px`;
+      if (isXmlDoc && strip.dataset.xpath) {
+        // XML doc: try the XPath element's real bounding rect first.
+        // Chrome's tree viewer DOES lay out XML nodes, but some (e.g. the root)
+        // report zero dimensions. If we get a zero rect, fall through to line math.
+        const el = elementForPath(strip.dataset.xpath);
+        const er = el?.getBoundingClientRect();
+        if (er && er.height > 2) {
+          lineY = er.top;
+          lh    = er.height;
+        } else {
+          // Fallback: line-number math relative to viewport top
+          const ln = parseInt(strip.dataset.ln!, 10);
+          lineY = contentRect.top + pt + (ln - 1) * defaultLh;
+        }
+      } else {
+        // HTML page: line-number pixel math
+        const ln = parseInt(strip.dataset.ln!, 10);
+        lineY = contentRect.top + pt + (ln - 1) * lh;
+      }
+
+      const inView = lineY + lh > 0 && lineY < window.innerHeight;
+      const show   = inView && mode === 'inline';
+      strip.style.display = row.style.display = highlight.style.display = squiggle.style.display = show ? '' : 'none';
+      if (!show) continue;
+
+      // Full-line highlight band
+      highlight.style.left   = `${contentRect.left}px`;
+      highlight.style.top    = `${lineY}px`;
+      highlight.style.width  = `${contentRect.width}px`;
+      highlight.style.height = `${lh}px`;
+
+      // Squiggly underline — sits at the line bottom
+      squiggle.style.left  = `${contentRect.left + pl + 8}px`;
+      squiggle.style.top   = `${lineY + lh - 3}px`;
+      squiggle.style.width = `${Math.max(0, contentRect.width - pl - 16)}px`;
+
+      // Left gutter strip
+      strip.style.left   = `${contentRect.left + pl - 6}px`;
       strip.style.top    = `${lineY}px`;
       strip.style.height = `${lh}px`;
 
+      // Right-side badge — clamp inside viewport
+      const rightOffset = Math.max(BADGE_GAP, window.innerWidth - contentRect.right - BADGE_GAP);
       row.style.top    = `${lineY}px`;
-      row.style.right  = `${window.innerWidth - rect.right - BADGE_GAP}px`;
+      row.style.right  = `${rightOffset}px`;
       row.style.height = `${lh}px`;
     }
   }
@@ -483,7 +621,7 @@ function renderOverlay(result: ValidationResult, anchor: HTMLElement) {
 // ─── Non-code anchor: just show the floating panel directly ──────────────────
 
 function renderFloatingPanel(result: ValidationResult, anchor: Element | null) {
-  const host = document.createElement('div');
+  const host = htmlEl('div');
   host.setAttribute('data-vastlint-panel', 'true');
   host.style.cssText = 'all:initial;position:fixed;top:0;left:0;width:0;height:0;pointer-events:none;';
   (document.body ?? document.documentElement).appendChild(host);
