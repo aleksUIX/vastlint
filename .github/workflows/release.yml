@@ -96,7 +96,7 @@ jobs:
           }
           echo "capabilities.tools present ✓"
 
-          TOOL_COUNT=$(echo "$RESPONSE" | grep -o '"name":"' | wc -l | tr -d ' ')
+          TOOL_COUNT=$(echo "$RESPONSE" | grep '"tools":\[' | grep -o '"name":"' | wc -l | tr -d ' ')
           if [ "$TOOL_COUNT" -ne 5 ]; then
             echo "FAIL: expected 5 tools, got $TOOL_COUNT"
             echo "$RESPONSE"
