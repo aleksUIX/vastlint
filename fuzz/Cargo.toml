@@ -1,0 +1,38 @@
+[package]
+name = "vastlint-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+
+[dependencies.vastlint-core]
+path = "../crates/vastlint-core"
+
+# validate — fuzz the core validator against arbitrary byte inputs
+[[bin]]
+name = "validate"
+path = "fuzz_targets/validate.rs"
+test = false
+doc = false
+bench = false
+
+# fix — fuzz the auto-fix pass; both code paths must not panic
+[[bin]]
+name = "fix"
+path = "fuzz_targets/fix.rs"
+test = false
+doc = false
+bench = false
+
+# validate_wrapper — fuzz wrapper-chain depth logic
+[[bin]]
+name = "validate_wrapper"
+path = "fuzz_targets/validate_wrapper.rs"
+test = false
+doc = false
+bench = false

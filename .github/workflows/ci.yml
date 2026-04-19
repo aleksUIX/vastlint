@@ -178,3 +178,43 @@ jobs:
         uses: github/codeql-action/analyze@66b39da20ccc656acc90dd27ea30f5d458ec33ce  # v3.28.19
         with:
           category: rust
+
+  # ── Fuzz (short-circuit run) ─────────────────────────────────────────────────
+  # Runs each libFuzzer target for a short burst on every CI push/PR to catch
+  # regressions early. The full OSS-Fuzz integration runs continuously in the
+  # background; this job gives fast feedback without the OSS-Fuzz latency.
+  #
+  # Each target runs for 30 seconds — long enough to exercise many paths but
+  # short enough not to block the CI queue.  The corpus/ directories are seeded
+  # with representative valid and invalid VAST XML from the test fixtures so the
+  # fuzzer starts from a useful state rather than from scratch every run.
+  fuzz:
+    name: Fuzz (${{ matrix.target }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [validate, fix, validate_wrapper]
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+
+      - name: Install Rust nightly
+        uses: dtolnay/rust-toolchain@3c5f7ea28cd621ae0bf5283f0e981fb97b8a7af9  # v (pinned SHA)
+        with:
+          toolchain: nightly
+
+      - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4  # v2.9.1
+
+      - name: Install cargo-fuzz
+        run: cargo install cargo-fuzz --locked
+
+      - name: Seed corpus from test fixtures
+        run: |
+          mkdir -p fuzz/corpus/${{ matrix.target }}
+          cp crates/vastlint-core/tests/fixtures/*.xml fuzz/corpus/${{ matrix.target }}/ 2>/dev/null || true
+
+      - name: Run fuzzer (30 s)
+        run: |
+          cargo +nightly fuzz run ${{ matrix.target }} \
+            fuzz/corpus/${{ matrix.target }} \
+            -- -max_total_time=30 -timeout=10

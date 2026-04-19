@@ -16,6 +16,7 @@ A VAST XML validator. Checks ad tags against the IAB Tech Lab VAST specification
 
 [![SLSA 3](https://slsa.dev/images/gh-badge-level3.svg)](https://slsa.dev)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/aleksUIX/vastlint/badge)](https://scorecard.dev/viewer/?uri=github.com/aleksUIX/vastlint)
+[![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/10788/badge)](https://bestpractices.coreinfrastructure.org/projects/10788)
 
 Validates VAST documents against:
 
@@ -429,6 +430,28 @@ npm audit signatures vastlint
 ```
 
 The [OpenSSF Scorecard](https://scorecard.dev/viewer/?uri=github.com/aleksUIX/vastlint) score is updated weekly.
+
+## Fuzzing
+
+vastlint uses [cargo-fuzz](https://github.com/rust-fuzz/cargo-fuzz) (libFuzzer) to continuously test the validator and auto-fix engine against arbitrary inputs.
+
+Three fuzz targets run on every CI push and pull request for 30 seconds each, seeded from the test fixture corpus:
+
+| Target | What it covers |
+|--------|---------------|
+| `validate` | Core validator against arbitrary byte sequences |
+| `fix` | Auto-fix pass against arbitrary byte sequences |
+| `validate_wrapper` | Wrapper-chain depth logic (all depths 0–255) |
+
+To run locally:
+
+```sh
+# Requires nightly Rust and cargo-fuzz
+cargo +nightly fuzz run validate -- -max_total_time=60
+cargo +nightly fuzz run fix -- -max_total_time=60
+cargo +nightly fuzz run validate_wrapper -- -max_total_time=60
+```
+
 
 ## License
 

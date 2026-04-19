@@ -7,7 +7,7 @@ members = [
     "crates/vastlint-nif",
     "crates/vastlint-wasm",
 ]
-exclude = ["scratch/bench-core"]
+exclude = ["scratch/bench-core", "fuzz"]
 resolver = "2"
 
 [workspace.package]
