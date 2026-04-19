@@ -2,19 +2,140 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.aleksUIX/vastlint",
   "title": "vastlint",
-  "description": "VAST XML validator — checks IAB VAST 2.0–4.3 ad tags for spec compliance.",
+  "description": "VAST XML validator — checks IAB VAST 2.0–4.3 ad tags for spec compliance. 108 rules.",
+  "homepage": "https://vastlint.org",
   "repository": {
     "url": "https://github.com/aleksUIX/vastlint",
     "source": "github"
   },
-  "version": "0.0.0",
+  "documentation": "https://vastlint.org/docs/rules",
+  "license": "Apache-2.0",
+  "version": "0.3.4",
+  "maturity": "ga",
+  "categories": ["ad-tech", "creative-validation"],
+  "contact": {
+    "name": "Aleks",
+    "email": "aleks@vastlint.org",
+    "url": "https://vastlint.org"
+  },
+  "tools": [
+    {
+      "name": "validate_vast",
+      "description": "Validate a VAST XML tag against the IAB VAST 2.0-4.3 specification. Returns all issues found with severity, rule ID, location, and spec reference. A document is valid when errors == 0, regardless of warning or info count. Use wrapper_depth when validating a document inside a wrapper chain.",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "title": "ValidateVastInput",
+        "type": "object",
+        "required": ["xml"],
+        "properties": {
+          "xml": {
+            "type": "string",
+            "description": "Raw VAST XML string to validate."
+          },
+          "wrapper_depth": {
+            "type": "integer",
+            "format": "uint8",
+            "minimum": 0,
+            "default": 0,
+            "description": "Current wrapper chain depth (0 = root document). Default: 0."
+          }
+        }
+      }
+    },
+    {
+      "name": "validate_vast_url",
+      "description": "Fetch a VAST tag from a URL and validate it. Handles redirects. Use max_depth to control how deep wrapper chains are followed (default 5, per IAB VAST 4.x recommendation). AI agents typically receive VAST URLs rather than raw XML -- use this tool for that case.",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "title": "ValidateVastUrlInput",
+        "type": "object",
+        "required": ["url"],
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "URL of a VAST tag to fetch and validate."
+          },
+          "max_depth": {
+            "type": "integer",
+            "format": "uint8",
+            "minimum": 0,
+            "default": 5,
+            "description": "Maximum wrapper chain depth to follow. Default: 5 (IAB VAST 4.x recommendation)."
+          }
+        }
+      }
+    },
+    {
+      "name": "list_rules",
+      "description": "List the full catalog of VAST validation rules available in vastlint. Returns rule IDs, default severities, and descriptions. Call this once and cache the result -- the catalog is static. Use rule IDs from this list with explain_rule for full details and fix guidance.",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "title": "EmptyObject",
+        "type": "object"
+      }
+    },
+    {
+      "name": "explain_rule",
+      "description": "Get full details for a specific VAST validation rule: description, spec reference, severity, what triggers it, and how to fix it. Use rule IDs from list_rules. This is the primary tool for understanding and fixing VAST issues flagged by validate_vast.",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "title": "ExplainRuleInput",
+        "type": "object",
+        "required": ["rule_id"],
+        "properties": {
+          "rule_id": {
+            "type": "string",
+            "description": "Rule ID to explain, e.g. \"VAST-4.1-adservingid-missing\". Use list_rules to get valid IDs."
+          }
+        }
+      }
+    },
+    {
+      "name": "fix_vast",
+      "description": "Auto-fix a VAST XML tag. Applies all deterministic, safe fixes: HTTP → HTTPS upgrades in all URL-bearing elements, and removal of deprecated attributes. Returns the repaired XML, a list of every fix applied (rule ID + description + path), and any remaining issues that require manual intervention. Always re-validate the returned xml with validate_vast to confirm no errors remain.",
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "title": "FixVastInput",
+        "type": "object",
+        "required": ["xml"],
+        "properties": {
+          "xml": {
+            "type": "string",
+            "description": "Raw VAST XML string to auto-fix."
+          },
+          "wrapper_depth": {
+            "type": "integer",
+            "format": "uint8",
+            "minimum": 0,
+            "default": 0,
+            "description": "Current wrapper chain depth (0 = root document). Default: 0."
+          }
+        }
+      }
+    }
+  ],
   "packages": [
     {
-      "registryType": "mcpb",
-      "identifier": "https://github.com/aleksUIX/vastlint/releases/download/v0.0.0/vastlint-mcp-linux-x86_64.tar.gz",
-      "fileSha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "registryType": "cargo",
+      "identifier": "vastlint-mcp",
       "transport": {
         "type": "stdio"
+      }
+    },
+    {
+      "registryType": "github-release",
+      "identifier": "https://github.com/aleksUIX/vastlint/releases/download/v0.3.4/vastlint-mcp-x86_64-unknown-linux-musl.tar.gz",
+      "fileSha256": "0019dfc4b32d63c1392aa264aed2253c1e0c2fb09216f8e2cc269bbfb8bb49b5",
+      "transport": {
+        "type": "stdio"
+      }
+    },
+    {
+      "registryType": "remote",
+      "identifier": "https://vastlint.org/mcp",
+      "transport": {
+        "type": "sse",
+        "url": "https://vastlint.org/mcp"
       }
     }
   ]
