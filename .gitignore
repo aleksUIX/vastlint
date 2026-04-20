@@ -1,7 +1,13 @@
 notes/
 specs/
 scratch/
+vscode/PROGRESS.md
+ARCHITECTURE.md
+DESIGN.md
 target/
+ARCHITECTURE.md
+DESIGN.md
+vscode/PROGRESS.md
 .DS_Store
 *.code-workspace
 **/vast-master.code-workspace

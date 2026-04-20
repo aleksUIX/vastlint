@@ -139,11 +139,8 @@
     .xt-pi      { color: var(--xml-pi); }
     .xt-entity  { color: var(--xml-entity); }
 
-    /* Squiggly underlines on issue tokens */
-    .sq { text-decoration: underline wavy; text-underline-offset: 3px; text-decoration-skip-ink: none; }
-    .sq-error   { text-decoration-color: rgba(239,68,68,.85); }
-    .sq-warning { text-decoration-color: rgba(245,158,11,.85); }
-    .sq-info    { text-decoration-color: rgba(129,140,248,.85); }
+    /* Squiggly underlines disabled */
+    .sq, .sq-error, .sq-warning, .sq-info { text-decoration: none; }
 
     /* Floating tooltip */
     #xml-tooltip {

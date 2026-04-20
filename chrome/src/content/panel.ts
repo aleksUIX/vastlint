@@ -127,32 +127,36 @@ function renderOverlay(result: ValidationResult, anchor: HTMLElement, origToFmt?
       /* ── Summary / mode bar ─────────────────────────────── */
       #bar {
         position:fixed; pointer-events:all;
-        display:flex; align-items:center; gap:6px;
-        padding:4px 10px; border-radius:0 0 6px 6px;
-        background:#1a1a2e; color:#eee;
-        font:600 12px/1 system-ui,sans-serif;
-        box-shadow:0 2px 8px rgba(0,0,0,.5);
+        display:flex; align-items:center; gap:8px;
+        padding:6px 14px; border-radius:0 0 8px 8px;
+        background:#0d0d14; color:#eee;
+        font:600 13px/1 system-ui,sans-serif;
+        box-shadow:0 3px 14px rgba(0,0,0,.7), 0 1px 3px rgba(0,0,0,.5);
+        border: 1px solid rgba(255,255,255,.08); border-top:none;
         white-space:nowrap; z-index:2147483646;
       }
-      #bar .logo { font-weight:400; opacity:.35; font-size:10px; margin-left:2px; }
-      #bar .sep  { opacity:.3; font-weight:400; }
-      #bar .e    { color:#ff6b6b; }
-      #bar .w    { color:#ffd166; }
-      #bar .i    { color:#74b9ff; }
-      #bar .ok   { color:#55efc4; }
+      #bar .logo { font-weight:600; opacity:.4; font-size:11px; margin-left:4px; letter-spacing:.03em; }
+      #bar .sep  { opacity:.2; font-weight:400; }
+      #bar .e    { color:#ff6b6b; font-weight:700; }
+      #bar .w    { color:#ffd166; font-weight:700; }
+      #bar .i    { color:#74b9ff; font-weight:700; }
+      #bar .ok   { color:#55efc4; font-weight:700; }
       .mode-btn {
-        padding:2px 7px; border-radius:3px; font-size:10px; font-weight:700;
-        cursor:pointer; border:1px solid rgba(255,255,255,.2); color:#aaa;
-        background:transparent; line-height:1.4;
+        padding:4px 10px; border-radius:5px; font-size:12px; font-weight:700;
+        cursor:pointer; border:1px solid rgba(255,255,255,.18); color:#999;
+        background:rgba(255,255,255,.05); line-height:1.4;
+        transition: background .12s, color .12s, border-color .12s;
       }
-      .mode-btn.active { background:rgba(255,255,255,.15); color:#fff; border-color:rgba(255,255,255,.4); }
+      .mode-btn:hover { background:rgba(255,255,255,.1); color:#ddd; border-color:rgba(255,255,255,.3); }
+      .mode-btn.active { background:rgba(255,255,255,.18); color:#fff; border-color:rgba(255,255,255,.5); }
       .sev-btn {
-        padding:2px 5px; border-radius:3px; font-size:10px; font-weight:700;
+        padding:4px 8px; border-radius:5px; font-size:12px; font-weight:700;
         cursor:pointer; border:1px solid rgba(255,255,255,.15); color:#666;
-        background:transparent; line-height:1.4; min-width:18px;
-        transition: background .12s, color .12s;
+        background:rgba(255,255,255,.04); line-height:1.4; min-width:28px; text-align:center;
+        transition: background .12s, color .12s, border-color .12s;
       }
-      .sev-btn.active { background:rgba(255,255,255,.12); color:#ccc; border-color:rgba(255,255,255,.35); }
+      .sev-btn:hover { background:rgba(255,255,255,.1); color:#bbb; border-color:rgba(255,255,255,.3); }
+      .sev-btn.active { background:rgba(255,255,255,.14); color:#fff; border-color:rgba(255,255,255,.4); }
       /* When filter is off, hide matching rows/issues */
       #layers.hide-error   .highlight[data-sev="error"],
       #layers.hide-error   .squiggle[data-sev="error"],
@@ -166,18 +170,25 @@ function renderOverlay(result: ValidationResult, anchor: HTMLElement, origToFmt?
       #float-body.hide-error   .issue[data-sev="error"],
       #float-body.hide-warning .issue[data-sev="warning"],
       #float-body.hide-info    .issue[data-sev="info"] { display:none !important; }
-      .bar-close { opacity:.45; font-size:11px; cursor:pointer; margin-left:2px; }
+      .bar-close { opacity:.5; font-size:14px; cursor:pointer; margin-left:4px; transition:opacity .12s; }
+      .bar-close:hover { opacity:1; }
+      #bar-drag {
+        font-size:16px; color:#fff; opacity:.35; cursor:grab; user-select:none;
+        padding:0 2px; letter-spacing:-1px; transition:opacity .12s;
+      }
+      #bar-drag:hover { opacity:.8; }
+      #bar-drag:active { cursor:grabbing; opacity:1; }
       .ver-badge {
-        font-size:10px; color:#7ec8e3; opacity:.6;
-        border:1px solid rgba(126,200,227,.2); border-radius:3px;
-        padding:1px 5px; line-height:1.4; font-weight:600;
+        font-size:11px; color:#7ec8e3; opacity:.8;
+        border:1px solid rgba(126,200,227,.3); border-radius:4px;
+        padding:2px 7px; line-height:1.4; font-weight:700;
       }
 
       /* ── Full-line highlight band ────────────────────────── */
       .highlight {
         position:fixed; pointer-events:all; cursor:default;
-        background:color-mix(in srgb,var(--c) 18%,transparent);
-        border-left:3px solid color-mix(in srgb,var(--c) 80%,transparent);
+        background:color-mix(in srgb,var(--c) 28%,transparent);
+        border-left:3px solid color-mix(in srgb,var(--c) 90%,transparent);
       }
 
       /* ── Squiggly underline ──────────────────────────────── */
@@ -190,13 +201,12 @@ function renderOverlay(result: ValidationResult, anchor: HTMLElement, origToFmt?
       .inline-label {
         position:fixed; pointer-events:none;
         display:flex; align-items:center;
-        font:600 11px/1 'JetBrains Mono','Fira Code','Consolas',monospace;
-        color:var(--c);
+        font:700 13px/1 'JetBrains Mono','Fira Code','Consolas',monospace;
+        color:#ffffff;
         white-space:nowrap;
-        padding:0 10px 0 8px;
-        /* translucent background so it never clashes with code behind it */
-        background: color-mix(in srgb,var(--c) 15%, #0d0d17 85%);
-        border-left: 2px solid color-mix(in srgb,var(--c) 60%,transparent);
+        padding:0 12px 0 10px;
+        background: color-mix(in srgb,var(--c) 90%, #000 10%);
+        border-left: 3px solid var(--c);
       }
 
       /* Tooltip — pointer events enabled so rule links are clickable */
@@ -262,6 +272,8 @@ function renderOverlay(result: ValidationResult, anchor: HTMLElement, origToFmt?
     </style>
 
     <div id="bar">
+      <span id="bar-drag" title="Drag to move">⠿</span>
+      <span class="sep">·</span>
       ${summaryHTML(result)}
       ${result.version ? `<span class="ver-badge">VAST ${escHtml(result.version)}</span>` : ''}
       <span class="sep">·</span>
@@ -299,6 +311,7 @@ function renderOverlay(result: ValidationResult, anchor: HTMLElement, origToFmt?
   const btnInline  = shadow.getElementById('btn-inline') as HTMLButtonElement;
   const btnPanel   = shadow.getElementById('btn-panel')  as HTMLButtonElement;
   const barClose   = shadow.getElementById('bar-close')!;
+  const barDrag    = shadow.getElementById('bar-drag')!;
   const floatEl    = shadow.getElementById('float')      as HTMLElement;
   const floatHdr   = shadow.getElementById('float-hdr')!;
   const floatClose = shadow.getElementById('float-close')!;
@@ -453,6 +466,26 @@ function renderOverlay(result: ValidationResult, anchor: HTMLElement, origToFmt?
   // ── Float close ────────────────────────────────────────────────────────────
   floatClose.addEventListener('click', () => setMode('inline'));
 
+  // ── Drag the bar ───────────────────────────────────────────────────────────
+  let barDragging = false, barOffX = 0, barOffY = 0, barPinned = false;
+
+  barDrag.addEventListener('mousedown', e => {
+    barDragging = true;
+    barPinned   = true;
+    const r = bar.getBoundingClientRect();
+    barOffX = e.clientX - r.left;
+    barOffY = e.clientY - r.top;
+    e.preventDefault();
+  });
+  shadow.addEventListener('mousemove', e => {
+    if (!barDragging) return;
+    const me = e as MouseEvent;
+    bar.style.left = `${me.clientX - barOffX}px`;
+    bar.style.top  = `${me.clientY - barOffY}px`;
+  });
+  shadow.addEventListener('mouseup', () => { barDragging = false; });
+  ownerDoc.addEventListener('mouseup', () => { barDragging = false; });
+
   // ── Drag the floating panel ────────────────────────────────────────────────
   let dragOffX = 0, dragOffY = 0, dragging = false;
 
@@ -530,8 +563,10 @@ function renderOverlay(result: ValidationResult, anchor: HTMLElement, origToFmt?
     const pt = parseFloat(cs.paddingTop)  || 0;
     const pl = parseFloat(cs.paddingLeft) || 0;
 
-    bar.style.top  = `${Math.max(0, contentRect.top - 28)}px`;
-    bar.style.left = `${contentRect.left + 16}px`;
+    if (!barPinned) {
+      bar.style.top  = `${Math.max(0, contentRect.top - 28)}px`;
+      bar.style.left = `${contentRect.left + 16}px`;
+    }
 
     for (let i = 0; i < highlights.length; i++) {
       const inlineLabel = inlineLabels[i];
@@ -659,11 +694,10 @@ function renderOverlay(result: ValidationResult, anchor: HTMLElement, origToFmt?
       const textLeft  = innerRect ? innerRect.left  : contentRect.left + pl + 8;
       const textRight = innerRect ? innerRect.right : contentRect.left + pl + 200;
 
-      const sqColor     = squiggle.dataset.color ?? '#e53935';
-      const squiggleSvg = `<svg xmlns='http://www.w3.org/2000/svg' width='6' height='4'><path d='M0 3 Q1.5 0 3 3 Q4.5 6 6 3' fill='none' stroke='${encodeURIComponent(sqColor)}' stroke-width='1.5'/></svg>`;
-      squiggle.style.backgroundImage  = `url("data:image/svg+xml,${squiggleSvg}")`;
-      squiggle.style.backgroundRepeat = 'repeat-x';
-      squiggle.style.backgroundSize   = '6px 4px';
+      // Squiggly underline disabled
+      squiggle.style.backgroundImage  = '';
+      squiggle.style.backgroundRepeat = '';
+      squiggle.style.backgroundSize   = '';
       squiggle.style.left  = `${textLeft}px`;
       squiggle.style.top   = `${lineY + lh - 6}px`;
       squiggle.style.width = `${Math.max(0, textRight - textLeft)}px`;

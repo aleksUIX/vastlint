@@ -4,6 +4,13 @@ on:
   push:
     tags:
       - "v[0-9]+.[0-9]+.[0-9]+"
+  workflow_dispatch:
+    inputs:
+      publish_chrome:
+        description: "Publish Chrome extension to Web Store"
+        type: boolean
+        default: false
+        required: false
 
 env:
   CARGO_TERM_COLOR: always
@@ -1068,6 +1075,59 @@ jobs:
           git tag "$TAG"
           git push origin "$TAG"
 
+  # ── Chrome Web Store ────────────────────────────────────────────────────────
+  chrome-extension:
+    name: Publish Chrome extension
+    runs-on: ubuntu-latest
+    needs: smoke-test
+    if: ${{ inputs.publish_chrome == true }}
+
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        working-directory: chrome
+        run: npm ci
+
+      # Stamp the manifest version from the git tag (strips leading "v"),
+      # then build — so the compiled dist/manifest.json carries the right version.
+      - name: Set manifest version
+        working-directory: chrome
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          node -e "
+            const fs = require('fs');
+            const m = JSON.parse(fs.readFileSync('manifest.json','utf8'));
+            m.version = process.env.VERSION;
+            fs.writeFileSync('manifest.json', JSON.stringify(m, null, 2));
+          " VERSION="$VERSION"
+
+      - name: Build extension
+        working-directory: chrome
+        run: npm run build
+
+      - name: Zip dist/
+        working-directory: chrome
+        run: |
+          cd dist
+          zip -r ../vastlint-extension.zip .
+
+      - name: Publish to Chrome Web Store
+        uses: trmcnvn/upload-google-chrome-extension@665b2ab4a2c6f1a5a6b2b4f5b3f9d0f2a1e7c8d9  # pin to a SHA once you've verified the action
+        with:
+          extension: chrome/vastlint-extension.zip
+          extension-id: ${{ secrets.CHROME_EXTENSION_ID }}
+          client-id: ${{ secrets.CHROME_CLIENT_ID }}
+          client-secret: ${{ secrets.CHROME_CLIENT_SECRET }}
+          refresh-token: ${{ secrets.CHROME_REFRESH_TOKEN }}
+          publish: true
   # ── Sync vastlint-erlang ─────────────────────────────────────────────────────
   # After a successful release, push the updated prebuilt NIF tarballs and
   # checksum file into the vastlint-erlang repo and tag it at the same version.
