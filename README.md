@@ -333,6 +333,23 @@ ext install aleksuix.vastlint
 
 Or search for **vastlint** in the VS Code Extensions panel.
 
+## Use from Chrome
+
+The **VAST Lint** Chrome extension detects VAST XML on any page and shows inline validation errors, warnings, and info messages — squiggly underlines, hover tooltips, and a collapsible panel, all powered by the same vastlint core.
+
+**Install from the Chrome Web Store** _(pending review)_:
+[VAST Lint – Chrome Web Store](https://chrome.google.com/webstore/detail/chbbcgdpdpcmkocbmeljkfefeeknghnb)
+
+**Or install manually** (no review wait):
+
+1. Download `vastlint-extension.zip` from the [latest GitHub Release](https://github.com/aleksUIX/vastlint/releases/latest)
+2. Unzip it anywhere
+3. Open `chrome://extensions` and enable **Developer mode** (top-right toggle)
+4. Click **Load unpacked** → select the unzipped folder
+5. Navigate to any page serving VAST XML — the panel appears automatically
+
+The toolbar icon badge shows the error count for the current tab. Click it for a per-severity summary.
+
 ## Use from an AI agent (MCP)
 
 [`vastlint-mcp`](crates/vastlint-mcp) is a [Model Context Protocol](https://modelcontextprotocol.io) server. It exposes `validate_vast`, `validate_vast_url`, `list_rules`, `explain_rule`, and `fix_vast` as native tools callable by Claude, Cursor, and any MCP-compatible agent.
