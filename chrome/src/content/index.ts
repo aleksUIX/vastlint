@@ -16,7 +16,7 @@
 import { validateVast } from '../vastlint/validator';
 import { renderPanel } from './panel';
 import { injectXmlViewer } from './xml-viewer';
-import { VAST_SIGNATURE_RE } from '../vastlint/detect';
+import { VAST_SIGNATURE_RE, findHtmlRenderedVastContainers, extractHtmlRenderedVast } from '../vastlint/detect';
 import type { ValidationResult } from '../types/vastlint';
 
 // ─── State — declared first so the IIFE can use it ───────────────────────────
@@ -281,6 +281,23 @@ function collectCandidates(root: Element | Document): Candidate[] {
         results.push({ xml: text.trim(), anchor: parent });
       }
     }
+  }
+
+  // 4. HTML-rendered / syntax-highlighted VAST XML
+  //    Catches ad-tech debug UIs (Publica, SpringServe, etc.) that render VAST
+  //    XML as coloured <span> trees rather than raw text.  innerText on those
+  //    containers reconstructs the raw XML faithfully.
+  const htmlContainers = findHtmlRenderedVastContainers(
+    root instanceof Element ? root : document.body
+  );
+  for (const el of htmlContainers) {
+    // Skip elements already captured via pre/textarea/text-node paths to avoid
+    // double-linting the same VAST blob.
+    const alreadyCaptured = results.some(c => c.anchor === el || el.contains(c.anchor) || c.anchor.contains(el));
+    if (alreadyCaptured) continue;
+
+    const xml = extractHtmlRenderedVast(el);
+    if (xml) results.push({ xml, anchor: el });
   }
 
   return results;
