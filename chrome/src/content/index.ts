@@ -232,6 +232,8 @@ interface Candidate {
   xml: string;
   /** Element to anchor the overlay panel to */
   anchor: Element;
+  /** True when the anchor is a syntax-highlighted HTML rendering (Publica-style div+span tree) */
+  isHtmlRendered?: boolean;
   /** Maps original XML 1-based line → formatted output 0-based line index (xml-viewer only). */
   origToFmt?: Map<number, number>;
   /** Maps vastlint element path → formatted output 0-based line index (xml-viewer only). */
@@ -297,7 +299,7 @@ function collectCandidates(root: Element | Document): Candidate[] {
     if (alreadyCaptured) continue;
 
     const xml = extractHtmlRenderedVast(el);
-    if (xml) results.push({ xml, anchor: el });
+    if (xml) results.push({ xml, anchor: el, isHtmlRendered: true });
   }
 
   return results;
@@ -308,9 +310,9 @@ function collectCandidates(root: Element | Document): Candidate[] {
 /** Lint all candidates in parallel, render overlays, then send ONE batched badge message. */
 async function lintAndRenderAll(candidates: Candidate[]) {
   const results = await Promise.all(
-    candidates.map(async ({ xml, anchor, origToFmt, pathToFmt }) => {
+    candidates.map(async ({ xml, anchor, isHtmlRendered, origToFmt, pathToFmt }) => {
       const result = await validateVast(xml);
-      renderPanel(result, anchor, origToFmt, pathToFmt);
+      renderPanel(result, anchor, origToFmt, pathToFmt, isHtmlRendered);
 
       const adIdMatch = xml.match(/<Ad\b[^>]*\bid=["']([^"']+)["']/i);
       // Reuse existing label if this is a refresh of an already-tracked element

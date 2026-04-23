@@ -14,25 +14,25 @@ export const VAST_SIGNATURE_RE = /(?:<\?xml[^>]*>[\s\S]{0,200})?<VAST[\s>\/]/i;
 //
 // Many ad-tech debug UIs (Publica, SpringServe, etc.) render VAST XML as
 // syntax-highlighted HTML rather than raw text.  The XML tokens are split
-// across coloured <span> elements and HTML entities (&lt; &gt; &amp;) appear
-// decoded in the underlying text nodes.  `element.innerText` reconstructs the
-// raw XML faithfully because:
-//   • block-level <div> rows produce newlines
-//   • text nodes already carry the decoded characters
+// across coloured <span> elements; HTML entities (&lt; &gt; &amp;) are decoded
+// by the HTML parser and stored as raw characters in text nodes.
 //
-// Detection strategy
-// ─────────────────
-// 1. Query for <span> elements that carry inline color styles — these are the
-//    syntax-highlighting spans produced by virtually every HTML code renderer.
-// 2. Among those spans, look for ones whose text content matches a VAST element
-//    name (VAST, InLine, Wrapper, Impression …).  These are the "orange tag"
-//    spans in Publica-style UIs, but any syntax highlighter that colours XML
-//    element names differently will match.
-// 3. Walk up from each matching span until we reach a container whose
-//    innerText starts with a VAST document (matches VAST_SIGNATURE_RE) and
-//    contains the closing </VAST> tag.
-// 4. Deduplicate — keep only the deepest (most specific) container so we
-//    don't emit the same VAST blob for every ancestor wrapper.
+// Extraction pipeline
+// ───────────────────
+// 1. Query for <span> elements with inline color styles that carry a VAST
+//    element name — these are the "tag name" spans emitted by virtually every
+//    HTML syntax highlighter.
+// 2. Walk up from each such span until we find the nearest ancestor whose
+//    textContent contains a complete VAST document (opening <VAST…> tag +
+//    closing </VAST>).  textContent is used here because it works on off-screen
+//    elements without triggering layout reflow, and HTML entities are already
+//    decoded in text nodes.
+// 3. Deduplicate — keep only the deepest (most specific) container per VAST blob.
+// 4. Extract the XML by walking the container's DOM tree, concatenating text
+//    node content, and inserting newlines at block-level element boundaries
+//    (DIV, P, BR, …).  This gives a properly line-structured XML string without
+//    any HTML markup — no reliance on innerText (which requires layout) and no
+//    extra UI-chrome text from outside the container.
 
 /** VAST element names we use as anchors when scanning coloured spans. */
 const HTML_VAST_TAG_RE = /^(VAST|Ad|InLine|Wrapper|Impression|Creatives|Creative|Linear|NonLinear|Companion|MediaFiles|MediaFile|TrackingEvents|Tracking|VideoClicks|ClickThrough|ClickTracking|Extensions|Extension|AdSystem|AdTitle|Description|Error|Duration|AdServingId|Verification|AdVerifications)$/;
@@ -52,14 +52,73 @@ export function isHtmlSyntaxHighlighted(el: Element, minSpans = 4): boolean {
 }
 
 /**
- * Extract the raw VAST XML text from an element that displays it as
- * syntax-highlighted HTML.  Returns `null` when the element's innerText does
- * not look like a VAST document.
+ * Block-level HTML tags that should introduce a newline when reconstructing
+ * text from a syntax-highlighted HTML tree.
+ */
+const BLOCK_TAGS = new Set([
+  'DIV','P','BR','LI','TR','TD','TH','SECTION','ARTICLE','HEADER','FOOTER',
+  'MAIN','NAV','ASIDE','BLOCKQUOTE','PRE','H1','H2','H3','H4','H5','H6',
+]);
+
+/**
+ * Strip all HTML from a syntax-highlighted XML container and return a
+ * plain-text reconstruction with proper line breaks.
+ *
+ * Strategy
+ * ────────
+ * Walk every DOM node inside `el`:
+ *   • TEXT node  → append its text content to the current line buffer.
+ *                  The browser already decoded HTML entities (&lt; → <),
+ *                  so we get raw XML characters for free.
+ *   • ELEMENT    → if it's a block-level tag, flush the current line buffer
+ *                  and start a new line.
+ *
+ * This mirrors what `innerText` does but without triggering layout reflow and
+ * without including any text that lives *outside* our target element (e.g.
+ * UI chrome that happens to be a parent).
  */
 export function extractHtmlRenderedVast(el: Element): string | null {
-  const text = (el as HTMLElement).innerText ?? el.textContent ?? '';
-  if (!VAST_SIGNATURE_RE.test(text)) return null;
-  return text.trim();
+  const lines: string[] = [];
+  let cur = '';
+
+  function walk(node: Node): void {
+    if (node.nodeType === Node.TEXT_NODE) {
+      cur += node.textContent ?? '';
+      return;
+    }
+    if (node.nodeType !== Node.ELEMENT_NODE) return;
+
+    const tag = (node as Element).tagName;
+    const isBlock = BLOCK_TAGS.has(tag);
+
+    // Flush accumulated text as a new line when we enter a new block element
+    if (isBlock && cur.length > 0) {
+      lines.push(cur);
+      cur = '';
+    }
+
+    for (const child of node.childNodes) walk(child);
+
+    // Flush again when we leave the block element (handles inline content
+    // that follows the last text node inside the block)
+    if (isBlock && cur.length > 0) {
+      lines.push(cur);
+      cur = '';
+    }
+  }
+
+  walk(el);
+  if (cur.length > 0) lines.push(cur); // trailing content
+
+  // Join lines and trim blank lines that arise from empty <div> rows
+  const xml = lines
+    .map(l => l) // keep raw — don't strip internal whitespace
+    .filter(l => l.trim().length > 0)
+    .join('\n')
+    .trim();
+
+  if (!VAST_SIGNATURE_RE.test(xml)) return null;
+  return xml;
 }
 
 /**
@@ -79,21 +138,22 @@ export function findHtmlRenderedVastContainers(root: Element): Element[] {
     const name = (span.textContent ?? '').trim();
     if (!HTML_VAST_TAG_RE.test(name)) continue;
 
-    // Step 2 — walk up the DOM to find the nearest ancestor whose innerText
-    // looks like a complete VAST document.
+    // Step 2 — walk up the DOM to find the nearest ancestor whose reconstructed
+    // text looks like a complete VAST document.
+    // We use textContent (not innerText) because:
+    //   a) it works even when elements are off-screen / not laid out
+    //   b) it's synchronous and doesn't trigger reflow
+    // HTML entities in span text nodes are already decoded by the browser's
+    // HTML parser, so textContent gives us the raw < > & characters.
     let el: Element | null = span.parentElement;
     while (el && el !== root) {
-      // Skip tiny containers — a full VAST doc is at least a few hundred chars.
-      if ((el as HTMLElement).offsetHeight !== undefined) {
-        const text = (el as HTMLElement).innerText ?? '';
-        if (
-          text.length > 200 &&
-          VAST_SIGNATURE_RE.test(text) &&
-          /<\/VAST>/i.test(text)
-        ) {
-          containerCandidates.add(el);
-          break; // stop at the first (tightest) qualifying ancestor
-        }
+      const text = el.textContent ?? '';
+      if (
+        VAST_SIGNATURE_RE.test(text) &&
+        /<\/VAST>/i.test(text)
+      ) {
+        containerCandidates.add(el);
+        break; // stop at the first (tightest) qualifying ancestor
       }
       el = el.parentElement;
     }

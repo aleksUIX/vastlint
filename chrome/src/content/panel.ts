@@ -29,16 +29,17 @@ type ViewMode = 'inline' | 'panel';
 
 // ─── Public entry point ───────────────────────────────────────────────────────
 
-export function renderPanel(result: ValidationResult, anchor: Element, origToFmt?: Map<number, number>, pathToFmt?: Map<string, number>): void {
+export function renderPanel(result: ValidationResult, anchor: Element, origToFmt?: Map<number, number>, pathToFmt?: Map<string, number>, isHtmlRendered?: boolean): void {
   const el = anchor as HTMLElement & { _vlCleanup?: () => void };
   el._vlCleanup?.();
 
-  const isCode = anchor.tagName === 'PRE'
+  const isCode = isHtmlRendered
+    || anchor.tagName === 'PRE'
     || anchor.tagName === 'TEXTAREA'
     || anchor === document.documentElement;
 
   if (isCode) {
-    renderOverlay(result, anchor as HTMLElement, origToFmt, pathToFmt);
+    renderOverlay(result, anchor as HTMLElement, origToFmt, pathToFmt, isHtmlRendered);
   } else {
     renderFloatingPanel(result, null);
   }
@@ -103,7 +104,7 @@ function issueListHTML(issues: Issue[]) {
 
 // ─── Main overlay (code mode) ─────────────────────────────────────────────────
 
-function renderOverlay(result: ValidationResult, anchor: HTMLElement, origToFmt?: Map<number, number>, pathToFmt?: Map<string, number>) {
+function renderOverlay(result: ValidationResult, anchor: HTMLElement, origToFmt?: Map<number, number>, pathToFmt?: Map<string, number>, isHtmlRendered?: boolean) {
   const lineIssues = buildLineIssues(result);
 
   // The anchor may live inside an iframe (e.g. our XML viewer). We must inject
@@ -563,6 +564,17 @@ function renderOverlay(result: ValidationResult, anchor: HTMLElement, origToFmt?
     const pt = parseFloat(cs.paddingTop)  || 0;
     const pl = parseFloat(cs.paddingLeft) || 0;
 
+    // For HTML-rendered (Publica-style) containers, each XML line is a child
+    // <div> row.  Build a 1-based line→rect map so layout() can position
+    // highlights precisely on each row without any line-height math.
+    const rowRects: Map<number, DOMRect> = new Map();
+    if (isHtmlRendered) {
+      let lineNum = 1;
+      for (const child of anchor.children) {
+        rowRects.set(lineNum++, child.getBoundingClientRect());
+      }
+    }
+
     if (!barPinned) {
       bar.style.top  = `${Math.max(0, contentRect.top - 28)}px`;
       bar.style.left = `${contentRect.left + 16}px`;
@@ -595,7 +607,19 @@ function renderOverlay(result: ValidationResult, anchor: HTMLElement, origToFmt?
 
       let lineSpan: HTMLElement | null = null;
 
-      if (issuePath && pathToFmt) {
+      // Priority 0: HTML-rendered (Publica-style) container — each child <div>
+      // IS the line, so use its bounding rect directly.
+      if (isHtmlRendered && rowRects.size > 0) {
+        const rowRect = rowRects.get(ln);
+        if (rowRect && rowRect.height > 0) {
+          lineY = rowRect.top;
+          lh    = rowRect.height;
+        } else {
+          // Line number beyond mapped rows — skip
+          lineY = -9999;
+        }
+        // Skip all .ln-span lookup logic below
+      } else if (issuePath && pathToFmt) {
         const norm = normalisePath(issuePath);
         const fmtIdx = pathToFmt.get(norm);
         if (fmtIdx !== undefined) {
@@ -607,7 +631,7 @@ function renderOverlay(result: ValidationResult, anchor: HTMLElement, origToFmt?
         }
       }
 
-      if (!lineSpan) {
+      if (!isHtmlRendered && !lineSpan) {
         lineSpan = anchor.querySelector(`.ln[data-orig="${ln}"]`) as HTMLElement | null;
       }
 
@@ -623,7 +647,7 @@ function renderOverlay(result: ValidationResult, anchor: HTMLElement, origToFmt?
         return maxLine <= 5;
       })();
 
-      if (!lineSpan && origToFmt && !isMiniXml) {
+      if (!isHtmlRendered && !lineSpan && origToFmt && !isMiniXml) {
         let fmtIdx = origToFmt.get(ln);
         if (fmtIdx === undefined) {
           for (let d = 1; d <= 5 && fmtIdx === undefined; d++) {
@@ -636,12 +660,12 @@ function renderOverlay(result: ValidationResult, anchor: HTMLElement, origToFmt?
       }
 
       // Last resort for non-XML pages: treat ln as 1-based line index directly
-      if (!lineSpan && !origToFmt) {
+      if (!isHtmlRendered && !lineSpan && !origToFmt) {
         lineSpan = anchor.querySelector(`.ln[data-ln="${ln - 1}"]`) as HTMLElement | null;
       }
 
       // If still no span (minified XML, no path), pin to the document root line (ln=0)
-      if (!lineSpan && origToFmt) {
+      if (!isHtmlRendered && !lineSpan && origToFmt) {
         lineSpan = anchor.querySelector('.ln[data-ln="0"]') as HTMLElement | null;
       }
 
