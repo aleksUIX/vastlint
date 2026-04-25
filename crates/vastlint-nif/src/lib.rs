@@ -33,6 +33,7 @@
 
 use rustler::{Binary, Encoder, Env, NifResult, Term};
 use std::collections::HashMap;
+use std::sync::OnceLock;
 use vastlint_core::{RuleLevel, ValidationContext, ValidationResult};
 
 // ── Atom table ────────────────────────────────────────────────────────────────
@@ -72,6 +73,23 @@ mod atoms {
     }
 }
 
+// ── Static catalog cache ─────────────────────────────────────────────────────
+//
+// `validate_with_opts` needs to map caller-supplied rule ID strings to
+// `&'static str` keys. Previously it rebuilt this HashMap on every call.
+// Now it's initialised once at first use and reused forever.
+
+static CATALOG_IDS: OnceLock<HashMap<&'static str, &'static str>> = OnceLock::new();
+
+fn catalog_ids() -> &'static HashMap<&'static str, &'static str> {
+    CATALOG_IDS.get_or_init(|| {
+        vastlint_core::all_rules()
+            .iter()
+            .map(|r| (r.id, r.id))
+            .collect()
+    })
+}
+
 // ── NIF: validate/1 ──────────────────────────────────────────────────────────
 
 /// Validate a VAST XML binary using default settings.
@@ -98,6 +116,60 @@ fn validate<'a>(env: Env<'a>, xml: Binary) -> NifResult<Term<'a>> {
 
     let result = vastlint_core::validate(input);
     Ok((atoms::ok(), encode_result(env, result)).encode(env))
+}
+
+// ── NIF: validate_batch/1 ────────────────────────────────────────────────────
+
+/// Validate a list of VAST XML binaries in one dirty-scheduler dispatch.
+///
+/// Internally uses Rayon to process all items in parallel across all CPU
+/// cores, then encodes results onto the BEAM heap serially (Env is not Send).
+///
+/// This collapses N dirty-scheduler round-trips into 1, matching the
+/// throughput model of the Rust bench-core `--workers N` approach.
+///
+/// Erlang/Elixir call:
+///   `:vastlint_nif.validate_batch([xml1, xml2, ...])`
+///   → `[{:ok, result}, {:ok, result}, {:error, reason}, ...]`
+///
+/// The returned list is the same length and order as the input list.
+#[rustler::nif(schedule = "DirtyCpu")]
+fn validate_batch<'a>(env: Env<'a>, xmls: Vec<Binary>) -> NifResult<Term<'a>> {
+    use rayon::prelude::*;
+
+    // Step 1: convert Binary refs to owned Strings so they are Send.
+    // A 17 KB copy costs ~0.5 µs at memory bandwidth — negligible vs the
+    // ~420 µs validation. This avoids any unsafe lifetime gymnastics.
+    let inputs: Vec<Result<String, &'static str>> = xmls
+        .iter()
+        .map(|xml| match std::str::from_utf8(xml.as_slice()) {
+            Ok(s) if !s.is_empty() => Ok(s.to_owned()),
+            Ok(_) => Err("xml must not be empty"),
+            Err(_) => Err("xml must be valid UTF-8"),
+        })
+        .collect();
+
+    // Step 2: validate in parallel — this is the expensive CPU work.
+    // Rayon uses its own OS threadpool (default = num_cpus), bypassing the
+    // dirty-scheduler queue entirely for the inner work.
+    let results: Vec<Result<ValidationResult, &'static str>> = inputs
+        .into_par_iter()
+        .map(|input| match input {
+            Ok(s) => Ok(vastlint_core::validate(&s)),
+            Err(e) => Err(e),
+        })
+        .collect();
+
+    // Step 3: encode results onto the BEAM heap (Env is !Send, must be serial).
+    let terms: Vec<Term<'a>> = results
+        .into_iter()
+        .map(|r| match r {
+            Ok(result) => (atoms::ok(), encode_result(env, result)).encode(env),
+            Err(msg) => (atoms::error(), msg.encode(env)).encode(env),
+        })
+        .collect();
+
+    Ok(terms.encode(env))
 }
 
 // ── NIF: validate_with_opts/4 ─────────────────────────────────────────────────
@@ -140,17 +212,14 @@ fn validate_with_opts<'a>(
 
     // Build the catalog ID lookup once — maps &str key to &'static str from
     // the catalog so we can store static references in the override map.
-    let catalog_ids: std::collections::HashMap<&str, &'static str> = vastlint_core::all_rules()
-        .iter()
-        .map(|r| (r.id, r.id))
-        .collect();
+    let catalog = catalog_ids();
 
     let overrides: Option<std::collections::HashMap<&'static str, RuleLevel>> = {
         let mut map = std::collections::HashMap::new();
         for (k, v) in &rule_overrides {
             let k: &str = k.as_str();
             let v: &str = v.as_str();
-            let static_id = match catalog_ids.get(k) {
+            let static_id = match catalog.get(k) {
                 Some(id) => *id,
                 None => continue, // unknown rule ID — silently ignore
             };
@@ -315,4 +384,4 @@ fn encode_issue<'a>(env: Env<'a>, issue: &vastlint_core::Issue) -> Term<'a> {
 
 // ── NIF init ──────────────────────────────────────────────────────────────────
 
-rustler::init!("Elixir.VastlintNif");
+rustler::init!("vastlint_nif");

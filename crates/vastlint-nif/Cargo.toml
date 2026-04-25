@@ -1,6 +1,6 @@
 [package]
 name = "vastlint_nif"
-version = "0.3.3"
+version = "0.3.6"
 edition = "2021"
 rust-version = "1.86"
 authors = ["Aleks <aleks@vastlint.org>"]
@@ -20,6 +20,12 @@ crate-type = ["cdylib"]
 [dependencies]
 vastlint-core = { path = "../vastlint-core" }
 rustler = "0.36"
+
+# Rayon is used inside validate_batch/1 to parallelize a list of XML inputs
+# across all CPU cores within a single dirty-scheduler dispatch.
+# Safe to use here: rayon spawns its own threadpool of plain OS threads and
+# never touches GlobalAlloc / erts_alloc.
+rayon = "1"
 
 # !! DO NOT ADD mimalloc HERE !!
 #
