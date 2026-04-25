@@ -915,8 +915,13 @@ jobs:
         working-directory: crates/vastlint-mcp
 
       - name: Publish to MCP Registry
-        run: ./mcp-publisher publish
         working-directory: crates/vastlint-mcp
+        run: |
+          out=$(./mcp-publisher publish 2>&1) && echo "$out" && exit 0
+          echo "$out"
+          # Treat duplicate-version as success — registry already has this release.
+          echo "$out" | grep -q "cannot publish duplicate version" && exit 0
+          exit 1
 
   # ── Publish to Smithery ─────────────────────────────────────────────────────
   # Publishes vastlint-mcp to smithery.ai after the GitHub Release is created.
