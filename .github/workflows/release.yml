@@ -957,9 +957,14 @@ jobs:
           #   publish <url> -n <name>    (URL-based / remote server)
           # The --config / --key flags were removed; the API key is read
           # from the SMITHERY_API_KEY environment variable automatically.
-          npx --yes @smithery/cli@latest mcp publish \
+          out=$(npx --yes @smithery/cli@latest mcp publish \
             "https://vastlint.org/mcp" \
-            -n "io.github.aleksUIX/vastlint"
+            -n "io.github.aleksUIX/vastlint" 2>&1) && echo "$out" && exit 0
+          echo "$out"
+          # Treat "Namespace not found" (one-time setup not done yet) and
+          # duplicate/already-published as non-fatal.
+          echo "$out" | grep -qiE "namespace not found|already exists|duplicate" && exit 0
+          exit 1
 
   # ── Sync vastlint-go ────────────────────────────────────────────────────────  # After a successful release, push the updated prebuilt libs and header into
   # the vastlint-go repo and tag it at the same version.
