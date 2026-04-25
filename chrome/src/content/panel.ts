@@ -29,16 +29,17 @@ type ViewMode = 'inline' | 'panel';
 
 // ─── Public entry point ───────────────────────────────────────────────────────
 
-export function renderPanel(result: ValidationResult, anchor: Element, origToFmt?: Map<number, number>, pathToFmt?: Map<string, number>): void {
+export function renderPanel(result: ValidationResult, anchor: Element, origToFmt?: Map<number, number>, pathToFmt?: Map<string, number>, isHtmlRendered?: boolean): void {
   const el = anchor as HTMLElement & { _vlCleanup?: () => void };
   el._vlCleanup?.();
 
-  const isCode = anchor.tagName === 'PRE'
+  const isCode = isHtmlRendered
+    || anchor.tagName === 'PRE'
     || anchor.tagName === 'TEXTAREA'
     || anchor === document.documentElement;
 
   if (isCode) {
-    renderOverlay(result, anchor as HTMLElement, origToFmt, pathToFmt);
+    renderOverlay(result, anchor as HTMLElement, origToFmt, pathToFmt, isHtmlRendered);
   } else {
     renderFloatingPanel(result, null);
   }
@@ -103,7 +104,7 @@ function issueListHTML(issues: Issue[]) {
 
 // ─── Main overlay (code mode) ─────────────────────────────────────────────────
 
-function renderOverlay(result: ValidationResult, anchor: HTMLElement, origToFmt?: Map<number, number>, pathToFmt?: Map<string, number>) {
+function renderOverlay(result: ValidationResult, anchor: HTMLElement, origToFmt?: Map<number, number>, pathToFmt?: Map<string, number>, isHtmlRendered?: boolean) {
   const lineIssues = buildLineIssues(result);
 
   // The anchor may live inside an iframe (e.g. our XML viewer). We must inject
@@ -133,7 +134,7 @@ function renderOverlay(result: ValidationResult, anchor: HTMLElement, origToFmt?
         font:600 13px/1 system-ui,sans-serif;
         box-shadow:0 3px 14px rgba(0,0,0,.7), 0 1px 3px rgba(0,0,0,.5);
         border: 1px solid rgba(255,255,255,.08); border-top:none;
-        white-space:nowrap; z-index:2147483646;
+        white-space:nowrap; z-index:2147483647;
       }
       #bar .logo { font-weight:600; opacity:.4; font-size:11px; margin-left:4px; letter-spacing:.03em; }
       #bar .sep  { opacity:.2; font-weight:400; }
@@ -209,66 +210,67 @@ function renderOverlay(result: ValidationResult, anchor: HTMLElement, origToFmt?
         border-left: 3px solid var(--c);
       }
 
-      /* Tooltip — pointer events enabled so rule links are clickable */
+      /* Tooltip */
       .tooltip {
         position:fixed;
         pointer-events:auto;
-        background:#1a1a2e; color:#eee;
-        border:1px solid #2e2e4e; border-radius:6px;
-        padding:8px 10px;
-        font:400 12px/1.5 system-ui,sans-serif;
-        /* let it size to content, cap at viewport width */
+        background:#0d0d14; color:#e8e8f0;
+        border:1px solid rgba(255,255,255,.1); border-radius:8px;
+        padding:0;
+        font:400 13px/1.5 system-ui,sans-serif;
         width:max-content;
-        max-width:min(420px, calc(100vw - 16px));
-        box-shadow:0 8px 32px rgba(0,0,0,.7);
+        max-width:min(400px, calc(100vw - 16px));
+        box-shadow:0 12px 40px rgba(0,0,0,.8), 0 2px 8px rgba(0,0,0,.5);
         white-space:normal;
         display:none;
-        z-index:2147483647;
+        z-index:2147483645;
       }
-      .tip-issue { display:flex; gap:6px; padding:4px 0; border-bottom:1px solid #2a2a3e; }
-      .tip-issue:last-child { border-bottom:none; padding-bottom:0; }
+      .tip-issue { display:flex; gap:8px; padding:10px 14px; border-bottom:1px solid rgba(255,255,255,.07); }
+      .tip-issue:last-child { border-bottom:none; }
       .tip-icon     { flex-shrink:0; font-weight:700; margin-top:1px; }
-      .tip-id-link  { font-size:10px; opacity:.7; color:#7ec8e3; text-decoration:none; }
-      .tip-id-link:hover { text-decoration:underline; opacity:1; }
-      .tip-msg   { color:#fff; font-weight:600; font-size:11px; }
-      .tip-meta  { color:#666; font-size:10px; margin-top:2px; }
-      .tip-meta code { color:#7ec8e3; font-family:monospace; word-break:break-all; }
-      .tip-meta em   { font-style:normal; color:#555; }
+      .tip-id-link  { font-size:11px; font-weight:700; font-family:ui-monospace,monospace; color:#7ec8e3; text-decoration:none; opacity:1; }
+      .tip-id-link:hover { text-decoration:underline; }
+      .tip-msg   { color:#f0f0f8; font-weight:600; font-size:13px; margin-top:2px; }
+      .tip-meta  { color:#888; font-size:11px; margin-top:4px; line-height:1.4; }
+      .tip-meta code { color:#94b8d4; font-family:ui-monospace,monospace; word-break:break-all; }
+      .tip-meta em   { font-style:normal; color:#666; }
 
       /* ── Floating panel ─────────────────────────────────── */
       #float {
         position:fixed; pointer-events:all;
-        background:#1a1a2e; color:#eee; border:1px solid #2e2e4e;
-        border-radius:8px; box-shadow:0 8px 32px rgba(0,0,0,.6);
-        font:400 12px/1.5 system-ui,sans-serif;
-        width:360px; max-height:480px;
+        background:#0d0d14; color:#e8e8f0;
+        border:1px solid rgba(255,255,255,.1);
+        border-radius:10px; box-shadow:0 16px 48px rgba(0,0,0,.8), 0 2px 8px rgba(0,0,0,.5);
+        font:400 13px/1.5 system-ui,sans-serif;
+        width:380px; max-height:500px;
         display:flex; flex-direction:column;
         z-index:2147483646;
         display:none;
       }
       #float-hdr {
-        display:flex; align-items:center; gap:6px;
-        padding:7px 10px; background:#0f0f1e; border-radius:8px 8px 0 0;
+        display:flex; align-items:center; gap:8px;
+        padding:10px 14px; background:#111118; border-radius:10px 10px 0 0;
         cursor:grab; user-select:none; flex-shrink:0;
-        border-bottom:1px solid #2e2e4e;
-        font-weight:600; font-size:12px;
+        border-bottom:1px solid rgba(255,255,255,.08);
+        font-weight:700; font-size:13px;
       }
       #float-hdr:active { cursor:grabbing; }
-      #float-hdr .logo  { font-weight:400; opacity:.35; font-size:10px; margin-left:auto; }
-      #float-hdr .close { opacity:.45; cursor:pointer; font-size:12px; margin-left:4px; }
+      #float-hdr .logo  { font-weight:500; opacity:.3; font-size:11px; margin-left:auto; }
+      #float-hdr .close { opacity:.4; cursor:pointer; font-size:14px; margin-left:6px; transition:opacity .12s; }
+      #float-hdr .close:hover { opacity:1; }
       #float-body {
         overflow-y:auto; flex:1; padding:4px 0;
-        scrollbar-width:thin; scrollbar-color:#2e2e4e #1a1a2e;
+        scrollbar-width:thin; scrollbar-color:rgba(255,255,255,.1) transparent;
       }
-      .issue { display:flex; gap:8px; padding:6px 10px; border-bottom:1px solid #1e1e30; font-size:11px; line-height:1.4; }
+      .issue { display:flex; gap:10px; padding:9px 14px; border-bottom:1px solid rgba(255,255,255,.06); font-size:13px; line-height:1.4; }
       .issue:last-child { border-bottom:none; }
       .issue-icon { flex-shrink:0; font-weight:700; margin-top:1px; }
-      .issue-id-link { font-size:10px; color:#7ec8e3; opacity:.8; text-decoration:none; }
-      .issue-id-link:hover { text-decoration:underline; opacity:1; }
-      .issue-msg  { color:#fff; font-weight:600; }
-      .issue-meta { color:#666; font-size:10px; margin-top:2px; }
-      .issue-meta code { color:#7ec8e3; font-family:monospace; }
-      .issue-meta em   { font-style:normal; color:#555; }
+      .issue-id-link { font-size:11px; font-weight:700; font-family:ui-monospace,monospace; color:#7ec8e3; text-decoration:none; }
+      .issue-id-link:hover { text-decoration:underline; }
+      .issue-msg  { color:#f0f0f8; font-weight:600; margin-top:2px; }
+      .issue-meta { color:#888; font-size:11px; margin-top:3px; }
+      .issue-meta code { color:#94b8d4; font-family:ui-monospace,monospace; }
+      .issue-meta em   { font-style:normal; color:#666; }
     </style>
 
     <div id="bar">
@@ -477,11 +479,10 @@ function renderOverlay(result: ValidationResult, anchor: HTMLElement, origToFmt?
     barOffY = e.clientY - r.top;
     e.preventDefault();
   });
-  shadow.addEventListener('mousemove', e => {
+  ownerDoc.addEventListener('mousemove', e => {
     if (!barDragging) return;
-    const me = e as MouseEvent;
-    bar.style.left = `${me.clientX - barOffX}px`;
-    bar.style.top  = `${me.clientY - barOffY}px`;
+    bar.style.left = `${e.clientX - barOffX}px`;
+    bar.style.top  = `${e.clientY - barOffY}px`;
   });
   shadow.addEventListener('mouseup', () => { barDragging = false; });
   ownerDoc.addEventListener('mouseup', () => { barDragging = false; });
@@ -563,6 +564,17 @@ function renderOverlay(result: ValidationResult, anchor: HTMLElement, origToFmt?
     const pt = parseFloat(cs.paddingTop)  || 0;
     const pl = parseFloat(cs.paddingLeft) || 0;
 
+    // For HTML-rendered (Publica-style) containers, each XML line is a child
+    // <div> row.  Build a 1-based line→rect map so layout() can position
+    // highlights precisely on each row without any line-height math.
+    const rowRects: Map<number, DOMRect> = new Map();
+    if (isHtmlRendered) {
+      let lineNum = 1;
+      for (const child of anchor.children) {
+        rowRects.set(lineNum++, child.getBoundingClientRect());
+      }
+    }
+
     if (!barPinned) {
       bar.style.top  = `${Math.max(0, contentRect.top - 28)}px`;
       bar.style.left = `${contentRect.left + 16}px`;
@@ -595,7 +607,19 @@ function renderOverlay(result: ValidationResult, anchor: HTMLElement, origToFmt?
 
       let lineSpan: HTMLElement | null = null;
 
-      if (issuePath && pathToFmt) {
+      // Priority 0: HTML-rendered (Publica-style) container — each child <div>
+      // IS the line, so use its bounding rect directly.
+      if (isHtmlRendered && rowRects.size > 0) {
+        const rowRect = rowRects.get(ln);
+        if (rowRect && rowRect.height > 0) {
+          lineY = rowRect.top;
+          lh    = rowRect.height;
+        } else {
+          // Line number beyond mapped rows — skip
+          lineY = -9999;
+        }
+        // Skip all .ln-span lookup logic below
+      } else if (issuePath && pathToFmt) {
         const norm = normalisePath(issuePath);
         const fmtIdx = pathToFmt.get(norm);
         if (fmtIdx !== undefined) {
@@ -607,7 +631,7 @@ function renderOverlay(result: ValidationResult, anchor: HTMLElement, origToFmt?
         }
       }
 
-      if (!lineSpan) {
+      if (!isHtmlRendered && !lineSpan) {
         lineSpan = anchor.querySelector(`.ln[data-orig="${ln}"]`) as HTMLElement | null;
       }
 
@@ -623,7 +647,7 @@ function renderOverlay(result: ValidationResult, anchor: HTMLElement, origToFmt?
         return maxLine <= 5;
       })();
 
-      if (!lineSpan && origToFmt && !isMiniXml) {
+      if (!isHtmlRendered && !lineSpan && origToFmt && !isMiniXml) {
         let fmtIdx = origToFmt.get(ln);
         if (fmtIdx === undefined) {
           for (let d = 1; d <= 5 && fmtIdx === undefined; d++) {
@@ -636,12 +660,12 @@ function renderOverlay(result: ValidationResult, anchor: HTMLElement, origToFmt?
       }
 
       // Last resort for non-XML pages: treat ln as 1-based line index directly
-      if (!lineSpan && !origToFmt) {
+      if (!isHtmlRendered && !lineSpan && !origToFmt) {
         lineSpan = anchor.querySelector(`.ln[data-ln="${ln - 1}"]`) as HTMLElement | null;
       }
 
       // If still no span (minified XML, no path), pin to the document root line (ln=0)
-      if (!lineSpan && origToFmt) {
+      if (!isHtmlRendered && !lineSpan && origToFmt) {
         lineSpan = anchor.querySelector('.ln[data-ln="0"]') as HTMLElement | null;
       }
 

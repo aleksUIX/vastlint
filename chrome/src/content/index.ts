@@ -16,7 +16,7 @@
 import { validateVast } from '../vastlint/validator';
 import { renderPanel } from './panel';
 import { injectXmlViewer } from './xml-viewer';
-import { VAST_SIGNATURE_RE } from '../vastlint/detect';
+import { VAST_SIGNATURE_RE, findHtmlRenderedVastContainers, extractHtmlRenderedVast } from '../vastlint/detect';
 import type { ValidationResult } from '../types/vastlint';
 
 // ─── State — declared first so the IIFE can use it ───────────────────────────
@@ -232,6 +232,8 @@ interface Candidate {
   xml: string;
   /** Element to anchor the overlay panel to */
   anchor: Element;
+  /** True when the anchor is a syntax-highlighted HTML rendering (Publica-style div+span tree) */
+  isHtmlRendered?: boolean;
   /** Maps original XML 1-based line → formatted output 0-based line index (xml-viewer only). */
   origToFmt?: Map<number, number>;
   /** Maps vastlint element path → formatted output 0-based line index (xml-viewer only). */
@@ -283,6 +285,23 @@ function collectCandidates(root: Element | Document): Candidate[] {
     }
   }
 
+  // 4. HTML-rendered / syntax-highlighted VAST XML
+  //    Catches ad-tech debug UIs (Publica, SpringServe, etc.) that render VAST
+  //    XML as coloured <span> trees rather than raw text.  innerText on those
+  //    containers reconstructs the raw XML faithfully.
+  const htmlContainers = findHtmlRenderedVastContainers(
+    root instanceof Element ? root : document.body
+  );
+  for (const el of htmlContainers) {
+    // Skip elements already captured via pre/textarea/text-node paths to avoid
+    // double-linting the same VAST blob.
+    const alreadyCaptured = results.some(c => c.anchor === el || el.contains(c.anchor) || c.anchor.contains(el));
+    if (alreadyCaptured) continue;
+
+    const xml = extractHtmlRenderedVast(el);
+    if (xml) results.push({ xml, anchor: el, isHtmlRendered: true });
+  }
+
   return results;
 }
 
@@ -291,9 +310,9 @@ function collectCandidates(root: Element | Document): Candidate[] {
 /** Lint all candidates in parallel, render overlays, then send ONE batched badge message. */
 async function lintAndRenderAll(candidates: Candidate[]) {
   const results = await Promise.all(
-    candidates.map(async ({ xml, anchor, origToFmt, pathToFmt }) => {
+    candidates.map(async ({ xml, anchor, isHtmlRendered, origToFmt, pathToFmt }) => {
       const result = await validateVast(xml);
-      renderPanel(result, anchor, origToFmt, pathToFmt);
+      renderPanel(result, anchor, origToFmt, pathToFmt, isHtmlRendered);
 
       const adIdMatch = xml.match(/<Ad\b[^>]*\bid=["']([^"']+)["']/i);
       // Reuse existing label if this is a refresh of an already-tracked element

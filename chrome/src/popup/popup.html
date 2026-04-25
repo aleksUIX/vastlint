@@ -11,8 +11,8 @@
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
       width: 380px;
-      background: #0b1320;
-      color: #d0dcea;
+      background: #0d0d14;
+      color: #d8d8e8;
     }
 
     /* ── Header ────────────────────────────────────────── */
@@ -20,395 +20,231 @@
       display: flex;
       align-items: center;
       gap: 10px;
-      padding: 8px 12px;
-      background: #0f1b2d;
-      border-bottom: 1px solid rgba(99,179,237,.12);
+      padding: 10px 14px;
+      background: #111118;
+      border-bottom: 1px solid rgba(255,255,255,.08);
     }
     .header-icon {
-      width: 28px;
-      height: 28px;
-      border-radius: 6px;
-      background: #0b1320;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-shrink: 0;
-      overflow: hidden;
-      border: 1px solid rgba(99,179,237,.18);
+      width: 28px; height: 28px; border-radius: 6px;
+      background: #0d0d14; display: flex; align-items: center;
+      justify-content: center; flex-shrink: 0; overflow: hidden;
+      border: 1px solid rgba(255,255,255,.1);
     }
-    .header-icon img {
-      width: 22px;
-      height: 22px;
-      object-fit: contain;
-    }
+    .header-icon img { width: 22px; height: 22px; object-fit: contain; }
     .header-title {
-      flex: 1;
-      font-size: 14px;
-      font-weight: 700;
-      letter-spacing: -.2px;
-      color: #fff;
-      line-height: 1;
+      flex: 1; font-size: 14px; font-weight: 700;
+      letter-spacing: -.2px; color: #fff; line-height: 1;
     }
-    .header-title span { color: #63b3ed; }
+    .header-title span { color: #7ec8e3; }
 
     /* ── Site disable toggle ─────────────────────────────── */
     #site-toggle {
-      flex-shrink: 0;
-      display: flex;
-      flex-direction: row;
-      align-items: center;
-      gap: 5px;
-      background: none;
-      border: none;
-      cursor: pointer;
-      padding: 4px 6px;
+      flex-shrink: 0; display: flex; flex-direction: row;
+      align-items: center; gap: 5px; background: none;
+      border: none; cursor: pointer; padding: 4px 6px;
     }
     .toggle-track {
-      width: 36px; height: 20px;
-      border-radius: 10px;
-      background: #1d2f47;
-      border: 1px solid #2a4060;
-      position: relative;
-      transition: background .2s, border-color .2s;
-      flex-shrink: 0;
+      width: 36px; height: 20px; border-radius: 10px;
+      background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.12);
+      position: relative; transition: background .2s, border-color .2s; flex-shrink: 0;
     }
     .toggle-thumb {
-      position: absolute;
-      top: 3px; left: 3px;
-      width: 12px; height: 12px;
-      border-radius: 50%;
-      background: #3a5570;
-      transition: transform .2s, background .2s;
+      position: absolute; top: 3px; left: 3px;
+      width: 12px; height: 12px; border-radius: 50%;
+      background: rgba(255,255,255,.25); transition: transform .2s, background .2s;
     }
-    #site-toggle.on .toggle-track {
-      background: rgba(99,179,237,.25);
-      border-color: rgba(99,179,237,.5);
-    }
-    #site-toggle.on .toggle-thumb {
-      transform: translateX(16px);
-      background: #63b3ed;
-    }
-    #site-toggle.disabled-state .toggle-track {
-      background: rgba(239,83,80,.1);
-      border-color: rgba(239,83,80,.3);
-    }
-    #site-toggle.disabled-state .toggle-thumb {
-      background: #ef5350;
-    }
+    #site-toggle.on .toggle-track { background: rgba(126,200,227,.2); border-color: rgba(126,200,227,.4); }
+    #site-toggle.on .toggle-thumb { transform: translateX(16px); background: #7ec8e3; }
+    #site-toggle.disabled-state .toggle-track { background: rgba(239,83,80,.1); border-color: rgba(239,83,80,.3); }
+    #site-toggle.disabled-state .toggle-thumb { background: #ef5350; }
     .toggle-label {
-      font-size: 10.5px;
-      font-weight: 700;
-      line-height: 1;
-      letter-spacing: .5px;
-      text-transform: uppercase;
-      color: #6a8aae;
-      transition: color .2s;
-      min-width: 14px;
+      font-size: 10.5px; font-weight: 700; line-height: 1;
+      letter-spacing: .5px; text-transform: uppercase;
+      color: rgba(255,255,255,.3); transition: color .2s; min-width: 14px;
     }
-    #site-toggle.on .toggle-label { color: #63b3ed; }
+    #site-toggle.on .toggle-label { color: #7ec8e3; }
     #site-toggle.disabled-state .toggle-label { color: #ef5350; }
 
     /* ── Body ───────────────────────────────────────────── */
-    .body { padding: 16px 20px; }
+    .body { padding: 14px 16px; }
 
-    /* idle / scanning */
     #status {
-      padding: 20px;
-      text-align: center;
-      color: #a0bcd8;
-      font-size: 13.5px;
-      line-height: 1.6;
+      padding: 18px; text-align: center;
+      color: rgba(255,255,255,.45); font-size: 13px; line-height: 1.6;
     }
-    #status strong { display: block; font-size: 16px; color: #e8edf5; margin-bottom: 6px; font-weight: 700; }
+    #status strong { display: block; font-size: 15px; color: #e8e8f0; margin-bottom: 6px; font-weight: 700; }
     #status code {
-      font-family: ui-monospace, "SF Mono", monospace;
-      font-size: 11px;
-      background: rgba(99,179,237,.08);
-      border: 1px solid rgba(99,179,237,.2);
-      border-radius: 3px;
-      padding: 1px 5px;
-      color: #63b3ed;
+      font-family: ui-monospace, "SF Mono", monospace; font-size: 11px;
+      background: rgba(126,200,227,.08); border: 1px solid rgba(126,200,227,.15);
+      border-radius: 3px; padding: 1px 5px; color: #7ec8e3;
     }
-    #status b { color: #e8edf5; font-weight: 600; }
+    #status b { color: #e8e8f0; font-weight: 600; }
 
-    /* stats row — counts + copy button on one line */
-    .stats-row {
-      display: flex;
-      align-items: stretch;
-      gap: 7px;
-      margin-bottom: 12px;
-    }
+    /* stats row */
+    .stats-row { display: flex; align-items: stretch; gap: 6px; margin-bottom: 12px; }
     .stat {
-      flex: 1;
-      background: #0f1b2d;
-      border: 1px solid #1d2f47;
-      border-radius: 7px;
-      padding: 7px 6px 6px;
-      text-align: center;
-      transition: border-color .15s;
+      flex: 1; background: rgba(255,255,255,.04);
+      border: 1px solid rgba(255,255,255,.08); border-radius: 8px;
+      padding: 8px 6px 7px; text-align: center; transition: border-color .15s;
     }
-    .stat:hover { border-color: #2a4a6e; }
+    .stat:hover { border-color: rgba(255,255,255,.15); }
     .stat .count {
-      display: block;
-      font-size: 20px;
-      font-weight: 800;
-      line-height: 1;
-      letter-spacing: -.5px;
-      margin-bottom: 3px;
+      display: block; font-size: 20px; font-weight: 800;
+      line-height: 1; letter-spacing: -.5px; margin-bottom: 3px;
     }
-    .stat .label {
-      font-size: 9px;
-      font-weight: 700;
-      letter-spacing: .8px;
-      text-transform: uppercase;
-      opacity: .7;
-    }
-    .stat.error   { border-color: rgba(239,83,80,.3); }
+    .stat .label { font-size: 9px; font-weight: 700; letter-spacing: .8px; text-transform: uppercase; opacity: .6; }
+    .stat.error   { border-color: rgba(239,83,80,.25); }
     .stat.error   .count { color: #ef5350; }
     .stat.error   .label { color: #ef5350; }
-    .stat.warning { border-color: rgba(255,183,77,.3); }
+    .stat.warning { border-color: rgba(255,183,77,.25); }
     .stat.warning .count { color: #ffb74d; }
     .stat.warning .label { color: #ffb74d; }
-    .stat.info    { border-color: rgba(99,179,237,.3); }
-    .stat.info    .count { color: #63b3ed; }
-    .stat.info    .label { color: #63b3ed; }
-
-    /* positive / clean state */
-    .stat.error.zero   { border-color: rgba(102,187,106,.25); }
+    .stat.info    { border-color: rgba(126,200,227,.2); }
+    .stat.info    .count { color: #7ec8e3; }
+    .stat.info    .label { color: #7ec8e3; }
+    .stat.error.zero   { border-color: rgba(102,187,106,.2); }
     .stat.error.zero   .count { color: #66bb6a; }
     .stat.error.zero   .label { color: #66bb6a; }
-    .stat.warning.zero { border-color: rgba(102,187,106,.15); }
+    .stat.warning.zero { border-color: rgba(102,187,106,.12); }
     .stat.warning.zero .count { color: #66bb6a; }
     .stat.warning.zero .label { color: #66bb6a; }
 
-    /* copy button — inline with stat boxes */
     #copy-btn {
-      display: none;
-      flex-shrink: 0;
-      align-self: stretch;
-      align-items: center;
-      justify-content: center;
-      gap: 5px;
-      padding: 6px 12px;
-      border: 1px solid rgba(99,179,237,.25);
-      border-radius: 7px;
-      background: rgba(99,179,237,.08);
-      color: #63b3ed;
-      font: 600 11px/1 system-ui, sans-serif;
-      letter-spacing: .1px;
-      cursor: pointer;
-      transition: background .15s, border-color .15s, color .15s;
-      white-space: nowrap;
+      display: none; flex-shrink: 0; align-self: stretch; align-items: center;
+      justify-content: center; gap: 5px; padding: 6px 12px;
+      border: 1px solid rgba(126,200,227,.2); border-radius: 8px;
+      background: rgba(126,200,227,.06); color: #7ec8e3;
+      font: 600 11px/1 system-ui, sans-serif; letter-spacing: .1px;
+      cursor: pointer; transition: background .12s, border-color .12s; white-space: nowrap;
     }
-    #copy-btn:hover { background: rgba(99,179,237,.16); border-color: rgba(99,179,237,.45); }
-    #copy-btn.success { background: rgba(102,187,106,.12); border-color: rgba(102,187,106,.35); color: #66bb6a; }
-    #copy-btn.error   { background: rgba(239,83,80,.12);  border-color: rgba(239,83,80,.35);  color: #ef5350; }
+    #copy-btn:hover { background: rgba(126,200,227,.14); border-color: rgba(126,200,227,.4); }
+    #copy-btn.success { background: rgba(102,187,106,.1); border-color: rgba(102,187,106,.3); color: #66bb6a; }
+    #copy-btn.error   { background: rgba(239,83,80,.1);  border-color: rgba(239,83,80,.3);  color: #ef5350; }
 
     /* per-VAST breakdown */
-    #breakdown {
-      display: none;
-      margin-top: 12px;
-      border: 1px solid #1d2f47;
-      border-radius: 8px;
-      overflow: hidden;
-    }
+    #breakdown { display: none; margin-top: 10px; border: 1px solid rgba(255,255,255,.08); border-radius: 8px; overflow: hidden; }
     .breakdown-hdr {
-      padding: 6px 12px;
-      font-size: 10px;
-      font-weight: 700;
-      letter-spacing: .7px;
-      text-transform: uppercase;
-      color: #7a9cbd;
-      background: #080e19;
-      border-bottom: 1px solid #1d2f47;
+      padding: 6px 12px; font-size: 10px; font-weight: 700; letter-spacing: .7px;
+      text-transform: uppercase; color: rgba(255,255,255,.35);
+      background: rgba(255,255,255,.03); border-bottom: 1px solid rgba(255,255,255,.08);
     }
     .vast-row {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 8px 12px;
-      border-bottom: 1px solid #0f1b2d;
-      font-size: 12px;
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 12px; border-bottom: 1px solid rgba(255,255,255,.05); font-size: 12px;
     }
     .vast-row:last-child { border-bottom: none; }
-    .vast-dot {
-      width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
-    }
+    .vast-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
     .dot-err  { background: #ef5350; }
     .dot-warn { background: #ffb74d; }
     .dot-ok   { background: #66bb6a; }
     .vast-label {
-      flex: 1; color: #b8cfe8; font-family: ui-monospace, monospace;
+      flex: 1; color: rgba(255,255,255,.6); font-family: ui-monospace, monospace;
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
     .vast-pills { display: flex; gap: 4px; flex-shrink: 0; }
-    .pill {
-      font-size: 9px; font-weight: 700; padding: 1px 5px;
-      border-radius: 3px; letter-spacing: .3px;
-    }
+    .pill { font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; letter-spacing: .2px; }
     .pill-err  { background: rgba(239,83,80,.15);  color: #ef5350; }
     .pill-warn { background: rgba(255,183,77,.15);  color: #ffb74d; }
-    .pill-info { background: rgba(99,179,237,.12);  color: #63b3ed; }
+    .pill-info { background: rgba(126,200,227,.12); color: #7ec8e3; }
     .pill-ok   { background: rgba(102,187,106,.15); color: #66bb6a; }
     .focus-btn {
-      flex-shrink: 0;
-      margin-left: 4px;
-      padding: 2px 7px;
-      border: 1px solid rgba(99,179,237,.2);
-      border-radius: 4px;
-      background: rgba(99,179,237,.06);
-      color: #4a7a9e;
-      font-size: 11px;
-      cursor: pointer;
-      line-height: 1;
+      flex-shrink: 0; margin-left: 4px; padding: 3px 8px;
+      border: 1px solid rgba(255,255,255,.12); border-radius: 4px;
+      background: rgba(255,255,255,.05); color: rgba(255,255,255,.4);
+      font-size: 11px; cursor: pointer; line-height: 1;
       transition: background .12s, color .12s, border-color .12s;
     }
-    .focus-btn:hover {
-      background: rgba(99,179,237,.18);
-      border-color: rgba(99,179,237,.5);
-      color: #63b3ed;
-    }
+    .focus-btn:hover { background: rgba(126,200,227,.15); border-color: rgba(126,200,227,.4); color: #7ec8e3; }
     .copy-one-btn {
-      flex-shrink: 0;
-      margin-left: 4px;
-      padding: 2px 7px;
-      border: 1px solid rgba(99,179,237,.12);
-      border-radius: 4px;
-      background: rgba(99,179,237,.04);
-      color: #3a5570;
-      font-size: 11px;
-      cursor: pointer;
-      line-height: 1;
+      flex-shrink: 0; margin-left: 4px; padding: 3px 8px;
+      border: 1px solid rgba(255,255,255,.08); border-radius: 4px;
+      background: rgba(255,255,255,.03); color: rgba(255,255,255,.3);
+      font-size: 11px; cursor: pointer; line-height: 1;
       transition: background .12s, color .12s, border-color .12s;
     }
-    .copy-one-btn:hover {
-      background: rgba(99,179,237,.14);
-      border-color: rgba(99,179,237,.4);
-      color: #63b3ed;
-    }
-    .copy-one-btn:disabled { opacity: .5; cursor: default; }
+    .copy-one-btn:hover { background: rgba(126,200,227,.12); border-color: rgba(126,200,227,.35); color: #7ec8e3; }
+    .copy-one-btn:disabled { opacity: .35; cursor: default; }
     .vast-ver {
-      flex-shrink: 0;
-      margin-left: 4px;
-      font-size: 10px;
-      color: #3a5570;
-      background: rgba(99,179,237,.07);
-      border: 1px solid rgba(99,179,237,.12);
-      border-radius: 3px;
-      padding: 1px 5px;
-      line-height: 1.4;
+      flex-shrink: 0; margin-left: 4px; font-size: 10px;
+      color: rgba(126,200,227,.6); background: rgba(126,200,227,.06);
+      border: 1px solid rgba(126,200,227,.12); border-radius: 3px;
+      padding: 1px 5px; line-height: 1.4;
     }
 
     /* ── Footer ─────────────────────────────────────────── */
     footer {
-      padding: 10px 20px 12px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      border-top: 1px solid #0f1b2d;
-      background: #080e19;
+      padding: 10px 16px 12px; display: flex; align-items: center;
+      justify-content: space-between; border-top: 1px solid rgba(255,255,255,.06);
+      background: #111118;
     }
-    .footer-left {
-      font-size: 11px;
-      color: #6a8aae;
-    }
-    .footer-left a { color: #63b3ed; text-decoration: none; }
-    .footer-left a:hover { color: #93c5fd; }
-    .footer-right {
-      font-size: 10.5px;
-      color: #6a8aae;
-      letter-spacing: .3px;
-      text-transform: uppercase;
-    }
+    .footer-left { font-size: 11px; color: rgba(255,255,255,.3); }
+    .footer-left a { color: #7ec8e3; text-decoration: none; }
+    .footer-left a:hover { color: #b0dff0; }
+    .footer-right { font-size: 10.5px; color: rgba(255,255,255,.25); letter-spacing: .3px; text-transform: uppercase; }
 
     /* ── Scan Now button ─────────────────────────────────── */
     #scan-btn {
-      padding: 5px 12px;
-      border: 1px solid rgba(99,179,237,.25);
-      border-radius: 5px;
-      background: rgba(99,179,237,.07);
-      color: #63b3ed;
-      font: 600 11.5px/1.4 system-ui, sans-serif;
-      cursor: pointer;
-      transition: background .12s, color .12s, border-color .12s;
-      white-space: nowrap;
+      padding: 5px 12px; border: 1px solid rgba(126,200,227,.2); border-radius: 5px;
+      background: rgba(126,200,227,.06); color: rgba(126,200,227,.7);
+      font: 600 11.5px/1.4 system-ui, sans-serif; cursor: pointer;
+      transition: background .12s, color .12s, border-color .12s; white-space: nowrap;
     }
-    #scan-btn:hover { background: rgba(99,179,237,.16); border-color: rgba(99,179,237,.5); color: #93c5fd; }
-    #scan-btn:disabled { opacity: .45; cursor: default; }
+    #scan-btn:hover { background: rgba(126,200,227,.14); border-color: rgba(126,200,227,.4); color: #7ec8e3; }
+    #scan-btn:disabled { opacity: .35; cursor: default; }
 
     /* ── Paste & Analyze ─────────────────────────────────── */
-    #paste-section {
-      margin-top: 12px;
-      border: 1px solid #1d2f47;
-      border-radius: 8px;
-      overflow: hidden;
-    }
+    #paste-section { margin-top: 10px; border: 1px solid rgba(255,255,255,.08); border-radius: 8px; overflow: hidden; border-top: 1px solid rgba(255,255,255,.1); }
     .paste-hdr {
-      padding: 7px 12px;
-      font-size: 10px;
-      font-weight: 700;
-      letter-spacing: .7px;
-      text-transform: uppercase;
-      color: #7a9cbd;
-      background: #080e19;
-      border-bottom: 1px solid #1d2f47;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
+      padding: 7px 12px; font-size: 10px; font-weight: 700; letter-spacing: .7px;
+      text-transform: uppercase; color: rgba(255,255,255,.55);
+      background: rgba(255,255,255,.04); border-bottom: 1px solid rgba(255,255,255,.08);
+      display: flex; align-items: center; justify-content: space-between;
     }
-    .paste-hdr-label { color: #7a9cbd; }
-    #paste-clear {
-      font-size: 10.5px;
-      color: #6a8aae;
-      background: none;
-      border: none;
-      cursor: pointer;
-      padding: 0;
-      display: none;
-    }
+    #paste-clear { font-size: 10.5px; color: rgba(255,255,255,.4); background: none; border: none; cursor: pointer; padding: 0; display: none; }
     #paste-clear:hover { color: #ef5350; }
     #paste-input {
-      width: 100%;
-      min-height: 52px;
-      max-height: 160px;
-      resize: vertical;
-      background: #060c14;
-      border: none;
-      border-bottom: 1px solid #1d2f47;
-      color: #d0dcea;
-      font: 400 11px/1.55 ui-monospace, "SF Mono", monospace;
-      padding: 9px 12px;
-      outline: none;
-      display: block;
-      transition: max-height .2s ease, min-height .2s ease;
+      width: 100%; min-height: 52px; max-height: 160px; resize: vertical;
+      background: rgba(255,255,255,.05); border: none;
+      border-bottom: 1px solid rgba(255,255,255,.08);
+      color: #e0e0f0; font: 400 11px/1.55 ui-monospace, "SF Mono", monospace;
+      padding: 9px 12px; outline: none; display: block;
     }
-    #paste-input::placeholder { color: #4a6a8e; }
-    #paste-input:focus { background: #07101c; border-bottom-color: rgba(99,179,237,.3); }
-    /* expanded when content present */
-    #paste-input.has-content {
-      min-height: 80px;
-      max-height: 200px;
-    }
+    #paste-input::placeholder { color: rgba(255,255,255,.35); }
+    #paste-input:focus { background: rgba(255,255,255,.08); border-bottom-color: rgba(126,200,227,.35); }
+    #paste-input.has-content { min-height: 80px; max-height: 200px; }
     .paste-footer {
-      padding: 7px 12px;
-      background: #080e19;
-      border-top: 1px solid #1d2f47;
-      display: flex;
-      align-items: center;
-      gap: 8px;
+      padding: 7px 12px; background: rgba(255,255,255,.02);
+      display: flex; align-items: center; gap: 8px;
     }
     #paste-open {
-      padding: 5px 14px;
-      border: 1px solid rgba(99,179,237,.3);
-      border-radius: 6px;
-      background: rgba(99,179,237,.1);
-      color: #93c5fd;
-      font: 600 12px/1 system-ui;
-      cursor: pointer;
+      padding: 5px 14px; border: 1px solid rgba(126,200,227,.25); border-radius: 6px;
+      background: rgba(126,200,227,.08); color: #7ec8e3;
+      font: 600 12px/1 system-ui; cursor: pointer;
       transition: background .12s, border-color .12s;
     }
-    #paste-open:hover:not(:disabled) { background: rgba(99,179,237,.2); border-color: rgba(99,179,237,.55); }
-    #paste-open:disabled { opacity: .35; cursor: default; }
+    #paste-open:hover:not(:disabled) { background: rgba(126,200,227,.18); border-color: rgba(126,200,227,.5); }
+    #paste-open:disabled { opacity: .3; cursor: default; }
+
+    /* ── Analyzing state ─────────────────────────────────── */
+    #paste-analyzing {
+      display: none; align-items: center; gap: 9px;
+      font-size: 12px; font-weight: 600; color: #7ec8e3; letter-spacing: .1px;
+    }
+    #paste-section.analyzing #paste-analyzing { display: flex; }
+    #paste-section.analyzing #paste-open { display: none; }
+    #paste-section.analyzing textarea { opacity: .45; pointer-events: none; }
+
+    .analyzing-dots { display: flex; gap: 4px; align-items: center; }
+    .analyzing-dots span {
+      width: 5px; height: 5px; border-radius: 50%; background: #7ec8e3;
+      animation: dot-bounce .9s ease-in-out infinite;
+    }
+    .analyzing-dots span:nth-child(2) { animation-delay: .15s; }
+    .analyzing-dots span:nth-child(3) { animation-delay: .3s; }
+    @keyframes dot-bounce {
+      0%, 80%, 100% { transform: scale(.6); opacity: .3; }
+      40%            { transform: scale(1);  opacity: 1; }
+    }
   </style>
 </head>
 <body>
@@ -426,7 +262,6 @@
 
   <div class="body">
     <div id="status">
-      <strong>Scanning…</strong>
       No VAST XML detected on this page yet.
     </div>
 
@@ -444,7 +279,7 @@
           <span class="count" id="info-count">0</span>
           <span class="label">INFO</span>
         </div>
-        <button id="copy-btn">📋 Copy VAST</button>
+        <button id="copy-btn">Copy VAST</button>
       </div>
 
       <div id="breakdown">
@@ -462,6 +297,10 @@
       <textarea id="paste-input" rows="3" placeholder="Paste VAST XML here…" spellcheck="false"></textarea>
       <div class="paste-footer">
         <button id="paste-open" disabled>↗ Analyze in new tab</button>
+        <div id="paste-analyzing">
+          <div class="analyzing-dots"><span></span><span></span><span></span></div>
+          Analyzing…
+        </div>
       </div>
     </div>
   </div>
@@ -469,8 +308,8 @@
   <footer>
     <span class="footer-left">
       <a href="https://vastlint.org" target="_blank">vastlint.org</a>
-      <span style="color:#2a4a6e;margin:0 4px">·</span>
-      <span style="color:#6a8aae">v0.1.0</span>
+      <span style="color:rgba(255,255,255,.2);margin:0 4px">·</span>
+      <span style="color:rgba(255,255,255,.35)">v0.1.0</span>
     </span>
     <button id="scan-btn" title="Force a fresh scan of the page">⟳ Scan page</button>
   </footer>

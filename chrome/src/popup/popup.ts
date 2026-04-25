@@ -227,9 +227,10 @@ async function init() {
 }
 
 function initPasteAnalyzer() {
-  const textarea  = document.getElementById('paste-input')  as HTMLTextAreaElement;
-  const clearBtn  = document.getElementById('paste-clear')  as HTMLButtonElement;
-  const openBtn   = document.getElementById('paste-open')   as HTMLButtonElement;
+  const textarea     = document.getElementById('paste-input')    as HTMLTextAreaElement;
+  const clearBtn     = document.getElementById('paste-clear')    as HTMLButtonElement;
+  const openBtn      = document.getElementById('paste-open')     as HTMLButtonElement;
+  const pasteSection = document.getElementById('paste-section')  as HTMLElement;
 
   function updateBtn() {
     const has = textarea.value.trim().length > 0;
@@ -240,17 +241,20 @@ function initPasteAnalyzer() {
 
   textarea.addEventListener('input', updateBtn);
 
-  // Auto-open tab immediately on paste — no button click needed
+  // Auto-open tab on paste — short delay so it doesn't feel abrupt
   textarea.addEventListener('paste', () => {
-    // value isn't updated yet during 'paste', wait one tick
+    // value isn't updated yet during 'paste', wait one tick for DOM then delay
     setTimeout(async () => {
       const xml = textarea.value.trim();
       if (!xml) return;
       try {
         await chrome.storage.session.set({ paste_xml: xml });
+        pasteSection.classList.add('analyzing');
+        await new Promise(r => setTimeout(r, 700));
         await chrome.tabs.create({ url: chrome.runtime.getURL('analysis.html') });
         window.close();
       } catch {
+        pasteSection.classList.remove('analyzing');
         updateBtn(); // fall back to manual button
       }
     }, 0);

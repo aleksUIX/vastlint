@@ -4,6 +4,8 @@
 
 A VAST XML validator. Checks ad tags against the IAB Tech Lab VAST specification so you don't have to read it. Over $30 billion in annual CTV and video ad spend flows through VAST XML, and malformed tags are one of the most common causes of lost impressions, broken tracking, and revenue discrepancies between platforms. There is no widely adopted open-source tool that validates VAST XML against the full IAB specification across all published versions.
 
+vastlint ships a native **MCP server** — making VAST validation available as a callable tool inside any MCP-compatible AI agent or agentic workflow. Connect Claude, Cursor, or the [AAMP Buyer Agent SDK](https://github.com/IABTechLab/buyer-agent) to `vastlint.org/mcp` and your agent can validate a creative before trafficking it, with no human in the loop. The server exposes `validate_vast`, `validate_vast_url`, `list_rules`, `explain_rule`, and `fix_vast` as structured tools that return JSON a downstream agent can act on directly.
+
 [![crates.io](https://img.shields.io/crates/v/vastlint-cli.svg?label=crates.io)](https://crates.io/crates/vastlint-cli)
 [![vastlint-core](https://img.shields.io/crates/v/vastlint-core.svg?label=vastlint-core)](https://crates.io/crates/vastlint-core)
 [![npm](https://img.shields.io/npm/v/vastlint.svg?label=npm)](https://www.npmjs.com/package/vastlint)
@@ -353,6 +355,8 @@ The toolbar icon badge shows the error count for the current tab. Click it for a
 ## Use from an AI agent (MCP)
 
 [`vastlint-mcp`](crates/vastlint-mcp) is a [Model Context Protocol](https://modelcontextprotocol.io) server. It exposes `validate_vast`, `validate_vast_url`, `list_rules`, `explain_rule`, and `fix_vast` as native tools callable by Claude, Cursor, and any MCP-compatible agent.
+
+**Agentic advertising workflows** — As AI agents take over creative trafficking (see [IAB Tech Lab AAMP](https://iabtechlab.com/standards/agentic-advertising-initiative/)), validation needs to move into the agent loop. The vastlint MCP server is compatible with the [AAMP Buyer Agent SDK](https://github.com/IABTechLab/buyer-agent): an agent calls `validate_vast` or `validate_vast_url` before confirming a deal, gets a structured pass/fail result with rule IDs and XPath locations, and can reject or escalate without a human reviewing the tag. The same tool works in Claude Desktop, Cursor, Copilot, any MCP client, and CI pipelines.
 
 **No-install hosted endpoint** — connect directly without installing anything:
 
