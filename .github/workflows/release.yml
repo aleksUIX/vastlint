@@ -928,7 +928,7 @@ jobs:
   # Set ENABLE_GO_SYNC to "true" in repo variables to activate this job.
   sync-go:
     name: Sync vastlint-go
-    needs: [build-ffi, release, provenance]
+    needs: [build-ffi, release]
     runs-on: ubuntu-latest
     if: vars.ENABLE_GO_SYNC == 'true'
 
@@ -1088,7 +1088,7 @@ jobs:
   # Set ENABLE_ERLANG_SYNC to "true" in repo variables to activate this job.
   sync-erlang:
     name: Sync vastlint-erlang
-    needs: [build-nif, release, provenance]
+    needs: [build-nif, release]
     runs-on: ubuntu-latest
     if: vars.ENABLE_ERLANG_SYNC == 'true'
 
