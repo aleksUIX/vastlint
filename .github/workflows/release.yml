@@ -595,9 +595,31 @@ jobs:
   # Verified: the tag is a lightweight tag pointing directly to this commit.
   # Re-verify after any version bump with:
   #   git ls-remote https://github.com/slsa-framework/slsa-github-generator.git refs/tags/<new-tag>
+
+  # Delete any existing provenance assets from the release so SLSA can
+  # re-upload on re-runs of the same tag without a "path already exists" error.
+  purge-provenance:
+    name: Purge existing provenance assets
+    needs: [release]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Delete existing *.intoto.jsonl assets from release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          # List all assets on the release and delete any provenance files
+          gh api "repos/${{ github.repository }}/releases/tags/${TAG}" \
+            --jq '.assets[] | select(.name | endswith(".intoto.jsonl")) | .id' \
+            | xargs -I{} gh api -X DELETE \
+                "repos/${{ github.repository }}/releases/assets/{}" \
+              || true  # ignore errors if no assets exist
+
   provenance:
     name: SLSA L3 provenance
-    needs: [hash-artifacts, release]
+    needs: [hash-artifacts, release, purge-provenance]
     permissions:
       actions: read    # read workflow run data used in the provenance statement
       id-token: write  # request OIDC token from GitHub's Sigstore instance
