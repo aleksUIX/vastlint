@@ -624,11 +624,11 @@ jobs:
     permissions:
       actions: read    # read workflow run data used in the provenance statement
       id-token: write  # request OIDC token from GitHub's Sigstore instance
-      contents: write  # upload .intoto.jsonl to the GitHub Release
+      contents: read   # upload-assets disabled; contents: read is sufficient
     uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@5a775b367a56d5bd118a224a811bba288150a563  # v2.0.0
     with:
       base64-subjects: "${{ needs.hash-artifacts.outputs.hashes }}"
-      upload-assets: true
+      upload-assets: false  # upload-assets fails on re-runs (path validation); provenance still signed
       upload-tag-name: "${{ github.ref_name }}"
       private-repository: true
 
