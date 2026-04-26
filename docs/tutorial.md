@@ -235,7 +235,7 @@ fn main() {
 vastlint rules
 ```
 
-Prints all 108 rules with their default severity and a short description. Use the rule IDs in your `vastlint.toml` to customize behavior.
+Prints all 118 rules with their default severity and a short description. Rules marked `$` have direct revenue impact. Use the rule IDs in your `vastlint.toml` to customize behavior.
 
 ## Next steps
 

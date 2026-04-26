@@ -538,11 +538,23 @@ jobs:
           path: artifacts
           merge-multiple: true
 
+      - name: Extract changelog section for this release
+        id: changelog
+        run: |
+          # Pull the section for this tag (e.g. "## [0.3.7]") from CHANGELOG.md.
+          # Outputs everything between this heading and the next "## " heading.
+          VERSION="${GITHUB_REF_NAME#v}"
+          BODY=$(awk "/^## \[?${VERSION}\]?/{found=1; next} found && /^## /{exit} found{print}" CHANGELOG.md)
+          if [ -z "$BODY" ]; then
+            BODY="See [CHANGELOG.md](https://github.com/aleksUIX/vastlint/blob/main/CHANGELOG.md) for details."
+          fi
+          printf '%s\n' "$BODY" > /tmp/release-notes.md
+
       - name: Create release
         uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda  # v3.0.0
         with:
           files: artifacts/*
-          generate_release_notes: true
+          body_path: /tmp/release-notes.md
 
   # ── SLSA Build Level 3 provenance ──────────────────────────────────────────
   # Runs after the GitHub Release is created so a provenance failure never

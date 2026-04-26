@@ -123,6 +123,16 @@ const FIX_HINTS: Record<string, string> = {
   'VAST-4.2-icon-fallback-image-width-height': 'Add `width` and `height` to `<IconClickFallbackImage>` so the player can size the overlay.',
   'VAST-4.2-closedcaptionfiles-unknown-child': '`<ClosedCaptionFiles>` may only contain `<ClosedCaptionFile>` elements.',
   'VAST-2.0-creativeextensions-unknown-child': '`<CreativeExtensions>` may only contain `<CreativeExtension>` elements.',
+  // SIMID rules
+  'SIMID-1.0-simid-type-required':           'Set `type="text/html"` on `<InteractiveCreativeFile apiFramework="SIMID">` — SIMID creatives are HTML documents, not JavaScript files.',
+  'SIMID-1.0-simid-url-empty':               'Add the HTTPS URL of your SIMID creative HTML document inside `<InteractiveCreativeFile>`, wrapped in a CDATA section.',
+  'SIMID-1.0-simid-url-https':               'Change the `<InteractiveCreativeFile>` URL from `http://` to `https://` — HTTP is blocked by mixed-content policies in all modern browsers.',
+  'SIMID-1.0-simid-variable-duration-value': 'Set `variableDuration="true"` or remove the attribute — per SIMID §5, `"true"` is the only valid value.',
+  'SIMID-1.0-simid-mediafile-required':      'Add a `<MediaFile>` video element inside `<MediaFiles>` — SIMID §3.4 requires a media asset alongside the interactive creative.',
+  'SIMID-1.1-nonlinear-simid-no-iframe':     'Add `<IFrameResource type="text/html">` with the SIMID creative URL inside `<NonLinear apiFramework="SIMID">`.',
+  'SIMID-1.1-iframe-simid-type-required':    'Add `type="text/html"` to `<IFrameResource>` inside `<NonLinear apiFramework="SIMID">`.',
+  'SIMID-1.1-iframe-simid-url-empty':        'Add the HTTPS URL of your SIMID nonlinear creative as text content inside `<IFrameResource>`, wrapped in a CDATA section.',
+  'SIMID-1.1-iframe-simid-url-https':        'Change the `<IFrameResource>` URL from `http://` to `https://`.',
 };
 
 // ── Severity mapping ──────────────────────────────────────────────────────────

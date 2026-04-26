@@ -15,13 +15,14 @@ pub mod deprecated;
 pub mod required;
 pub mod schema;
 pub mod security;
+pub mod simid;
 pub mod structure;
 pub mod values;
 
 use crate::parse::Node;
 use crate::parse::VastDocument;
 use crate::{DetectedVersion, Issue, RuleMeta, RuleSource, Severity, ValidationContext};
-use RuleSource::{IanaMediaTypes, Inferred, Iso4217, Rfc3986, VastSpec, VastXsd, Xml};
+use RuleSource::{IanaMediaTypes, Inferred, IndustryBestPractice, Iso4217, Rfc3986, SimidSpec, VastSpec, VastXsd, Xml};
 
 /// Run all applicable rules against the document and collect issues.
 pub fn run(
@@ -39,6 +40,7 @@ pub fn run(
     ambiguous::check(doc, version, ctx, issues);
     values::check(doc, version, ctx, issues);
     ctv::check(doc, version, ctx, issues);
+    simid::check(doc, version, ctx, issues);
 }
 
 // ── Helper: emit an issue respecting rule overrides ───────────────────────────
@@ -135,14 +137,14 @@ pub static CATALOG: &[RuleMeta] = &[
     RuleMeta { id: "VAST-2.0-extension-misplaced-element",          default_severity: Severity::Warning, description: "<Extension> contains an element that has a dedicated location in the VAST spec",   source: VastSpec },
     RuleMeta { id: "VAST-2.0-creative-extension-misplaced-element", default_severity: Severity::Warning, description: "<CreativeExtension> contains an element that has a dedicated location in the VAST spec", source: VastSpec },
     // security.rs
-    RuleMeta { id: "VAST-2.0-mediafile-https",         default_severity: Severity::Info,    description: "<MediaFile> URL uses HTTP instead of HTTPS",                                                    source: Inferred },
-    RuleMeta { id: "VAST-2.0-tracking-https",          default_severity: Severity::Info,    description: "Tracking or click URL uses HTTP instead of HTTPS",                                              source: Inferred },
+    RuleMeta { id: "VAST-2.0-mediafile-https",         default_severity: Severity::Warning, description: "<MediaFile> URL uses HTTP instead of HTTPS — blocked by mixed-content policy on secure inventory",                source: IndustryBestPractice },
+    RuleMeta { id: "VAST-2.0-tracking-https",          default_severity: Severity::Warning, description: "Tracking or click URL uses HTTP instead of HTTPS — blocked by mixed-content policy; measurement signal lost",   source: IndustryBestPractice },
     RuleMeta { id: "VAST-2.0-url-empty",               default_severity: Severity::Error,   description: "URL field is empty",                                                                            source: VastSpec },
     RuleMeta { id: "VAST-2.0-url-invalid",             default_severity: Severity::Warning, description: "URL field does not appear to be a valid URI",                                                   source: Rfc3986  },
     // consistency.rs
     RuleMeta { id: "VAST-2.0-parse-error",             default_severity: Severity::Error,   description: "XML parse error — document may be malformed",                                                   source: Xml      },
     RuleMeta { id: "VAST-2.0-version-mismatch",        default_severity: Severity::Warning, description: "Declared version does not match structural signals",                                            source: Inferred },
-    RuleMeta { id: "VAST-2.0-duplicate-impression",    default_severity: Severity::Warning, description: "Duplicate <Impression> URL within the same <Ad>",                                              source: Inferred },
+    RuleMeta { id: "VAST-2.0-duplicate-impression",    default_severity: Severity::Warning, description: "Duplicate <Impression> URL within the same <Ad> — causes double-counted billing and disputes", source: IndustryBestPractice },
     // deprecated.rs
     RuleMeta { id: "VAST-4.0-conditionalad",           default_severity: Severity::Warning, description: "conditionalAd attribute is deprecated as of VAST 4.1",                                         source: VastSpec },
     RuleMeta { id: "VAST-4.1-survey-deprecated",       default_severity: Severity::Warning, description: "<Survey> is deprecated as of VAST 4.1",                                                        source: VastSpec },
@@ -156,6 +158,7 @@ pub static CATALOG: &[RuleMeta] = &[
     RuleMeta { id: "VAST-2.0-companion-dimensions",    default_severity: Severity::Warning, description: "<Companion> missing width or height",                                                           source: VastSpec },
     RuleMeta { id: "VAST-4.0-wrapper-clickthrough",    default_severity: Severity::Warning, description: "<ClickThrough> inside Wrapper <VideoClicks> was removed in VAST 4.0 (re-allowed in 4.2)",      source: VastSpec },
     RuleMeta { id: "VAST-4.2-icon-fallback-image-width-height", default_severity: Severity::Warning, description: "<IconClickFallbackImage> should have width and height attributes",                     source: VastSpec },
+    RuleMeta { id: "VAST-2.0-linear-tracking-quartiles", default_severity: Severity::Warning, description: "<Linear> has no standard quartile tracking events — impression serves but measurement system receives no signal", source: IndustryBestPractice },
     // required.rs — VAST 3.0+ additions
     RuleMeta { id: "VAST-3.0-pricing-model",                  default_severity: Severity::Error,   description: "<Pricing> missing required model attribute",                                             source: VastSpec },
     RuleMeta { id: "VAST-3.0-pricing-currency",               default_severity: Severity::Error,   description: "<Pricing> missing required currency attribute",                                          source: VastSpec },
@@ -199,7 +202,17 @@ pub static CATALOG: &[RuleMeta] = &[
     RuleMeta { id: "VAST-4.1-companion-renderingmode-value",  default_severity: Severity::Warning, description: "Companion renderingMode must be default, end-card, or concurrent",                       source: VastXsd  },
     RuleMeta { id: "VAST-3.0-companion-required-attr",        default_severity: Severity::Warning, description: "<CompanionAds> required attribute must be all, any, or none",                            source: VastXsd  },
     // ctv.rs
-    RuleMeta { id: "VAST-4.1-mezzanine-recommended",          default_severity: Severity::Info,    description: "<MediaFiles> has no <Mezzanine> — may be rejected in CTV/SSAI contexts",                source: Inferred },
-    RuleMeta { id: "VAST-4.1-vpaid-in-interactive-context",   default_severity: Severity::Warning, description: "VPAID MediaFile alongside InteractiveCreativeFile — VPAID unsupported in CTV",           source: Inferred },
+    RuleMeta { id: "VAST-4.1-mezzanine-recommended",          default_severity: Severity::Info,    description: "<MediaFiles> has no <Mezzanine> — ad-stitching servers may reject in CTV/SSAI contexts",  source: IndustryBestPractice },
+    RuleMeta { id: "VAST-4.1-vpaid-in-interactive-context",   default_severity: Severity::Warning, description: "VPAID MediaFile alongside InteractiveCreativeFile — VPAID unsupported in CTV, zero fill",  source: IndustryBestPractice },
     RuleMeta { id: "VAST-4.1-ad-serving-id-empty",            default_severity: Severity::Warning, description: "<AdServingId> is present but empty",                                                     source: Inferred },
+    // simid.rs
+    RuleMeta { id: "SIMID-1.0-simid-type-required",           default_severity: Severity::Error,   description: "<InteractiveCreativeFile apiFramework=\"SIMID\"> must have type=\"text/html\"",           source: SimidSpec },
+    RuleMeta { id: "SIMID-1.0-simid-url-empty",               default_severity: Severity::Error,   description: "<InteractiveCreativeFile apiFramework=\"SIMID\"> must contain a non-empty URL",           source: SimidSpec },
+    RuleMeta { id: "SIMID-1.0-simid-url-https",               default_severity: Severity::Error,   description: "<InteractiveCreativeFile apiFramework=\"SIMID\"> URL must use HTTPS",                    source: SimidSpec },
+    RuleMeta { id: "SIMID-1.0-simid-variable-duration-value", default_severity: Severity::Warning, description: "<InteractiveCreativeFile> variableDuration attribute must be \"true\" when present",     source: SimidSpec },
+    RuleMeta { id: "SIMID-1.0-simid-mediafile-required",      default_severity: Severity::Error,   description: "Linear SIMID ad must include a video/audio <MediaFile> alongside the interactive creative", source: SimidSpec },
+    RuleMeta { id: "SIMID-1.1-nonlinear-simid-no-iframe",     default_severity: Severity::Error,   description: "<NonLinear apiFramework=\"SIMID\"> must contain an <IFrameResource>",                    source: SimidSpec },
+    RuleMeta { id: "SIMID-1.1-iframe-simid-type-required",    default_severity: Severity::Warning, description: "<IFrameResource> in SIMID <NonLinear> should have type=\"text/html\"",                   source: SimidSpec },
+    RuleMeta { id: "SIMID-1.1-iframe-simid-url-empty",        default_severity: Severity::Error,   description: "<IFrameResource> in SIMID <NonLinear> must contain a non-empty URL",                     source: SimidSpec },
+    RuleMeta { id: "SIMID-1.1-iframe-simid-url-https",        default_severity: Severity::Error,   description: "<IFrameResource> in SIMID <NonLinear> URL must use HTTPS",                               source: SimidSpec },
 ];

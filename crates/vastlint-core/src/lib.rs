@@ -10,7 +10,7 @@
 //! - [`validate_with_context`] -- validate with rule overrides or wrapper depth
 //! - [`fix`] -- fix deterministic issues and return repaired XML
 //! - [`fix_with_context`] -- fix with rule overrides or wrapper depth
-//! - [`all_rules`] -- list the full 108-rule catalog
+//! - [`all_rules`] -- list the full 118-rule catalog
 //!
 //! # Performance — allocator recommendation
 //!
@@ -441,20 +441,27 @@ pub enum RuleSource {
     AdId,
     /// vastlint heuristic — no single external spec authority
     Inferred,
+    /// IAB Tech Lab SIMID spec normative prose
+    SimidSpec,
+    /// Industry best practice derived from real-world ad serving patterns;
+    /// violation has a direct revenue or measurement impact.
+    IndustryBestPractice,
 }
 
 impl RuleSource {
     /// Short stable string identifier, suitable for JSON output and display.
     pub fn as_str(self) -> &'static str {
         match self {
-            RuleSource::VastSpec       => "VAST spec",
-            RuleSource::VastXsd        => "VAST XSD",
-            RuleSource::Xml            => "W3C XML 1.0",
-            RuleSource::Rfc3986        => "RFC 3986",
-            RuleSource::IanaMediaTypes => "IANA Media Types",
-            RuleSource::Iso4217        => "ISO 4217",
-            RuleSource::AdId           => "Ad-ID",
-            RuleSource::Inferred       => "inferred",
+            RuleSource::VastSpec            => "VAST spec",
+            RuleSource::VastXsd             => "VAST XSD",
+            RuleSource::Xml                 => "W3C XML 1.0",
+            RuleSource::Rfc3986             => "RFC 3986",
+            RuleSource::IanaMediaTypes      => "IANA Media Types",
+            RuleSource::Iso4217             => "ISO 4217",
+            RuleSource::AdId                => "Ad-ID",
+            RuleSource::Inferred            => "inferred",
+            RuleSource::SimidSpec           => "IAB SIMID",
+            RuleSource::IndustryBestPractice => "revenue impact",
         }
     }
 }
@@ -470,6 +477,35 @@ pub struct RuleMeta {
     pub description: &'static str,
     /// The external standard this rule is derived from.
     pub source: RuleSource,
+}
+
+impl RuleMeta {
+    /// Returns `true` when violating this rule has a direct revenue or
+    /// measurement impact — lost impressions, broken tracking, zero fill.
+    ///
+    /// This covers both rules whose [`source`](RuleMeta::source) is
+    /// [`RuleSource::IndustryBestPractice`] and rules whose source is an IAB
+    /// spec standard but whose real-world consequence is measurable revenue
+    /// loss (missing `<Impression>`, dead wrapper redirect, etc.).
+    pub fn revenue_impact(&self) -> bool {
+        matches!(
+            self.id,
+            // IndustryBestPractice-sourced rules
+            "VAST-2.0-mediafile-https"
+            | "VAST-2.0-tracking-https"
+            | "VAST-2.0-duplicate-impression"
+            | "VAST-4.1-mezzanine-recommended"
+            | "VAST-4.1-vpaid-in-interactive-context"
+            | "VAST-2.0-linear-tracking-quartiles"
+            // VastSpec-sourced rules with direct revenue consequence
+            | "VAST-2.0-inline-impression"
+            | "VAST-2.0-wrapper-impression"
+            | "VAST-2.0-wrapper-vastadtaguri"
+            | "VAST-2.0-url-empty"
+            | "VAST-4.1-vpaid-apiframework"
+            | "VAST-2.0-flash-mediafile"
+        )
+    }
 }
 
 /// Returns the full catalog of known rules in definition order.

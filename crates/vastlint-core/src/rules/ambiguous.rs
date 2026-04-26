@@ -97,6 +97,39 @@ fn check_linear(
         }
     }
 
+    // VAST-2.0-linear-tracking-quartiles: warn when a Linear has no standard
+    // quartile events at all. The XSD and spec do not require them (minOccurs=0
+    // on TrackingEvents; "Required in Response: No"). However, an ad with zero
+    // quartile trackers serves but returns no measurement signal — the creative
+    // feedback loop is entirely dark. Source: IndustryBestPractice.
+    {
+        const QUARTILE_EVENTS: &[&str] =
+            &["start", "firstQuartile", "midpoint", "thirdQuartile", "complete"];
+
+        let present: Vec<&str> = linear
+            .child("TrackingEvents")
+            .map(|te| {
+                te.children_named("Tracking")
+                    .filter_map(|t| t.attr("event"))
+                    .filter(|e| QUARTILE_EVENTS.contains(e))
+                    .collect()
+            })
+            .unwrap_or_default();
+
+        if present.is_empty() {
+            emit(
+                ctx,
+                issues,
+                "VAST-2.0-linear-tracking-quartiles",
+                Severity::Warning,
+                "<Linear> has no standard quartile tracking events (start/firstQuartile/midpoint/thirdQuartile/complete) — ad will serve but measurement system receives no signal",
+                Some(path.to_owned()),
+                "IAB VAST 4.1 §3.14.2",
+                Some(linear),
+            );
+        }
+    }
+
     // Check icon attributes.
     if let Some(icons) = linear.child("Icons") {
         for (icon_idx, icon) in icons.children_named("Icon").enumerate() {

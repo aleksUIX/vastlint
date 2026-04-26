@@ -28,8 +28,9 @@ Validates VAST documents against:
 - [IANA Media Types](https://www.iana.org/assignments/media-types/) (MediaFile and resource MIME types)
 - [ISO 4217](https://www.iso.org/iso-4217-currency-codes.html) currency codes (Pricing elements)
 - [Ad-ID](https://www.ad-id.org/) registry format (UniversalAdId)
+- [IAB Tech Lab SIMID](https://iabtechlab.com/simid/) 1.0, 1.0.1, 1.1, 1.2. Interactive creative validation for `<InteractiveCreativeFile apiFramework="SIMID">` and nonlinear `<IFrameResource>` — the IAB-sanctioned VPAID replacement
 
-108 rules across required fields, schema validation, structural correctness, security, consistency, deprecated features, ambiguous usage, and value formats. See [common errors](docs/common-errors.md) for the ones that cost real money. New to vastlint? Start with the [tutorial](docs/tutorial.md).
+118 rules across required fields, schema validation, structural correctness, security, consistency, deprecated features, ambiguous usage, and value formats. Rules marked with `$` have direct revenue impact — use `vastlint check --fail-on-warning` in CI to catch them before they reach production. See [common errors](docs/common-errors.md) for the ones that cost real money. New to vastlint? Start with the [tutorial](docs/tutorial.md).
 
 Full rule reference with examples and fix instructions: [VAST error rule reference](https://vastlint.org/docs/rules)
 
@@ -267,7 +268,7 @@ let result = validate_with_context(xml_string, ctx);
 
 ## Use from JavaScript / TypeScript
 
-[`vastlint`](https://www.npmjs.com/package/vastlint) is published on npm. Same 108 rules, same core — compiled to WASM.
+[`vastlint`](https://www.npmjs.com/package/vastlint) is published on npm. Same 118 rules, same core — compiled to WASM.
 
 ```sh
 npm install vastlint
@@ -405,7 +406,7 @@ Returns the same structured result as the CLI and library: version, issues with 
 
 ## Use from a browser
 
-Paste any VAST tag into the web validator at **[VAST tag validator](https://vastlint.org/validate)** — no install, no account, nothing stored. Runs the same 108 rules as the CLI, entirely in your browser via WebAssembly.
+Paste any VAST tag into the web validator at **[VAST tag validator](https://vastlint.org/validate)** — no install, no account, nothing stored. Runs the same 118 rules as the CLI, entirely in your browser via WebAssembly.
 
 ## Performance
 
@@ -480,7 +481,6 @@ VAST XML is not a standalone spec — it references several adjacent IAB Tech La
 
 | Upcoming | What it adds |
 |---|---|
-| **SIMID 1.0–1.2** | `<InteractiveCreativeFile apiFramework="SIMID">` — required `type`, HTTPS, video fallback, nonlinear placement |
 | **OMID** | `<AdVerifications><Verification>` — vendor format, HTTPS on JS/executable resources, duplicate detection |
 | **VMAP 1.0** | Ad break schedule documents that embed VAST — `<AdBreak>`, `timeOffset`, `breakType`, pod rules |
 | **DAAST 1.0** | Digital audio ad serving — structural sibling of VAST for audio-first creative types |

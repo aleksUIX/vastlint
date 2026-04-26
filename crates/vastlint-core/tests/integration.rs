@@ -1364,3 +1364,80 @@ fn wrapper_depth_exceeded_fires_error() {
     );
     assert!(!result.summary.is_valid());
 }
+
+// ── linear quartile tracking ─────────────────────────────────────────────
+#[test]
+fn linear_no_quartile_tracking_fires_warning() {
+    // A Linear with no TrackingEvents at all — complete measurement blackout.
+    let xml = r#"<VAST version="4.1">
+  <Ad id="1">
+    <InLine>
+      <AdSystem>Test</AdSystem>
+      <AdServingId>abc123</AdServingId>
+      <AdTitle>Test Ad</AdTitle>
+      <Impression><![CDATA[https://track.example.com/imp]]></Impression>
+      <Creatives>
+        <Creative id="1">
+          <UniversalAdId idRegistry="Ad-ID">abc123</UniversalAdId>
+          <Linear>
+            <Duration>00:00:30</Duration>
+            <MediaFiles>
+              <MediaFile type="video/mp4" width="1920" height="1080" bitrate="2000" delivery="progressive">
+                <![CDATA[https://cdn.example.com/ad.mp4]]>
+              </MediaFile>
+            </MediaFiles>
+          </Linear>
+        </Creative>
+      </Creatives>
+    </InLine>
+  </Ad>
+</VAST>"#;
+    let result = validate(xml);
+    assert!(
+        has_issue(&result, "VAST-2.0-linear-tracking-quartiles"),
+        "expected VAST-2.0-linear-tracking-quartiles when no quartile events present, got: {:#?}",
+        result.issues
+    );
+}
+
+#[test]
+fn linear_with_quartile_tracking_does_not_fire() {
+    // A Linear with at least one quartile event — rule should not fire.
+    let xml = r#"<VAST version="4.1">
+  <Ad id="1">
+    <InLine>
+      <AdSystem>Test</AdSystem>
+      <AdServingId>abc123</AdServingId>
+      <AdTitle>Test Ad</AdTitle>
+      <Impression><![CDATA[https://track.example.com/imp]]></Impression>
+      <Creatives>
+        <Creative id="1">
+          <UniversalAdId idRegistry="Ad-ID">abc123</UniversalAdId>
+          <Linear>
+            <Duration>00:00:30</Duration>
+            <TrackingEvents>
+              <Tracking event="start"><![CDATA[https://track.example.com/start]]></Tracking>
+              <Tracking event="firstQuartile"><![CDATA[https://track.example.com/q1]]></Tracking>
+              <Tracking event="midpoint"><![CDATA[https://track.example.com/mid]]></Tracking>
+              <Tracking event="thirdQuartile"><![CDATA[https://track.example.com/q3]]></Tracking>
+              <Tracking event="complete"><![CDATA[https://track.example.com/complete]]></Tracking>
+            </TrackingEvents>
+            <MediaFiles>
+              <MediaFile type="video/mp4" width="1920" height="1080" bitrate="2000" delivery="progressive">
+                <![CDATA[https://cdn.example.com/ad.mp4]]>
+              </MediaFile>
+            </MediaFiles>
+          </Linear>
+        </Creative>
+      </Creatives>
+    </InLine>
+  </Ad>
+</VAST>"#;
+    let result = validate(xml);
+    let fired = result.issues.iter().any(|i| i.id == "VAST-2.0-linear-tracking-quartiles");
+    assert!(
+        !fired,
+        "VAST-2.0-linear-tracking-quartiles should not fire when quartile events are present, got: {:#?}",
+        result.issues
+    );
+}

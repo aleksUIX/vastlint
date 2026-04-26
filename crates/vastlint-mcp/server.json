@@ -2,7 +2,7 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.aleksUIX/vastlint",
   "title": "vastlint",
-  "description": "VAST XML validator — checks IAB VAST 2.0–4.3 ad tags for spec compliance. 108 rules.",
+  "description": "VAST XML validator — checks IAB VAST 2.0–4.3 ad tags for spec compliance. 118 rules.",
   "homepage": "https://vastlint.org",
   "repository": {
     "url": "https://github.com/aleksUIX/vastlint",
@@ -10,7 +10,7 @@
   },
   "documentation": "https://vastlint.org/docs/rules",
   "license": "Apache-2.0",
-  "version": "0.3.4",
+  "version": "0.4.0",
   "remotes": [
     {
       "type": "sse",
