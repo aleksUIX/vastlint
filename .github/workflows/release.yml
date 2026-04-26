@@ -929,16 +929,17 @@ jobs:
           echo "$out" | grep -qiE "namespace not found|already exists|duplicate" && exit 0
           exit 1
 
-  # ── Sync vastlint-go ────────────────────────────────────────────────────────  # After a successful release, push the updated prebuilt libs and header into
+  # ── Sync vastlint-go ────────────────────────────────────────────────────────
+  # After a successful release, push the updated prebuilt libs and header into
   # the vastlint-go repo and tag it at the same version.
   #
   # Prerequisites (one-time setup):
   #   1. Generate an SSH deploy key for vastlint-go:
-  #        ssh-keygen -t ed25519 -f vastlint_go_deploy -C "vastlint release bot"
-  #   2. Add the PUBLIC key as a deploy key in vastlint-go (Settings → Deploy
-  #      keys) with write access.
-  #   3. Add the PRIVATE key as a secret in this repo (Settings → Secrets →
-  #      Actions) named VASTLINT_GO_DEPLOY_KEY.
+  #        ssh-keygen -t ed25519 -f ~/VASTLINT_GO_DEPLOY_KEY -C "vastlint release bot (go)" -N ""
+  #   2. Add ~/VASTLINT_GO_DEPLOY_KEY.pub as a deploy key in vastlint-go
+  #      (Settings → Deploy keys) with write access.
+  #   3. Add ~/VASTLINT_GO_DEPLOY_KEY (private key) as secret VASTLINT_GO_DEPLOY_KEY
+  #      in this repo (Settings → Secrets → Actions).
   #
   # Set ENABLE_GO_SYNC to "true" in repo variables to activate this job.
   sync-go:
@@ -960,7 +961,7 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
         with:
           repository: aleksUIX/vastlint-go
-          ssh-key: ${{ secrets.VASTLINT_DEPLOY_KEY }}
+          ssh-key: ${{ secrets.VASTLINT_GO_DEPLOY_KEY }}
           path: vastlint-go
 
       - name: Unpack libs into vastlint-go
@@ -1094,11 +1095,11 @@ jobs:
   #
   # Prerequisites (one-time setup):
   #   1. Generate an SSH deploy key for vastlint-erlang:
-  #        ssh-keygen -t ed25519 -f vastlint_erlang_deploy -C "vastlint release bot"
-  #   2. Add the PUBLIC key as a deploy key in vastlint-erlang (Settings → Deploy
-  #      keys) with write access.
-  #   3. Add the PRIVATE key as a secret in this repo (Settings → Secrets →
-  #      Actions) named VASTLINT_ERLANG_DEPLOY_KEY.
+  #        ssh-keygen -t ed25519 -f ~/VASTLINT_DEPLOY_KEY -C "vastlint release bot" -N ""
+  #   2. Add ~/VASTLINT_DEPLOY_KEY.pub as a deploy key in vastlint-erlang
+  #      (Settings → Deploy keys) with write access.
+  #   3. Add ~/VASTLINT_DEPLOY_KEY (private key) as secret VASTLINT_DEPLOY_KEY
+  #      in this repo (Settings → Secrets → Actions).
   #
   # Set ENABLE_ERLANG_SYNC to "true" in repo variables to activate this job.
   sync-erlang:
