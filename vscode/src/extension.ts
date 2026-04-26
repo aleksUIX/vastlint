@@ -351,21 +351,25 @@ class VastlintHoverProvider implements vscode.HoverProvider {
     // attacker-controlled.  No command: URIs are used here.
     const md = new vscode.MarkdownString('', true);
 
-    for (const d of hits) {
+    for (let i = 0; i < hits.length; i++) {
+      const d = hits[i];
       const m = d._meta!;
-      const severityIcon = d.severity === vscode.DiagnosticSeverity.Error   ? '🔴' :
-                           d.severity === vscode.DiagnosticSeverity.Warning  ? '🟡' : 'ℹ️';
+      const severityLabel = d.severity === vscode.DiagnosticSeverity.Error   ? 'error' :
+                            d.severity === vscode.DiagnosticSeverity.Warning  ? 'warning' : 'info';
 
-      md.appendMarkdown(`${severityIcon} **vastlint** \`${m.id}\`\n\n`);
+      md.appendMarkdown(`**vastlint** \`${m.id}\` _(${severityLabel})_\n\n`);
       md.appendMarkdown(`${d.message}\n\n`);
 
       if (m.fixHint) {
-        md.appendMarkdown(`**✅ Fix:** ${m.fixHint}\n\n`);
+        md.appendMarkdown(`**Fix:** ${m.fixHint}\n\n`);
       }
 
-      md.appendMarkdown(`📖 *${m.specRef}*`);
-      if (m.path) md.appendMarkdown(`  —  \`${m.path}\``);
-      md.appendMarkdown('\n\n---\n\n');
+      md.appendMarkdown(`*${m.specRef}*`);
+      if (m.path) md.appendMarkdown(`  ·  \`${m.path}\``);
+
+      if (i < hits.length - 1) {
+        md.appendMarkdown('\n\n---\n\n');
+      }
     }
 
     return new vscode.Hover(md, hits[0].range);
