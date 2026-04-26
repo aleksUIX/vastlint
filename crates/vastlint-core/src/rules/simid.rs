@@ -7,16 +7,16 @@
 //!
 //! Spec references: IAB SIMID §5 "Referencing a SIMID creative from VAST"
 //! and §3.5.1 "Nonlinear Ads VAST Response"
-//! (https://interactiveadvertisingbureau.github.io/SIMID/)
+//! (<https://interactiveadvertisingbureau.github.io/SIMID/>)
 //!
 //! Rules only fire when `apiFramework` is exactly "SIMID" (case-sensitive per
 //! SIMID §5). Generic `<InteractiveCreativeFile>` or `<IFrameResource>`
 //! elements without apiFramework="SIMID" are handled by other rule modules.
 //!
 //! Note on nonlinear apiFramework placement: SIMID 1.1/1.2 prose (§3.5.1)
-//! states "The <NonLinear> node attribute's apiFramework value is SIMID",
-//! consistent with the VAST XSD which defines apiFramework on <NonLinear>.
-//! However, the spec's code example also shows apiFramework on <IFrameResource>.
+//! states "The `<NonLinear>` node attribute's apiFramework value is SIMID",
+//! consistent with the VAST XSD which defines apiFramework on `<NonLinear>`.
+//! However, the spec's code example also shows apiFramework on `<IFrameResource>`.
 //! vastlint detects both patterns to accommodate real-world usage.
 
 use super::emit;

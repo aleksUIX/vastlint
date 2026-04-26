@@ -166,7 +166,7 @@ AAMP defines buyer and seller agent SDKs ([Buyer Agent](https://github.com/IABTe
 
 The [IAB Tech Lab Agent Registry](https://iabtechlab.com/introducing-the-iab-tech-lab-agent-registry/) provides identity and disclosure for agents in the ecosystem. Agents calling vastlint-mcp can register as verified participants.
 
-**IAB's position on tooling:** "The key agentic protocols - MCP from Anthropic, and Google's Agent to Agent - perform best when they have utility schemas along with reference implementations to establish context." vastlint MCP is a reference implementation of exactly that: a utility tool with a defined schema that an agent can call without ambiguity.
+**IAB's position on tooling:** "The key agentic protocols - MCP from Anthropic, and Google's Agent to Agent - perform best when they have utility schemas along with reference implementations to establish context." vastlint MCP is a reference implementation of that: a utility tool with a defined schema that an agent can call and get a consistent, structured result from.
 
 ### IAB Tech Lab - ARTF and the Agentic Ad Object (AAO)
 
@@ -273,7 +273,7 @@ See [github.com/IABTechLab/buyer-agent](https://github.com/IABTechLab/buyer-agen
 }
 ```
 
-Every issue carries a `rule` ID that maps to `explain_rule`, a `path` in XPath notation, a line/col for editors, and a `spec_ref` pointing to the exact IAB spec section. An agent can act on any of these fields deterministically - no LLM parsing of human-readable text required.
+Every issue carries a `rule` ID that maps to `explain_rule`, a `path` in XPath notation, a line/col for editors, and a `spec_ref` pointing to the IAB spec section.
 
 `fix_vast` returns:
 
@@ -303,7 +303,7 @@ Every issue carries a `rule` ID that maps to `explain_rule`, a `path` in XPath n
 | OpenRTB bid cycle budget | 100–300 ms |
 | Validation as % of bid budget (local) | < 2.1% |
 
-The local binary is the right choice for latency-sensitive SSAI pipelines and ARTF agent containers deployed close to the bid stream. The hosted endpoint is the right choice for cloud-native buyer/seller agents where network overhead is acceptable and you want zero operational overhead.
+The local binary is the right choice for latency-sensitive SSAI pipelines and ARTF agent containers close to the bid stream. The hosted endpoint works well for cloud-native pipelines where a few extra milliseconds of network latency is acceptable and you want zero operational overhead.
 
 ---
 
