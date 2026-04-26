@@ -681,16 +681,17 @@ fn run_rules() {
     let rules = vastlint_core::all_rules();
 
     println!(
-        "{}{:<45} {:<8} DESCRIPTION{}",
+        "{}{:<45} {:<8} {:<18} DESCRIPTION{}",
         BOLD_STYLE.render(),
         "RULE ID",
         "DEFAULT",
+        "SOURCE",
         BOLD_STYLE.render_reset()
     );
     println!(
         "{}{}{}",
         DIM_STYLE.render(),
-        "─".repeat(100),
+        "─".repeat(120),
         DIM_STYLE.render_reset()
     );
 
@@ -701,11 +702,12 @@ fn run_rules() {
             Severity::Info => INFO_STYLE,
         };
         println!(
-            "{:<45} {}{:<8}{}  {}",
+            "{:<45} {}{:<8}{}  {:<18}  {}",
             rule.id,
             style.render(),
             rule.default_severity.as_str(),
             style.render_reset(),
+            rule.source.as_str(),
             rule.description,
         );
     }

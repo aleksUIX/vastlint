@@ -200,9 +200,14 @@ function buildDiagnostics(
     if (meta?.description && meta.description !== issue.message) {
       md.appendMarkdown(`*${meta.description}*\n\n`);
     }
-    md.appendMarkdown(`📖 ${issue.spec_ref}`);
+    md.appendMarkdown(`---\n`);
+    md.appendMarkdown(`**Spec:** ${issue.spec_ref}`);
+    if (meta?.source) {
+      md.appendMarkdown(` · **Source:** ${meta.source}`);
+    }
+    md.appendMarkdown(`  \n[vastlint.org/docs/rules/${issue.id}](https://vastlint.org/docs/rules/${issue.id}/)`);
     if (issue.path) {
-      md.appendMarkdown(`  \`${issue.path}\``);
+      md.appendMarkdown(`  \n**Path:** \`${issue.path}\``);
     }
 
     const diagnostic = new vscode.Diagnostic(range, issue.message, toVscodeSeverity(issue.severity));

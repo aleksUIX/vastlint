@@ -242,7 +242,8 @@ impl VastlintServer {
 
     #[tool(
         description = "List the full catalog of VAST validation rules available in vastlint. \
-        Returns rule IDs, default severities, and descriptions. \
+        Returns rule IDs, default severities, descriptions, and the external standard each rule \
+        is derived from (e.g. \"VAST spec\", \"VAST XSD\", \"RFC 3986\", \"inferred\"). \
         Call this once and cache the result -- the catalog is static. \
         Use rule IDs from this list with explain_rule for full details and fix guidance."
     )]
@@ -254,6 +255,7 @@ impl VastlintServer {
                     "id": r.id,
                     "severity": r.default_severity.as_str(),
                     "description": r.description,
+                    "source": r.source.as_str(),
                 })
             })
             .collect();
@@ -284,6 +286,7 @@ impl VastlintServer {
                 "id": r.id,
                 "severity": r.default_severity.as_str(),
                 "description": r.description,
+                "source": r.source.as_str(),
                 "hint": explain_hint(r.id),
             })
             .to_string(),

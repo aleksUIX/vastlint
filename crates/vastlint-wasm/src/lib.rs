@@ -54,6 +54,7 @@ struct JsRuleMeta {
     id: &'static str,
     default_severity: &'static str,
     description: &'static str,
+    source: &'static str,
 }
 
 #[derive(Serialize)]
@@ -168,6 +169,7 @@ pub fn rules() -> Result<JsValue, JsValue> {
             id: r.id,
             default_severity: r.default_severity.as_str(),
             description: r.description,
+            source: r.source.as_str(),
         })
         .collect();
     serde_wasm_bindgen::to_value(&catalog).map_err(|e| JsValue::from_str(&e.to_string()))

@@ -418,11 +418,58 @@ pub fn _test_parse(xml: &str) -> parse::VastDocument {
     parse::parse(xml)
 }
 
+/// The external standard or authority that a rule is derived from.
+///
+/// Mirrors the standards listed in the README. Use this to filter the catalog
+/// by authority level — e.g. alert hard on [`RuleSource::VastSpec`] violations
+/// while only logging [`RuleSource::Inferred`] advisories.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RuleSource {
+    /// IAB Tech Lab VAST spec normative prose (explicit §-references)
+    VastSpec,
+    /// IAB Tech Lab VAST published XSD schemas (structural and enum constraints)
+    VastXsd,
+    /// W3C XML 1.0 well-formedness
+    Xml,
+    /// RFC 3986 URI syntax
+    Rfc3986,
+    /// IANA Media Types registry
+    IanaMediaTypes,
+    /// ISO 4217 currency codes
+    Iso4217,
+    /// Ad-ID registry format
+    AdId,
+    /// vastlint heuristic — no single external spec authority
+    Inferred,
+}
+
+impl RuleSource {
+    /// Short stable string identifier, suitable for JSON output and display.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            RuleSource::VastSpec       => "VAST spec",
+            RuleSource::VastXsd        => "VAST XSD",
+            RuleSource::Xml            => "W3C XML 1.0",
+            RuleSource::Rfc3986        => "RFC 3986",
+            RuleSource::IanaMediaTypes => "IANA Media Types",
+            RuleSource::Iso4217        => "ISO 4217",
+            RuleSource::AdId           => "Ad-ID",
+            RuleSource::Inferred       => "inferred",
+        }
+    }
+}
+
 /// Metadata about a single rule, as exposed by the public catalog.
+///
+/// Marked `#[non_exhaustive]` so that adding fields in future minor releases
+/// does not break downstream code that reads (but never constructs) `RuleMeta`.
+#[non_exhaustive]
 pub struct RuleMeta {
     pub id: &'static str,
     pub default_severity: Severity,
     pub description: &'static str,
+    /// The external standard this rule is derived from.
+    pub source: RuleSource,
 }
 
 /// Returns the full catalog of known rules in definition order.

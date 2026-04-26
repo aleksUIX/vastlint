@@ -35,6 +35,8 @@ export interface RuleMeta {
   id: string;
   default_severity: 'error' | 'warning' | 'info';
   description: string;
+  /** The external standard this rule is derived from. */
+  source: 'VAST spec' | 'VAST XSD' | 'W3C XML 1.0' | 'RFC 3986' | 'IANA Media Types' | 'ISO 4217' | 'Ad-ID' | 'inferred';
 }
 
 export interface ValidateOptions {

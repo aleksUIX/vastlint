@@ -1678,7 +1678,7 @@ checksum = "06abde3611657adf66d383f00b093d7faecc7fa57071cce2578660c9f1010821"
 
 [[package]]
 name = "vastlint-cli"
-version = "0.3.3"
+version = "0.3.7"
 dependencies = [
  "anstream",
  "anstyle",
@@ -1691,7 +1691,7 @@ dependencies = [
 
 [[package]]
 name = "vastlint-core"
-version = "0.3.3"
+version = "0.3.7"
 dependencies = [
  "phf",
  "quick-xml",
@@ -1700,7 +1700,7 @@ dependencies = [
 
 [[package]]
 name = "vastlint-ffi"
-version = "0.3.3"
+version = "0.3.7"
 dependencies = [
  "mimalloc",
  "vastlint-core",
@@ -1708,7 +1708,7 @@ dependencies = [
 
 [[package]]
 name = "vastlint-mcp"
-version = "0.1.0"
+version = "0.3.7"
 dependencies = [
  "mimalloc",
  "reqwest",
@@ -1721,7 +1721,7 @@ dependencies = [
 
 [[package]]
 name = "vastlint-wasm"
-version = "0.3.3"
+version = "0.3.7"
 dependencies = [
  "js-sys",
  "serde",
@@ -1732,7 +1732,7 @@ dependencies = [
 
 [[package]]
 name = "vastlint_nif"
-version = "0.3.3"
+version = "0.3.7"
 dependencies = [
  "rayon",
  "rustler",
