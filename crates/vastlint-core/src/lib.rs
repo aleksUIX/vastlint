@@ -452,15 +452,15 @@ impl RuleSource {
     /// Short stable string identifier, suitable for JSON output and display.
     pub fn as_str(self) -> &'static str {
         match self {
-            RuleSource::VastSpec            => "VAST spec",
-            RuleSource::VastXsd             => "VAST XSD",
-            RuleSource::Xml                 => "W3C XML 1.0",
-            RuleSource::Rfc3986             => "RFC 3986",
-            RuleSource::IanaMediaTypes      => "IANA Media Types",
-            RuleSource::Iso4217             => "ISO 4217",
-            RuleSource::AdId                => "Ad-ID",
-            RuleSource::Inferred            => "inferred",
-            RuleSource::SimidSpec           => "IAB SIMID",
+            RuleSource::VastSpec => "VAST spec",
+            RuleSource::VastXsd => "VAST XSD",
+            RuleSource::Xml => "W3C XML 1.0",
+            RuleSource::Rfc3986 => "RFC 3986",
+            RuleSource::IanaMediaTypes => "IANA Media Types",
+            RuleSource::Iso4217 => "ISO 4217",
+            RuleSource::AdId => "Ad-ID",
+            RuleSource::Inferred => "inferred",
+            RuleSource::SimidSpec => "IAB SIMID",
             RuleSource::IndustryBestPractice => "revenue impact",
         }
     }

@@ -22,7 +22,10 @@ pub mod values;
 use crate::parse::Node;
 use crate::parse::VastDocument;
 use crate::{DetectedVersion, Issue, RuleMeta, RuleSource, Severity, ValidationContext};
-use RuleSource::{IanaMediaTypes, Inferred, IndustryBestPractice, Iso4217, Rfc3986, SimidSpec, VastSpec, VastXsd, Xml};
+use RuleSource::{
+    IanaMediaTypes, IndustryBestPractice, Inferred, Iso4217, Rfc3986, SimidSpec, VastSpec, VastXsd,
+    Xml,
+};
 
 /// Run all applicable rules against the document and collect issues.
 pub fn run(

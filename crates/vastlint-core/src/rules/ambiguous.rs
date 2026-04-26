@@ -103,8 +103,13 @@ fn check_linear(
     // quartile trackers serves but returns no measurement signal — the creative
     // feedback loop is entirely dark. Source: IndustryBestPractice.
     {
-        const QUARTILE_EVENTS: &[&str] =
-            &["start", "firstQuartile", "midpoint", "thirdQuartile", "complete"];
+        const QUARTILE_EVENTS: &[&str] = &[
+            "start",
+            "firstQuartile",
+            "midpoint",
+            "thirdQuartile",
+            "complete",
+        ];
 
         let present: Vec<&str> = linear
             .child("TrackingEvents")

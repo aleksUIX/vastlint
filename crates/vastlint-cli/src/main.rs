@@ -150,7 +150,17 @@ fn main() -> ExitCode {
             if no_color {
                 std::env::set_var("NO_COLOR", "1");
             }
-            run_check(files, format, no_fail, fail_on_warning, max_depth, summary, config, no_config, telemetry)
+            run_check(
+                files,
+                format,
+                no_fail,
+                fail_on_warning,
+                max_depth,
+                summary,
+                config,
+                no_config,
+                telemetry,
+            )
         }
         Command::Rules => {
             run_rules();
@@ -336,9 +346,15 @@ fn run_check(
             for (label, result) in &chain_results {
                 let has_errors = !result.summary.is_valid();
                 let has_warnings = result.summary.warnings > 0;
-                if has_errors { any_errors = true; }
-                if has_warnings { any_warnings = true; }
-                if !has_errors { total_valid += 1; }
+                if has_errors {
+                    any_errors = true;
+                }
+                if has_warnings {
+                    any_warnings = true;
+                }
+                if !has_errors {
+                    total_valid += 1;
+                }
                 if summary {
                     for issue in &result.issues {
                         all_issues.push((label.clone(), issue.clone()));
@@ -366,9 +382,15 @@ fn run_check(
             let result = validate_with_context(&input, ctx);
             let has_errors = !result.summary.is_valid();
             let has_warnings = result.summary.warnings > 0;
-            if has_errors { any_errors = true; }
-            if has_warnings { any_warnings = true; }
-            if !has_errors { total_valid += 1; }
+            if has_errors {
+                any_errors = true;
+            }
+            if has_warnings {
+                any_warnings = true;
+            }
+            if !has_errors {
+                total_valid += 1;
+            }
             if summary {
                 for issue in &result.issues {
                     all_issues.push((file.clone(), issue.clone()));
@@ -468,7 +490,10 @@ fn fetch_and_validate_chain(
 fn fetch_url(url: &str) -> Result<String, String> {
     ureq::get(url)
         .timeout(std::time::Duration::from_secs(10))
-        .set("User-Agent", concat!("vastlint-cli/", env!("CARGO_PKG_VERSION")))
+        .set(
+            "User-Agent",
+            concat!("vastlint-cli/", env!("CARGO_PKG_VERSION")),
+        )
         .call()
         .map_err(|e| e.to_string())?
         .into_string()
@@ -489,7 +514,11 @@ fn extract_vast_ad_tag_uri(xml: &str) -> Option<String> {
     } else {
         raw
     };
-    if value.is_empty() { None } else { Some(value.to_owned()) }
+    if value.is_empty() {
+        None
+    } else {
+        Some(value.to_owned())
+    }
 }
 
 // ── aggregate summary ─────────────────────────────────────────────────────────
@@ -536,31 +565,49 @@ fn print_summary(
         Format::Plain => {
             println!(
                 "\n{}── Summary ─────────────────────────────────────────────────{}",
-                BOLD_STYLE.render(), BOLD_STYLE.render_reset()
+                BOLD_STYLE.render(),
+                BOLD_STYLE.render_reset()
             );
             println!("  Inputs checked : {}", total_inputs);
             println!(
                 "  Valid          : {}{}/{}{}",
-                if total_valid == total_inputs { OK_STYLE.render() } else { ERROR_STYLE.render() },
-                total_valid, total_inputs,
+                if total_valid == total_inputs {
+                    OK_STYLE.render()
+                } else {
+                    ERROR_STYLE.render()
+                },
+                total_valid,
+                total_inputs,
                 OK_STYLE.render_reset(),
             );
             println!(
                 "  Errors         : {}{}{}",
-                if total_errors > 0 { ERROR_STYLE.render() } else { OK_STYLE.render() },
+                if total_errors > 0 {
+                    ERROR_STYLE.render()
+                } else {
+                    OK_STYLE.render()
+                },
                 total_errors,
                 ERROR_STYLE.render_reset(),
             );
             println!(
                 "  Warnings       : {}{}{}",
-                if total_warnings > 0 { WARN_STYLE.render() } else { OK_STYLE.render() },
+                if total_warnings > 0 {
+                    WARN_STYLE.render()
+                } else {
+                    OK_STYLE.render()
+                },
                 total_warnings,
                 WARN_STYLE.render_reset(),
             );
             println!("  Infos          : {}", total_infos);
 
             if !sorted.is_empty() {
-                println!("\n  {}Top issues by frequency:{}  ($ = revenue impact)", BOLD_STYLE.render(), BOLD_STYLE.render_reset());
+                println!(
+                    "\n  {}Top issues by frequency:{}  ($ = revenue impact)",
+                    BOLD_STYLE.render(),
+                    BOLD_STYLE.render_reset()
+                );
                 for (id, count, sev) in sorted.iter().take(10) {
                     let style = match sev {
                         Severity::Error => ERROR_STYLE,
@@ -568,30 +615,38 @@ fn print_summary(
                         Severity::Info => INFO_STYLE,
                     };
                     let ri_marker = if revenue_id(id) {
-                        format!("  {}$revenue{}", WARN_STYLE.render(), WARN_STYLE.render_reset())
+                        format!(
+                            "  {}$revenue{}",
+                            WARN_STYLE.render(),
+                            WARN_STYLE.render_reset()
+                        )
                     } else {
                         String::new()
                     };
                     println!(
                         "  {}  {:>4}×  {}{}{}",
-                        style.render(), count, id,
-                        style.render_reset(), ri_marker
+                        style.render(),
+                        count,
+                        id,
+                        style.render_reset(),
+                        ri_marker
                     );
                 }
             }
             println!();
         }
         Format::Json => {
-            let top_rules: Vec<String> = sorted
-                .iter()
-                .take(20)
-                .map(|(id, count, sev)| {
-                    format!(
+            let top_rules: Vec<String> =
+                sorted
+                    .iter()
+                    .take(20)
+                    .map(|(id, count, sev)| {
+                        format!(
                         "{{\"id\":\"{}\",\"count\":{},\"severity\":\"{}\",\"revenue_impact\":{}}}",
                         id, count, sev.as_str(), revenue_id(id)
                     )
-                })
-                .collect();
+                    })
+                    .collect();
             println!(
                 "{{\"summary\":{{\"total_inputs\":{},\"total_valid\":{},\"errors\":{},\"warnings\":{},\"infos\":{},\"top_rules\":[{}]}}}}",
                 total_inputs, total_valid, total_errors, total_warnings, total_infos,
@@ -600,7 +655,6 @@ fn print_summary(
         }
     }
 }
-
 
 fn read_input(file: &str) -> Result<String, String> {
     if file == "-" {

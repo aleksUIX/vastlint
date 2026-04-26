@@ -1434,7 +1434,10 @@ fn linear_with_quartile_tracking_does_not_fire() {
   </Ad>
 </VAST>"#;
     let result = validate(xml);
-    let fired = result.issues.iter().any(|i| i.id == "VAST-2.0-linear-tracking-quartiles");
+    let fired = result
+        .issues
+        .iter()
+        .any(|i| i.id == "VAST-2.0-linear-tracking-quartiles");
     assert!(
         !fired,
         "VAST-2.0-linear-tracking-quartiles should not fire when quartile events are present, got: {:#?}",

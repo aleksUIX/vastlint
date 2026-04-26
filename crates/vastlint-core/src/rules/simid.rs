@@ -50,8 +50,15 @@ pub fn check(
     }
 }
 
-fn check_inline(inline: &Node, inline_path: &str, ctx: &ValidationContext, issues: &mut Vec<Issue>) {
-    let Some(creatives) = inline.child("Creatives") else { return };
+fn check_inline(
+    inline: &Node,
+    inline_path: &str,
+    ctx: &ValidationContext,
+    issues: &mut Vec<Issue>,
+) {
+    let Some(creatives) = inline.child("Creatives") else {
+        return;
+    };
 
     for (ci, creative) in creatives.children_named("Creative").enumerate() {
         let cp = format!("{}/Creatives/Creative[{}]", inline_path, ci);
@@ -71,8 +78,15 @@ fn check_inline(inline: &Node, inline_path: &str, ctx: &ValidationContext, issue
     }
 }
 
-fn check_nonlinear_ads(creative: &Node, cp: &str, ctx: &ValidationContext, issues: &mut Vec<Issue>) {
-    let Some(nl_ads) = creative.child("NonLinearAds") else { return };
+fn check_nonlinear_ads(
+    creative: &Node,
+    cp: &str,
+    ctx: &ValidationContext,
+    issues: &mut Vec<Issue>,
+) {
+    let Some(nl_ads) = creative.child("NonLinearAds") else {
+        return;
+    };
     for (ni, nl) in nl_ads.children_named("NonLinear").enumerate() {
         let nl_path = format!("{}/NonLinearAds/NonLinear[{}]", cp, ni);
 
@@ -106,7 +120,11 @@ fn check_nonlinear_ads(creative: &Node, cp: &str, ctx: &ValidationContext, issue
         // Pattern B (per SIMID §3.5.1 code example): apiFramework on <IFrameResource>
         for (ri, iframe) in nl.children_named("IFrameResource").enumerate() {
             let iframe_path = format!("{}/IFrameResource[{}]", nl_path, ri);
-            if iframe.attr("apiFramework").map(|v| v == "SIMID").unwrap_or(false) {
+            if iframe
+                .attr("apiFramework")
+                .map(|v| v == "SIMID")
+                .unwrap_or(false)
+            {
                 check_iframe_resource(iframe, &iframe_path, ctx, issues);
             }
         }
@@ -134,7 +152,10 @@ fn check_interactive_creative_files(
         }
     }
 
-    for (icf_i, icf) in mf_node.children_named("InteractiveCreativeFile").enumerate() {
+    for (icf_i, icf) in mf_node
+        .children_named("InteractiveCreativeFile")
+        .enumerate()
+    {
         let icf_path = format!("{}/InteractiveCreativeFile[{}]", mf_path, icf_i);
 
         let api = icf.attr("apiFramework").unwrap_or("");
