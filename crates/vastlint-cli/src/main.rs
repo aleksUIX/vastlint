@@ -307,6 +307,7 @@ fn parse_config(content: &str, source: &str) -> Result<Option<Config>, String> {
 
 // ── check subcommand ──────────────────────────────────────────────────────────
 
+#[allow(clippy::too_many_arguments)]
 fn run_check(
     files: Vec<String>,
     format: Format,
@@ -451,7 +452,6 @@ fn fetch_and_validate_chain(
                     wrapper_depth: depth,
                     max_wrapper_depth: max_depth,
                     rule_overrides: rule_overrides.clone(),
-                    ..Default::default()
                 };
                 results.push((label, validate_with_context("", ctx)));
                 break;
@@ -468,7 +468,6 @@ fn fetch_and_validate_chain(
             wrapper_depth: depth,
             max_wrapper_depth: max_depth,
             rule_overrides: rule_overrides.clone(),
-            ..Default::default()
         };
         let result = validate_with_context(&xml, ctx);
         let next_url = extract_vast_ad_tag_uri(&xml);
