@@ -960,7 +960,7 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
         with:
           repository: aleksUIX/vastlint-go
-          ssh-key: ${{ secrets.VASTLINT_GO_DEPLOY_KEY }}
+          ssh-key: ${{ secrets.VASTLINT_DEPLOY_KEY }}
           path: vastlint-go
 
       - name: Unpack libs into vastlint-go
@@ -1119,7 +1119,7 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
         with:
           repository: aleksUIX/vastlint-erlang
-          ssh-key: ${{ secrets.VASTLINT_ERLANG_DEPLOY_KEY }}
+          ssh-key: ${{ secrets.VASTLINT_DEPLOY_KEY }}
           path: vastlint-erlang
 
       - name: Update mix.exs version
