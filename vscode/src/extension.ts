@@ -123,6 +123,7 @@ const FIX_HINTS: Record<string, string> = {
   'VAST-4.2-icon-fallback-image-width-height': 'Add `width` and `height` to `<IconClickFallbackImage>` so the player can size the overlay.',
   'VAST-4.2-closedcaptionfiles-unknown-child': '`<ClosedCaptionFiles>` may only contain `<ClosedCaptionFile>` elements.',
   'VAST-2.0-creativeextensions-unknown-child': '`<CreativeExtensions>` may only contain `<CreativeExtension>` elements.',
+  'VAST-2.0-linear-tracking-quartiles':        'Add `<TrackingEvents>` inside `<Linear>` with pixels for `start`, `firstQuartile`, `midpoint`, `thirdQuartile`, and `complete` — without these events the measurement system receives no signal.',
   // SIMID rules
   'SIMID-1.0-simid-type-required':           'Set `type="text/html"` on `<InteractiveCreativeFile apiFramework="SIMID">` — SIMID creatives are HTML documents, not JavaScript files.',
   'SIMID-1.0-simid-url-empty':               'Add the HTTPS URL of your SIMID creative HTML document inside `<InteractiveCreativeFile>`, wrapped in a CDATA section.',
