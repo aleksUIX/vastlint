@@ -4,7 +4,7 @@
 
 A VAST XML validator. Checks ad tags against the IAB Tech Lab VAST specification so you don't have to read it. Over $30 billion in annual CTV and video ad spend flows through VAST XML, and malformed tags are one of the most common causes of lost impressions, broken tracking, and revenue discrepancies between platforms. There is no widely adopted open-source tool that validates VAST XML against the full IAB specification across all published versions.
 
-vastlint ships a native **MCP server** — making VAST validation available as a callable tool inside any MCP-compatible AI agent or agentic workflow. Connect Claude, Cursor, or the [AAMP Buyer Agent SDK](https://github.com/IABTechLab/buyer-agent) to `vastlint.org/mcp` and your agent can validate a creative before trafficking it, with no human in the loop. The server exposes `validate_vast`, `validate_vast_url`, `list_rules`, `explain_rule`, and `fix_vast` as structured tools that return JSON a downstream agent can act on directly.
+vastlint ships a native **MCP server** - making VAST validation available as a callable tool from Claude, Cursor, the [AAMP Buyer Agent SDK](https://github.com/IABTechLab/buyer-agent), or any MCP-compatible client. Connect to `vastlint.org/mcp` and call `validate_vast`, `validate_vast_url`, `list_rules`, `explain_rule`, or `fix_vast`. Each tool returns structured JSON with rule IDs, XPath locations, and spec references.
 
 [![crates.io](https://img.shields.io/crates/v/vastlint-cli.svg?label=crates.io)](https://crates.io/crates/vastlint-cli)
 [![vastlint-core](https://img.shields.io/crates/v/vastlint-core.svg?label=vastlint-core)](https://crates.io/crates/vastlint-core)
@@ -28,9 +28,9 @@ Validates VAST documents against:
 - [IANA Media Types](https://www.iana.org/assignments/media-types/) (MediaFile and resource MIME types)
 - [ISO 4217](https://www.iso.org/iso-4217-currency-codes.html) currency codes (Pricing elements)
 - [Ad-ID](https://www.ad-id.org/) registry format (UniversalAdId)
-- [IAB Tech Lab SIMID](https://iabtechlab.com/simid/) 1.0, 1.0.1, 1.1, 1.2. Interactive creative validation for `<InteractiveCreativeFile apiFramework="SIMID">` and nonlinear `<IFrameResource>` — the IAB-sanctioned VPAID replacement
+- [IAB Tech Lab SIMID](https://iabtechlab.com/simid/) 1.0, 1.0.1, 1.1, 1.2. Interactive creative validation for `<InteractiveCreativeFile apiFramework="SIMID">` and nonlinear `<IFrameResource>` - the IAB-sanctioned VPAID replacement
 
-118 rules across required fields, schema validation, structural correctness, security, consistency, deprecated features, ambiguous usage, and value formats. Rules marked with `$` have direct revenue impact — use `vastlint check --fail-on-warning` in CI to catch them before they reach production. See [common errors](docs/common-errors.md) for the ones that cost real money. New to vastlint? Start with the [tutorial](docs/tutorial.md).
+118 rules across required fields, schema validation, structural correctness, security, consistency, deprecated features, ambiguous usage, and value formats. Rules marked with `$` have direct revenue impact - use `vastlint check --fail-on-warning` in CI to catch them before they reach production. See [common errors](docs/common-errors.md) for the ones that cost real money. New to vastlint? Start with the [tutorial](docs/tutorial.md).
 
 Full rule reference with examples and fix instructions: [VAST error rule reference](https://vastlint.org/docs/rules)
 
@@ -90,7 +90,7 @@ docker run --rm -v "$(pwd)":/data aleksuix/vastlint check /data/tag.xml --format
 docker run --rm -v "$(pwd)/tags":/data aleksuix/vastlint check /data/*.xml
 ```
 
-The image is built `FROM scratch` — a fully-static musl binary with no OS layer.
+The image is built `FROM scratch` - a fully-static musl binary with no OS layer.
 Compressed size is under 5 MB. Cold-start to first result is under 10 ms.
 
 ## Usage
@@ -141,7 +141,7 @@ tag.xml  VAST 4.2
            /VAST/Ad[0]/InLine/Creatives/Creative[0]/Linear/Duration
   error    <MediaFile> delivery attribute must be "progressive" or "streaming"  VAST-2.0-mediafile-delivery-enum
            /VAST/Ad[0]/InLine/Creatives/Creative[0]/Linear/MediaFiles/MediaFile[0][@delivery]
-  info     <MediaFiles> has no <Mezzanine> — ad-stitching servers may reject this tag  VAST-4.1-mezzanine-recommended
+  info     <MediaFiles> has no <Mezzanine> - ad-stitching servers may reject this tag  VAST-4.1-mezzanine-recommended
            /VAST/Ad[0]/InLine/Creatives/Creative[0]/Linear/MediaFiles
 
 ✖ 2 errors, 0 warnings, 1 info
@@ -170,15 +170,15 @@ vastlint fix tag.xml --format json
 cat tag.xml | vastlint fix -
 ```
 
-Not every rule is auto-fixable — some require human judgment (e.g. choosing the right `<AdSystem>` value). After running `fix`, re-run `check` to confirm the remaining issues.
+Not every rule is auto-fixable - some require human judgment (e.g. choosing the right `<AdSystem>` value). After running `fix`, re-run `check` to confirm the remaining issues.
 
 ## Exit codes
 
 | Code | Meaning |
 |------|---------|
-| 0 | All files valid — no errors found |
+| 0 | All files valid - no errors found |
 | 1 | One or more files have validation errors |
-| 2 | Usage error — unreadable file, bad config, or bad arguments |
+| 2 | Usage error - unreadable file, bad config, or bad arguments |
 
 ## Config file
 
@@ -282,7 +282,7 @@ let result = validate_with_context(xml_string, ctx);
 
 ## Use from JavaScript / TypeScript
 
-[`vastlint`](https://www.npmjs.com/package/vastlint) is published on npm. Same 118 rules, same core — compiled to WASM.
+[`vastlint`](https://www.npmjs.com/package/vastlint) is published on npm. Same 118 rules, same core - compiled to WASM.
 
 ```sh
 npm install vastlint
@@ -299,11 +299,11 @@ if (!result.summary.valid) {
 }
 ```
 
-Works in Node.js (ESM and CJS), Vite, Webpack 5, and Rollup. Requires a bundler for browser use — see the [npm package README](npm/README.md) for the full environment compatibility table and API reference.
+Works in Node.js (ESM and CJS), Vite, Webpack 5, and Rollup. Requires a bundler for browser use - see the [npm package README](npm/README.md) for the full environment compatibility table and API reference.
 
 ## Use from Go
 
-[`vastlint-go`](https://github.com/aleksUIX/vastlint-go) provides Go bindings via CGo. Prebuilt static libraries are included — no Rust toolchain required.
+[`vastlint-go`](https://github.com/aleksUIX/vastlint-go) provides Go bindings via CGo. Prebuilt static libraries are included - no Rust toolchain required.
 
 ```sh
 go get github.com/aleksUIX/vastlint-go
@@ -342,7 +342,7 @@ See the [vastlint-go README](https://github.com/aleksUIX/vastlint-go) for the fu
 
 ## Use from VS Code
 
-Install the [vastlint extension](https://marketplace.visualstudio.com/items?itemName=aleksuix.vastlint) from the VS Code Marketplace. VAST XML files are validated as you type — errors and warnings appear inline with rule IDs and spec references, no terminal required.
+Install the [vastlint extension](https://marketplace.visualstudio.com/items?itemName=aleksuix.vastlint) from the VS Code Marketplace. VAST XML files are validated as you type - errors and warnings appear inline with rule IDs and spec references, no terminal required.
 
 ```
 ext install aleksuix.vastlint
@@ -352,7 +352,7 @@ Or search for **vastlint** in the VS Code Extensions panel.
 
 ## Use from Chrome
 
-The **VAST Lint** Chrome extension detects VAST XML on any page and shows inline validation errors, warnings, and info messages — squiggly underlines, hover tooltips, and a collapsible panel, all powered by the same vastlint core.
+The **VAST Lint** Chrome extension detects VAST XML on any page and shows inline validation errors, warnings, and info messages - squiggly underlines, hover tooltips, and a collapsible panel, all powered by the same vastlint core.
 
 **Install from the Chrome Web Store** _(pending review)_:
 [VAST Lint – Chrome Web Store](https://chrome.google.com/webstore/detail/chbbcgdpdpcmkocbmeljkfefeeknghnb)
@@ -363,17 +363,17 @@ The **VAST Lint** Chrome extension detects VAST XML on any page and shows inline
 2. Unzip it anywhere
 3. Open `chrome://extensions` and enable **Developer mode** (top-right toggle)
 4. Click **Load unpacked** → select the unzipped folder
-5. Navigate to any page serving VAST XML — the panel appears automatically
+5. Navigate to any page serving VAST XML - the panel appears automatically
 
 The toolbar icon badge shows the error count for the current tab. Click it for a per-severity summary.
 
 ## Use from an AI agent (MCP)
 
-[`vastlint-mcp`](crates/vastlint-mcp) is a [Model Context Protocol](https://modelcontextprotocol.io) server. It exposes `validate_vast`, `validate_vast_url`, `list_rules`, `explain_rule`, and `fix_vast` as native tools callable by Claude, Cursor, and any MCP-compatible agent.
+[`vastlint-mcp`](crates/vastlint-mcp) is a [Model Context Protocol](https://modelcontextprotocol.io) server. It exposes `validate_vast`, `validate_vast_url`, `list_rules`, `explain_rule`, and `fix_vast` as tools callable from Claude, Cursor, and any MCP-compatible client.
 
-**Agentic advertising workflows** — As AI agents take over creative trafficking (see [IAB Tech Lab AAMP](https://iabtechlab.com/standards/agentic-advertising-initiative/)), validation needs to move into the agent loop. The vastlint MCP server is compatible with the [AAMP Buyer Agent SDK](https://github.com/IABTechLab/buyer-agent): an agent calls `validate_vast` or `validate_vast_url` before confirming a deal, gets a structured pass/fail result with rule IDs and XPath locations, and can reject or escalate without a human reviewing the tag. The same tool works in Claude Desktop, Cursor, Copilot, any MCP client, and CI pipelines.
+**In automated advertising pipelines** - as creative trafficking moves into agent-based systems (see [IAB Tech Lab AAMP](https://iabtechlab.com/standards/agentic-advertising-initiative/)), validation needs to happen at the same step. The vastlint MCP server is compatible with the [AAMP Buyer Agent SDK](https://github.com/IABTechLab/buyer-agent): an agent calls `validate_vast` or `validate_vast_url`, gets back rule IDs and XPath locations for any issues, and can reject or escalate the creative before trafficking. The same server works in Claude Desktop, Cursor, Copilot, any MCP client, and CI pipelines.
 
-**No-install hosted endpoint** — connect directly without installing anything:
+**No-install hosted endpoint** - connect directly without installing anything:
 
 ```json
 {
@@ -402,11 +402,11 @@ cargo install vastlint-mcp
 }
 ```
 
-Listed on the [MCP Registry](https://registry.modelcontextprotocol.io) as `io.github.aleksUIX/vastlint`. See [`crates/vastlint-mcp`](crates/vastlint-mcp/README.md) for the full tool reference.
+Listed on the [MCP Registry](https://registry.modelcontextprotocol.io) as `io.github.aleksUIX/vastlint`. See [`crates/vastlint-mcp`](crates/vastlint-mcp/README.md) for the full tool reference and [docs/mcp-agentic.md](docs/mcp-agentic.md) for integration patterns, agentic loop examples, and how vastlint fits into the IAB Tech Lab AAMP / ARTF ecosystem.
 
 ## Use as a REST API
 
-Available on [RapidAPI](https://rapidapi.com/aleksUIX/api/vastlint). Send a `POST /validate` request with your VAST XML and get a full validation result back — no SDK, no install.
+Available on [RapidAPI](https://rapidapi.com/aleksUIX/api/vastlint). Send a `POST /validate` request with your VAST XML and get a full validation result back - no SDK, no install.
 
 ```sh
 curl -X POST https://vastlint.p.rapidapi.com/validate \
@@ -420,7 +420,7 @@ Returns the same structured result as the CLI and library: version, issues with 
 
 ## Use from a browser
 
-Paste any VAST tag into the web validator at **[VAST tag validator](https://vastlint.org/validate)** — no install, no account, nothing stored. Runs the same 118 rules as the CLI, entirely in your browser via WebAssembly.
+Paste any VAST tag into the web validator at **[VAST tag validator](https://vastlint.org/validate)** - no install, no account, nothing stored. Runs the same 118 rules as the CLI, entirely in your browser via WebAssembly.
 
 ## Telemetry
 
@@ -434,7 +434,7 @@ See [ROADMAP.md](ROADMAP.md) for what's shipped, what's in progress, and what's 
 
 ## Supply Chain Security
 
-All release artifacts are built with **[SLSA Build Level 3](https://slsa.dev/spec/v1.0/levels#build-l3)** provenance. Provenance is generated by an isolated [slsa-github-generator](https://github.com/slsa-framework/slsa-github-generator) signing job that is independent of the build — the build process cannot tamper with what is signed.
+All release artifacts are built with **[SLSA Build Level 3](https://slsa.dev/spec/v1.0/levels#build-l3)** provenance. Provenance is generated by an isolated [slsa-github-generator](https://github.com/slsa-framework/slsa-github-generator) signing job that is independent of the build - the build process cannot tamper with what is signed.
 
 Every binary, library, and WASM artifact attached to a GitHub Release includes a signed `.intoto.jsonl` provenance file. Verify any artifact:
 
@@ -477,14 +477,14 @@ cargo +nightly fuzz run validate_wrapper -- -max_total_time=60
 
 ## Roadmap
 
-VAST XML is not a standalone spec — it references several adjacent IAB Tech Lab standards that introduce validatable elements and attributes. Upcoming work:
+VAST XML is not a standalone spec - it references several adjacent IAB Tech Lab standards that introduce validatable elements and attributes. Upcoming work:
 
 | Upcoming | What it adds |
 |---|---|
-| **OMID** | `<AdVerifications><Verification>` — vendor format, HTTPS on JS/executable resources, duplicate detection |
-| **VMAP 1.0** | Ad break schedule documents that embed VAST — `<AdBreak>`, `timeOffset`, `breakType`, pod rules |
-| **DAAST 1.0** | Digital audio ad serving — structural sibling of VAST for audio-first creative types |
-| **IAB Content Taxonomy** | `<Category authority="...">` — known authority URI validation |
+| **OMID** | `<AdVerifications><Verification>` - vendor format, HTTPS on JS/executable resources, duplicate detection |
+| **VMAP 1.0** | Ad break schedule documents that embed VAST - `<AdBreak>`, `timeOffset`, `breakType`, pod rules |
+| **DAAST 1.0** | Digital audio ad serving - structural sibling of VAST for audio-first creative types |
+| **IAB Content Taxonomy** | `<Category authority="...">` - known authority URI validation |
 
 See [ROADMAP.md](ROADMAP.md) for the full plan including infrastructure milestones.
 
@@ -492,7 +492,7 @@ See [ROADMAP.md](ROADMAP.md) for the full plan including infrastructure mileston
 
 See [FREE_FOREVER.md](FREE_FOREVER.md) for the free-use commitment.
 
-The CLI and library are licensed under [Apache 2.0](LICENSE). Use freely in any project, open-source or proprietary. The only requirement is to retain the [NOTICE](NOTICE) file (and the copyright header in the LICENSE) in any distribution — this provides attribution back to the project.
+The CLI and library are licensed under [Apache 2.0](LICENSE). Use freely in any project, open-source or proprietary. The only requirement is to retain the [NOTICE](NOTICE) file (and the copyright header in the LICENSE) in any distribution - this provides attribution back to the project.
 
 If you distribute vastlint or a derivative work, include the NOTICE file verbatim. That is the entire obligation.
 

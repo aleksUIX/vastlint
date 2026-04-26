@@ -56,11 +56,11 @@ tag.xml  VAST 4.2
            /VAST/Ad[0]/InLine/Creatives/Creative[0]
   error    <Duration> value does not match required format HH:MM:SS or HH:MM:SS.mmm  VAST-2.0-duration-format
            /VAST/Ad[0]/InLine/Creatives/Creative[0]/Linear/Duration
-  warning  <Impression> URL uses http: — most SDKs and players require https  VAST-2.0-tracking-https
+  warning  <Impression> URL uses http: - most SDKs and players require https  VAST-2.0-tracking-https
            /VAST/Ad[0]/InLine/Impression
-  warning  <MediaFile> URL uses http: — most SDKs and players require https  VAST-2.0-mediafile-https
+  warning  <MediaFile> URL uses http: - most SDKs and players require https  VAST-2.0-mediafile-https
            /VAST/Ad[0]/InLine/Creatives/Creative[0]/Linear/MediaFiles/MediaFile[0]
-  info     <MediaFiles> has no <Mezzanine> — ad-stitching servers may reject this tag in CTV/SSAI contexts  VAST-4.1-mezzanine-recommended
+  info     <MediaFiles> has no <Mezzanine> - ad-stitching servers may reject this tag in CTV/SSAI contexts  VAST-4.1-mezzanine-recommended
            /VAST/Ad[0]/InLine/Creatives/Creative[0]/Linear/MediaFiles
 
 ✖ 3 errors, 2 warnings, 1 info
@@ -83,7 +83,7 @@ Errors mean the tag violates a "must" or "required" rule in the spec. Most ad SD
 
 > **`vastlint fix` is opinionated and experimental.** It applies a small set of deterministic, low-risk repairs (HTTPS upgrades, `conditionalAd` removal). Always review the diff before committing. Future releases may make individual fixes configurable.
 
-For issues that have a safe, unambiguous fix, vastlint can repair the file for you — but always preview first:
+For issues that have a safe, unambiguous fix, vastlint can repair the file for you - but always preview first:
 
 ```
 vastlint fix tag.xml --dry-run
@@ -101,7 +101,7 @@ This overwrites the file with the corrected XML and prints a report of what chan
 vastlint fix tag.xml --out tag-fixed.xml
 ```
 
-Not every issue is auto-fixable — some require a human decision (for example, choosing the right `<AdSystem>` value). After running `fix`, re-run `check` to confirm the remaining issues and address any that need manual attention.
+Not every issue is auto-fixable - some require a human decision (for example, choosing the right `<AdSystem>` value). After running `fix`, re-run `check` to confirm the remaining issues and address any that need manual attention.
 
 ## Fixing the issues manually
 
@@ -143,7 +143,7 @@ vastlint check tag.xml
 
 ```
 tag.xml  VAST 4.2
-  info     <MediaFiles> has no <Mezzanine> — ad-stitching servers may reject this tag in CTV/SSAI contexts  VAST-4.1-mezzanine-recommended
+  info     <MediaFiles> has no <Mezzanine> - ad-stitching servers may reject this tag in CTV/SSAI contexts  VAST-4.1-mezzanine-recommended
            /VAST/Ad[0]/InLine/Creatives/Creative[0]/Linear/MediaFiles
 
 ✓ 0 errors, 0 warnings, 1 info

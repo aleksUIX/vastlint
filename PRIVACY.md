@@ -26,10 +26,10 @@ No data ever leaves your device. No network requests are made by the extension. 
 
 The extension requests the following permissions solely to provide its core functionality:
 
-- **activeTab** — to read the content type of the current tab and inject the validation overlay
-- **scripting** — to inject the content script that renders inline annotations on VAST XML pages
-- **storage** — to persist your UI preferences (view mode, severity filters) locally in your browser between sessions
-- **host permissions (`<all_urls>`)** — VAST ad tags are served from arbitrary third-party ad server domains; broad host permissions are required to detect and validate VAST XML on any URL
+- **activeTab** - to read the content type of the current tab and inject the validation overlay
+- **scripting** - to inject the content script that renders inline annotations on VAST XML pages
+- **storage** - to persist your UI preferences (view mode, severity filters) locally in your browser between sessions
+- **host permissions (`<all_urls>`)** - VAST ad tags are served from arbitrary third-party ad server domains; broad host permissions are required to detect and validate VAST XML on any URL
 
 None of these permissions are used to collect or transmit data.
 

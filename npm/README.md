@@ -24,7 +24,7 @@ npm install vastlint
 | Rollup | ✅ | Requires `@rollup/plugin-wasm` |
 | Deno | ✅ | Supports static WASM imports natively |
 | Cloudflare Workers | ⚠️ | WASM supported but requires Workers-specific binding syntax |
-| `<script type="module">` (no bundler) | ❌ | Browsers cannot statically import `.wasm` — use a bundler |
+| `<script type="module">` (no bundler) | ❌ | Browsers cannot statically import `.wasm` - use a bundler |
 
 This package uses the `wasm-pack --target bundler` output. It is designed for use inside a build pipeline (Vite, Webpack, Rollup, etc.) or in Node.js directly. For a raw browser drop-in without a bundler, a separate `web` target build is needed.
 

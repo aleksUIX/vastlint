@@ -1,6 +1,6 @@
 # vastlint-mcp
 
-**Model Context Protocol server for [vastlint](https://vastlint.org)** — exposes VAST XML validation as native tools callable by AI agents, LLM pipelines, and [ARTF](https://iabtechlab.com/standards/artf/)-compliant buyer and seller agent systems.
+**Model Context Protocol server for [vastlint](https://vastlint.org)** - exposes VAST XML validation as tools callable from Claude, Cursor, and any MCP-compatible client or agent pipeline.
 
 Part of the [IAB Tech Lab AAMP](https://iabtechlab.com/standards/aamp-agentic-advertising-management-protocols/) ecosystem.
 
@@ -21,7 +21,7 @@ Part of the [IAB Tech Lab AAMP](https://iabtechlab.com/standards/aamp-agentic-ad
 
 ### Hosted (no install)
 
-Connect directly to the hosted SSE endpoint — no binary required:
+Connect directly to the hosted SSE endpoint - no binary required:
 
 ```json
 {
@@ -72,8 +72,8 @@ Run `vastlint-mcp` as a subprocess. It speaks the MCP stdio transport protocol.
 
 ### ARTF buyer/seller agents
 
-`vastlint-mcp` is the ARTF-compatible validation agent for VAST creatives. Point your
-ARTF agent container at the MCP endpoint to validate VAST tags inline before impression.
+`vastlint-mcp` is compatible with the ARTF validation agent interface for VAST creatives. Point your
+ARTF agent container at the MCP endpoint to validate VAST tags before impression.
 
 
 ---

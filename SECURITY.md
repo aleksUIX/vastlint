@@ -51,7 +51,7 @@ npm audit signatures vastlint
 - Release builds are performed exclusively by GitHub Actions from tagged source.
 - The release workflow requires all smoke tests to pass before any artifact is
   published or uploaded.
-- All release artifacts are built from a clean checkout of the tagged commit —
+- All release artifacts are built from a clean checkout of the tagged commit -
   no local developer machines are involved in producing release binaries.
 
 ## Security Standards

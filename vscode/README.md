@@ -1,15 +1,15 @@
-# vastlint — VAST XML Validator for VS Code
+# vastlint - VAST XML Validator for VS Code
 
 Inline linting for [IAB VAST](https://iabtechlab.com/standards/vast/) ad tags directly in VS Code.
 Supports VAST 2.0 through 4.3.
 
 ## Features
 
-- **Inline squiggles** — red (error), yellow (warning), blue (info) underlines on the offending XML tag
-- **Hover tooltips** — hover over any squiggle to see the rule ID, what's wrong, and exactly how to fix it
-- **Problems panel** — all issues listed with file, line, and column; click to jump directly to the tag
-- **Live as you type** — re-validates 500ms after you stop typing, and on every save
-- **Configurable** — silence rules, change severities, or set a minimum severity threshold
+- **Inline squiggles** - red (error), yellow (warning), blue (info) underlines on the offending XML tag
+- **Hover tooltips** - hover over any squiggle to see the rule ID, what's wrong, and exactly how to fix it
+- **Problems panel** - all issues listed with file, line, and column; click to jump directly to the tag
+- **Live as you type** - re-validates 500ms after you stop typing, and on every save
+- **Configurable** - silence rules, change severities, or set a minimum severity threshold
 
 ## How it looks
 
@@ -22,7 +22,7 @@ Hover over a squiggled tag:
 
 ✅ Fix: Add `<AdSystem>` inside `<InLine>`, e.g. `<AdSystem>My Ad Server</AdSystem>`.
 
-📖 IAB VAST 2.0 §2.3.1  —  `/VAST/Ad[0]/InLine`
+📖 IAB VAST 2.0 §2.3.1  -  `/VAST/Ad[0]/InLine`
 ```
 
 ## Settings
@@ -68,8 +68,8 @@ See the [full rule catalog](https://github.com/aleksUIX/vastlint) for details.
 
 ## Requirements
 
-No external tools needed — the validator runs entirely in-process via WebAssembly.
+No external tools needed - the validator runs entirely in-process via WebAssembly.
 
 ## License
 
-Apache-2.0 — see [LICENSE](../LICENSE)
+Apache-2.0 - see [LICENSE](../LICENSE)
