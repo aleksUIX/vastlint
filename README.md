@@ -36,6 +36,22 @@ Validates VAST documents against:
 
 Full rule reference with examples and fix instructions: [VAST error rule reference](https://vastlint.org/docs/rules)
 
+## Enterprise readiness
+
+**Zero runtime dependencies in the core.** `vastlint-core` has three compile-time dependencies (`quick-xml`, `url`, `phf`) and no runtime dependencies whatsoever — no async runtime, no regex engine, no schema interpreter. Rules are compiled Rust functions. There is no transitive dependency graph to audit, no CVE surface to track, and no supply chain to compromise at runtime.
+
+**Verifiable build provenance.** All release artifacts are signed with [SLSA Build Level 3](https://slsa.dev/spec/v1.0/levels#build-l3) provenance via an isolated signing job independent of the build process. Every binary, library, `.vsix`, and npm package can be verified cryptographically against the exact source commit that produced it. No developer machine is ever involved in producing release artifacts.
+
+**No data retention.** VAST XML submitted to the hosted API or MCP server is validated ephemerally in a Cloudflare Worker and never stored, logged, or transmitted to third parties. The VS Code extension and Chrome extension process all XML locally — nothing leaves the editor. See [PRIVACY.md](PRIVACY.md) for the full policy.
+
+**Apache 2.0 licensed.** No CLA, no dual-license commercial upsell, no usage-based restrictions. Fork it, vendor it, embed it, redistribute it.
+
+**Dependency update automation.** Dependabot monitors Cargo, npm, and GitHub Actions dependencies weekly and opens PRs automatically. Combined with `cargo audit` on every CI push and CodeQL static analysis on every push and PR, the dependency surface stays current without manual tracking.
+
+**Auditable.** [OpenSSF Scorecard](https://scorecard.dev/viewer/?uri=github.com/aleksUIX/vastlint) runs weekly and publishes a public score. [CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/10788) badge covers vulnerability reporting, CI, fuzzing, and code review requirements. The [Security Advisory](https://github.com/aleksUIX/vastlint/security/advisories/new) channel provides a private disclosure path with a 48-hour acknowledgement SLA.
+
+**Fuzz-tested continuously.** Three libFuzzer targets run on every CI push against the core validator and auto-fix engine. See the [Fuzzing](#fuzzing) section below.
+
 ## Performance
 
 Benchmarked on Apple M4 (10-core), production-realistic VAST tags (17–44 KB):
