@@ -403,7 +403,7 @@ fn run_check(
 
 // ── URL fetch + wrapper chain ─────────────────────────────────────────────────
 
-/// Fetch a VAST URL, validate it, then follow any <VASTAdTagURI> wrapper
+/// Fetch a VAST URL, validate it, then follow any `<VASTAdTagURI>` wrapper
 /// redirect up to `max_depth` hops. Returns one (label, ValidationResult)
 /// per hop so each is displayed individually.
 fn fetch_and_validate_chain(
@@ -475,7 +475,7 @@ fn fetch_url(url: &str) -> Result<String, String> {
         .map_err(|e| e.to_string())
 }
 
-/// Extract the text content of the first <VASTAdTagURI> element.
+/// Extract the text content of the first `<VASTAdTagURI>` element.
 /// Used to follow wrapper chains without a full re-parse.
 fn extract_vast_ad_tag_uri(xml: &str) -> Option<String> {
     let start_tag = "<VASTAdTagURI>";

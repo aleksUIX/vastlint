@@ -245,7 +245,7 @@ fn check_companion(comp: &Node, path: &str, ctx: &ValidationContext, issues: &mu
     }
 }
 
-/// VAST-4.0-wrapper-clickthrough: <ClickThrough> inside Wrapper <VideoClicks>
+/// VAST-4.0-wrapper-clickthrough: `<ClickThrough>` inside Wrapper `<VideoClicks>`
 /// was removed in VAST 4.0 and re-allowed in VAST 4.2 (unified VideoClicks_type).
 /// Only fire for 4.0 and 4.1 documents.
 fn check_wrapper(
