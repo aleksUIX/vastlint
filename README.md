@@ -300,6 +300,56 @@ let ctx = ValidationContext {
 let result = validate_with_context(xml_string, ctx);
 ```
 
+## Embed in your ad server (SSP, DSP, SSAI)
+
+The primary use case for vastlint is **in-process validation inside ad tech infrastructure** — embed `vastlint-core` directly in your bid handler or SSAI stitcher to validate every VAST response before committing the impression. No subprocess, no network round-trip.
+
+A typical OpenRTB bid cycle has 100–300 ms to work with; vastlint adds less than 2.1% of that budget even on the heaviest 44 KB production tags. An SSAI platform doing 1,000 stitches/sec spends more time on DNS than on VAST validation.
+
+**Rust — `vastlint-core` (zero runtime dependencies):**
+
+```rust
+use vastlint_core::{validate_with_context, ValidationContext};
+
+let ctx = ValidationContext::default();
+let result = validate_with_context(vast_xml, ctx);
+
+if !result.summary.is_valid() {
+    // Reject the bid. Return rule IDs to the partner for remediation.
+    for issue in result.issues.iter().filter(|i| i.severity == "error") {
+        log::warn!("VAST rejected: {} at {}", issue.id, issue.path);
+    }
+}
+```
+
+**Go — `vastlint-go` (no Rust toolchain required, prebuilt static libs):**
+
+```go
+import vastlint "github.com/aleksUIX/vastlint-go"
+
+result, err := vastlint.ValidateWithOptions(xmlBytes, vastlint.Options{
+    MaxWrapperDepth: 5,
+    RuleOverrides: map[string]string{
+        "VAST-4.1-mezzanine-recommended": "off", // relax CTV-only rule for web inventory
+    },
+})
+if err != nil || !result.Valid {
+    // quarantine tag, surface result.Issues to the partner
+}
+```
+
+**Elixir / Erlang — `vastlint_erlang` NIF (BEAM, high-throughput):**
+
+```elixir
+case Vastlint.validate(xml_string) do
+  {:ok, %{summary: %{errors: 0}}} -> :ok
+  {:ok, result} -> {:reject, result.issues}
+  {:error, reason} -> {:error, reason}
+end
+```
+
+All three bindings share the same compiled Rust core — identical rule enforcement, same rule IDs in the response, same latency profile. See the [ad server integration guide](https://vastlint.org/docs/ad-server-integration/) for production patterns including per-partner rule overrides, revenue-impact rule filtering, and structured error reporting back to demand partners.
+
 ## Use from JavaScript / TypeScript
 
 [`vastlint`](https://www.npmjs.com/package/vastlint) is published on npm. Same 118 rules, same core - compiled to WASM.

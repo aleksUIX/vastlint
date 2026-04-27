@@ -42,7 +42,8 @@ const FIX_HINTS: Record<string, string> = {
   'VAST-2.0-mediafile-type':            'Add a MIME type, e.g. `type="video/mp4"` to `<MediaFile>`.',
   'VAST-2.0-mediafile-dimensions':      'Add `width` and `height` attributes to `<MediaFile>`.',
   'VAST-2.0-mediafile-delivery-enum':   'Set `delivery` to `"progressive"` or `"streaming"` — no other values are valid.',
-  'VAST-2.0-mediafile-bitrate-conflict':'Remove either `bitrate` or the `minBitrate`/`maxBitrate` pair — they conflict.',
+  'VAST-3.0-minmaxbitrate-pair':         'Add both `minBitrate` and `maxBitrate`, or remove both — they must appear as a pair.',
+  'VAST-3.0-bitrate-conflict':          'Remove either `bitrate` or the `minBitrate`/`maxBitrate` pair — they cannot be combined.',
   'VAST-2.0-mediafile-https':           'Change the MediaFile URL scheme from `http://` to `https://`.',
   'VAST-2.0-wrapper-adsystem':          'Add `<AdSystem>` inside `<Wrapper>`.',
   'VAST-2.0-wrapper-impression':        'Add at least one `<Impression>` tracking URL inside `<Wrapper>`.',
@@ -81,6 +82,9 @@ const FIX_HINTS: Record<string, string> = {
   'VAST-4.1-vpaid-apiframework':        'Replace VPAID with SIMID (`<InteractiveCreativeFile>`) or OMID for measurement.',
   'VAST-4.1-vpaid-in-interactive-context': 'Remove the VPAID `<MediaFile>` — CTV players cannot run VPAID alongside SIMID.',
   'VAST-4.0-mediafile-apiframework':    'Use `<InteractiveCreativeFile>` for interactive content instead of `apiFramework` on `<MediaFile>`.',
+  'VAST-4.0-interactive-creative-no-api': 'Add `apiFramework="SIMID"` (or the appropriate value) to `<InteractiveCreativeFile>`.',
+  'VAST-4.1-interactive-creative-type':   'Add `type="text/html"` (for SIMID) or the correct MIME type to `<InteractiveCreativeFile>`.',
+  'VAST-3.0-pricing-model-case':          'Use lowercase for the `model` attribute: `cpm`, `cpc`, `cpe`, or `cpv`.',
   'VAST-4.1-survey-deprecated':         'Remove `<Survey>` — deprecated in VAST 4.1. Use `<Extensions>` if needed.',
   'VAST-4.0-conditionalad':             'Remove the `conditionalAd` attribute — deprecated in VAST 4.1.',
   'VAST-2.0-flash-mediafile':           'Remove Flash `<MediaFile>` entries — Flash is no longer supported in any browser.',
@@ -98,6 +102,7 @@ const FIX_HINTS: Record<string, string> = {
   'VAST-2.0-ad-sequence':               'Either add `sequence` to all `<Ad>` elements or remove it from all of them.',
   'VAST-2.0-parse-error':               'Fix the XML syntax error — check for unclosed tags, invalid characters, or bad encoding.',
   'VAST-2.0-companion-resource':        'Add `<StaticResource>`, `<IFrameResource>`, or `<HTMLResource>` inside `<Companion>`.',
+  'VAST-2.0-nonlinear-resource':         'Add `<StaticResource>`, `<IFrameResource>`, or `<HTMLResource>` inside `<NonLinear>`.',
   'VAST-2.0-text-only-element':         'Remove child elements from this text-only element — it should contain only text content.',
   'VAST-2.0-unknown-attribute':         'Remove the unrecognised attribute — it has no meaning in the VAST spec.',
   'VAST-2.0-inline-unknown-child':      'Remove or relocate this unrecognised element — `<InLine>` does not allow it.',
@@ -346,26 +351,32 @@ class VastlintHoverProvider implements vscode.HoverProvider {
     const hits = diags.filter((d) => d.range.contains(position) && d._meta);
     if (hits.length === 0) return undefined;
 
-    // isTrusted is intentionally left false (default): d.message, m.id,
-    // m.specRef, and m.path are derived from XML content and could be
-    // attacker-controlled.  No command: URIs are used here.
+    // isTrusted is intentionally left false (default): d.message, m.specRef,
+    // and m.path are derived from XML content and could be attacker-controlled.
+    // m.id is a fixed rule ID from the Rust validator (never from XML), so it
+    // is safe to embed in the vastlint.org docs URL.
     const md = new vscode.MarkdownString('', true);
 
     for (let i = 0; i < hits.length; i++) {
       const d = hits[i];
       const m = d._meta!;
-      const severityLabel = d.severity === vscode.DiagnosticSeverity.Error   ? 'error' :
-                            d.severity === vscode.DiagnosticSeverity.Warning  ? 'warning' : 'info';
+      const icon = d.severity === vscode.DiagnosticSeverity.Error   ? '\u{1F7E5}' :
+                   d.severity === vscode.DiagnosticSeverity.Warning  ? '\u{1F7E8}' : '\u{1F7E6}';
 
-      md.appendMarkdown(`**vastlint** \`${m.id}\` _(${severityLabel})_\n\n`);
-      md.appendMarkdown(`${d.message}\n\n`);
+      // Line 1: severity + message.
+      md.appendMarkdown(`${icon} ${d.message}`);
 
+      // Line 2: fix hint (if any).
       if (m.fixHint) {
-        md.appendMarkdown(`**Fix:** ${m.fixHint}\n\n`);
+        md.appendMarkdown(`  \n\u{1F527} *${m.fixHint}*`);
       }
 
-      md.appendMarkdown(`*${m.specRef}*`);
-      if (m.path) md.appendMarkdown(`  ·  \`${m.path}\``);
+      // Line 3: compact footer — rule ID links to docs, spec ref, optional path.
+      // Note: do NOT wrap the link in italic (*) — VS Code's markdown renderer
+      // may fail to open the href when the link is inside an emphasis span.
+      const docsUrl = `https://vastlint.org/docs/rules/${m.id}/`;
+      md.appendMarkdown(`  \n[\`${m.id}\`](${docsUrl}) · *${m.specRef}*`);
+      if (m.path) md.appendMarkdown(` · \`${m.path}\``);
 
       if (i < hits.length - 1) {
         md.appendMarkdown('\n\n---\n\n');

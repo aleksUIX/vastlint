@@ -6,6 +6,17 @@ GitHub Releases: <https://github.com/aleksUIX/vastlint/releases>
 
 ---
 
+## [0.4.1] - 2026-04-26
+
+### VS Code extension
+
+- **Hover tooltip redesign**: severity icons replaced with flat color squares (🟥 error, 🟨 warning, 🟦 info); 🔧 for fix hints
+- **Compact hover layout**: collapsed from 5 spaced lines to 3 tight lines per issue
+- **Rule ID links to docs**: each rule ID in the hover footer is now a clickable link to `vastlint.org/docs/rules/<id>/`
+- **Fix hints coverage**: added missing hints for `VAST-3.0-bitrate-conflict`, `VAST-3.0-minmaxbitrate-pair`, `VAST-2.0-nonlinear-resource`, `VAST-4.0-interactive-creative-no-api`, `VAST-4.1-interactive-creative-type`, `VAST-3.0-pricing-model-case`; removed stale key `VAST-2.0-mediafile-bitrate-conflict`
+
+---
+
 ## [0.4.0] - 2026-04-29
 
 ### Revenue impact classification (vastlint-core)
