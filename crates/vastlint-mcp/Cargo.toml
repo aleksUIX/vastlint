@@ -20,7 +20,7 @@ path = "src/main.rs"
 vastlint-core = { path = "../vastlint-core", version = "0.4.0" }
 
 # MCP SDK — stdio transport (spec-compliant, works with Claude, Cursor, ARTF)
-rmcp = { version = "0.1", features = ["server", "transport-io"] }
+rmcp = { version = "1.5", features = ["server", "transport-io"] }
 
 # Async runtime
 tokio = { version = "1", features = ["full"] }
