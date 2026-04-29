@@ -2,7 +2,7 @@
   "name": "vastlint",
   "displayName": "vastlint — VAST XML Validator",
   "description": "Inline linting for IAB VAST ad tags. Highlights errors and warnings with squiggles, hover tooltips, and Problems panel integration.",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "publisher": "aleksUIX",
   "license": "Apache-2.0",
   "repository": {
@@ -11,7 +11,7 @@
     "directory": "vscode"
   },
   "engines": {
-    "vscode": "^1.116.0"
+    "vscode": "^1.85.0"
   },
   "icon": "icon.png",
   "categories": [

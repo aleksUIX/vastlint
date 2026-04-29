@@ -6,6 +6,14 @@ GitHub Releases: <https://github.com/aleksUIX/vastlint/releases>
 
 ---
 
+## [0.4.2] - 2026-04-28
+
+### VS Code extension
+
+- **Kiro compatibility**: lowered `engines.vscode` minimum from `1.116.0` to `1.85.0` so the extension installs on Amazon Kiro and other VS Code forks with older API versions
+
+---
+
 ## [0.4.1] - 2026-04-26
 
 ### VS Code extension
