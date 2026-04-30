@@ -18,6 +18,7 @@ Native bindings for realtime ad pipelines: [`vastlint-go`](https://github.com/al
 [![docs.rs](https://docs.rs/vastlint-core/badge.svg)](https://docs.rs/vastlint-core)
 [![vastlint.org](https://img.shields.io/badge/vastlint.org-docs%20%26%20validator-blue)](https://vastlint.org)
 
+[![smithery badge](https://smithery.ai/badge/aleksander/vastlint)](https://smithery.ai/servers/aleksander/vastlint)
 [![SLSA 2](https://slsa.dev/images/gh-badge-level2.svg)](https://slsa.dev)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/aleksUIX/vastlint/badge)](https://scorecard.dev/viewer/?uri=github.com/aleksUIX/vastlint)
 [![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/10788/badge)](https://bestpractices.coreinfrastructure.org/projects/10788)
