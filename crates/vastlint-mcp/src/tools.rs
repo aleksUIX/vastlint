@@ -218,7 +218,11 @@ impl VastlintServer {
                     url: input.url,
                     valid: false,
                     version: "unknown".to_string(),
-                    summary: ValidationSummary { errors: 1, warnings: 0, infos: 0 },
+                    summary: ValidationSummary {
+                        errors: 1,
+                        warnings: 0,
+                        infos: 0,
+                    },
                     issues: vec![ValidationIssue {
                         id: "fetch-error".to_string(),
                         severity: "error".to_string(),
@@ -240,7 +244,11 @@ impl VastlintServer {
                         url: input.url,
                         valid: false,
                         version: "unknown".to_string(),
-                        summary: ValidationSummary { errors: 1, warnings: 0, infos: 0 },
+                        summary: ValidationSummary {
+                            errors: 1,
+                            warnings: 0,
+                            infos: 0,
+                        },
                         issues: vec![ValidationIssue {
                             id: "fetch-error".to_string(),
                             severity: "error".to_string(),
@@ -258,7 +266,11 @@ impl VastlintServer {
                     url: input.url,
                     valid: false,
                     version: "unknown".to_string(),
-                    summary: ValidationSummary { errors: 1, warnings: 0, infos: 0 },
+                    summary: ValidationSummary {
+                        errors: 1,
+                        warnings: 0,
+                        infos: 0,
+                    },
                     issues: vec![ValidationIssue {
                         id: "fetch-error".to_string(),
                         severity: "error".to_string(),
@@ -321,10 +333,7 @@ impl VastlintServer {
         output_schema = output_schema::<FixVastOutput>(),
         annotations(read_only_hint = false, idempotent_hint = true, destructive_hint = false)
     )]
-    async fn fix_vast(
-        &self,
-        Parameters(input): Parameters<FixVastInput>,
-    ) -> Json<FixVastOutput> {
+    async fn fix_vast(&self, Parameters(input): Parameters<FixVastInput>) -> Json<FixVastOutput> {
         let ctx = ValidationContext {
             wrapper_depth: input.wrapper_depth,
             ..Default::default()

@@ -6,7 +6,7 @@ A high-performance VAST XML validator built on a zero-dependency Rust core. Chec
 
 vastlint ships a native **MCP server** - making VAST validation available as a callable tool from Claude, Cursor, the [AAMP Buyer Agent SDK](https://github.com/IABTechLab/buyer-agent), or any MCP-compatible client. Connect to `vastlint.org/mcp` and call `validate_vast`, `validate_vast_url`, `list_rules`, `explain_rule`, or `fix_vast`. Each tool returns structured JSON with rule IDs, XPath locations, and spec references.
 
-Native bindings for realtime ad pipelines: [`vastlint-go`](https://github.com/aleksUIX/vastlint-go) (CGo, prebuilt static libs — no Rust toolchain needed), [`vastlint-erlang`](https://github.com/aleksUIX/vastlint-erlang) (Elixir/Erlang NIF for high-throughput BEAM pipelines), and a WASM npm package for Node.js and browsers. All bindings share the same compiled Rust core — consistent results everywhere, sub-millisecond latency at scale.
+Native bindings for realtime ad pipelines: [`vastlint-go`](https://github.com/aleksUIX/vastlint-go) (CGo, prebuilt static libs — no Rust toolchain needed), [`vastlint-erlang`](https://github.com/aleksUIX/vastlint-erlang) (Elixir/Erlang — OTP port mode for production ad delivery, DirtyCpu NIF for non-critical paths), and a WASM npm package for Node.js and browsers. All bindings share the same compiled Rust core — consistent results everywhere, sub-millisecond latency at scale.
 
 [![crates.io](https://img.shields.io/crates/v/vastlint-cli.svg?label=crates.io)](https://crates.io/crates/vastlint-cli)
 [![vastlint-core](https://img.shields.io/crates/v/vastlint-core.svg?label=vastlint-core)](https://crates.io/crates/vastlint-core)
@@ -339,9 +339,24 @@ if err != nil || !result.Valid {
 }
 ```
 
-**Elixir / Erlang — `vastlint_erlang` NIF (BEAM, high-throughput):**
+**Elixir / Erlang — `vastlint-erlang` (BEAM, OTP-safe):**
+
+Two integration modes are available. For production ad delivery, use the **OTP port mode** — `vastlint-cli` runs as a supervised OS process, so a crash is fully isolated and never affects the BEAM node:
 
 ```elixir
+# OTP port mode — recommended for production ad delivery
+# See vastlint-erlang README for full NimblePool supervision tree setup
+case MyApp.VastValidator.validate(xml) do
+  %{valid: true}    -> :ok
+  %{issues: issues} -> {:reject, issues}
+  {:error, reason}  -> {:error, reason}
+end
+```
+
+The **DirtyCpu NIF** remains available for non-critical paths where the ~10–50 µs port overhead matters:
+
+```elixir
+# NIF mode — opt-in, for non-critical paths only
 case Vastlint.validate(xml_string) do
   {:ok, %{summary: %{errors: 0}}} -> :ok
   {:ok, result} -> {:reject, result.issues}
