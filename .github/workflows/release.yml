@@ -411,7 +411,8 @@ jobs:
           </InLine></Ad></VAST>
           XMLEOF
 
-          FIXED=$(./target/release/vastlint fix /tmp/http_vast.xml 2>/dev/null)
+          # Use stdin mode (-) so the fixed XML is written to stdout, not in-place.
+          FIXED=$(./target/release/vastlint fix - < /tmp/http_vast.xml 2>/dev/null)
           if [ $? -ne 0 ]; then
             echo "FAIL: fix subcommand exited non-zero"
             exit 1
