@@ -2,7 +2,7 @@
   "name": "vastlint",
   "displayName": "vastlint — VAST XML Validator",
   "description": "Inline linting for IAB VAST ad tags. Highlights errors and warnings with squiggles, hover tooltips, and Problems panel integration.",
-  "version": "0.4.3",
+  "version": "0.4.4",
   "publisher": "aleksUIX",
   "license": "Apache-2.0",
   "repository": {
@@ -69,7 +69,15 @@
         },
         "vastlint.vastVersion": {
           "type": "string",
-          "enum": ["", "2.0", "3.0", "4.0", "4.1", "4.2", "4.3"],
+          "enum": [
+            "",
+            "2.0",
+            "3.0",
+            "4.0",
+            "4.1",
+            "4.2",
+            "4.3"
+          ],
           "default": "",
           "description": "Treat all VAST documents as this spec version regardless of the version attribute. Useful for templates where the version attribute is absent or templated. Maps to --vast-version in CLI mode."
         },

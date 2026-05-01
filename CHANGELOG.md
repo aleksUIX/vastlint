@@ -6,6 +6,19 @@ GitHub Releases: <https://github.com/aleksUIX/vastlint/releases>
 
 ---
 
+## [0.4.4] - 2026-04-30
+
+### VS Code extension
+
+- **CLI backend** — the extension now spawns the local `vastlint` binary (searched on PATH and common install locations: `~/.cargo/bin`, `/opt/homebrew/bin`, `/usr/local/bin`) and falls back to the bundled WASM when no binary is found. Using the CLI enables `vastlint.toml` config, rule overrides, and future CLI features automatically.
+- **Multi-block support** — files with multiple `<VAST>…</VAST>` documents (e.g. batch response files) are now fully validated; each block gets its own set of squiggles with accurate positions.
+- **Template ignore regex** (`vastlint.templateIgnoreRegex`) — a JS regex whose matches are replaced with same-length zeros before validation, preserving all line/col offsets. Strips Mustache `{{…}}`, ERB `<%…%>`, Go templates, or any ad-server macro syntax without shifting squiggle positions.
+- **VAST version override** (`vastlint.vastVersion`) — force a specific spec version (2.0–4.3) regardless of the `version=` attribute. Passed as `--vast-version` to the CLI.
+- **Any file type** — activation changed to `onStartupFinished`; `<VAST` anywhere in a file triggers linting regardless of file extension (`.erb`, `.go`, `.html`, etc.).
+- **`vastlint.cliPath`** setting — override the binary path when not on PATH.
+
+---
+
 ## [0.4.3] - 2026-04-30
 
 ### CLI (`vastlint-cli`)
