@@ -6,6 +6,16 @@ GitHub Releases: <https://github.com/aleksUIX/vastlint/releases>
 
 ---
 
+## [0.4.5] - 2026-05-01
+
+### VS Code extension
+
+- **Updated extension description** — flyout text in the VS Code extensions panel now reflects CLI backend, any-file-type support, and 108 rules.
+- **Settings table** — README now documents all six settings including `vastlint.templateIgnoreRegex`, `vastlint.vastVersion`, and `vastlint.cliPath`.
+- **Full rule reference** — collapsed rule table (108 rules, each linking to `vastlint.org/docs/rules/{id}/`) added to the extension README.
+
+---
+
 ## [0.4.4] - 2026-04-30
 
 ### VS Code extension
