@@ -2,7 +2,7 @@
   "name": "vastlint",
   "displayName": "vastlint — VAST XML Validator",
   "description": "Inline linting for IAB VAST ad tags. Highlights errors and warnings with squiggles, hover tooltips, and Problems panel integration.",
-  "version": "0.4.3",
+  "version": "0.4.4",
   "publisher": "aleksUIX",
   "license": "Apache-2.0",
   "repository": {
@@ -65,12 +65,31 @@
         "vastlint.ruleOverrides": {
           "type": "object",
           "default": {},
-          "description": "Per-rule severity overrides. Keys are rule IDs (e.g. 'VAST-2.0-mediafile-https'). Values are 'error', 'warning', 'info', or 'off'."
+          "description": "Per-rule severity overrides (WASM fallback mode only). Keys are rule IDs (e.g. 'VAST-2.0-mediafile-https'). Values are 'error', 'warning', 'info', or 'off'. When using the CLI backend, use a vastlint.toml file instead."
+        },
+        "vastlint.vastVersion": {
+          "type": "string",
+          "enum": [
+            "",
+            "2.0",
+            "3.0",
+            "4.0",
+            "4.1",
+            "4.2",
+            "4.3"
+          ],
+          "default": "",
+          "description": "Treat all VAST documents as this spec version regardless of the version attribute. Useful for templates where the version attribute is absent or templated. Maps to --vast-version in CLI mode."
         },
         "vastlint.templateIgnoreRegex": {
           "type": "string",
           "default": "",
           "description": "A JavaScript regex pattern whose matches are erased (same-length replacement) before validation. Use this to strip template expressions so they don't produce false-positive XML parse errors. Examples: Mustache/Handlebars: '\\{\\{[^}]*\\}\\}' · ERB/EJS: '<[%=].*?%>' · Go templates: '\\{\\{[\\s\\S]*?\\}\\}'"
+        },
+        "vastlint.cliPath": {
+          "type": "string",
+          "default": "vastlint",
+          "description": "Path to the vastlint CLI binary. Defaults to 'vastlint' (searched on PATH and common install locations). Set an absolute path if the binary is not on PATH. When found, the CLI is used for validation; the bundled WASM is used as a fallback."
         }
       }
     }

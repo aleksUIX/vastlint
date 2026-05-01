@@ -55,7 +55,7 @@ Hover over a squiggled tag:
 
 ## Rules
 
-vastlint checks ~80 rules across:
+vastlint checks 108 rules across:
 - Required elements and attributes (VAST 2.0–4.3)
 - Value formats (durations, URLs, enums)
 - Schema conformance (unknown elements/attributes)
@@ -64,7 +64,7 @@ vastlint checks ~80 rules across:
 - CTV/SSAI best practices (Mezzanine, AdServingId)
 - Structural issues (wrapper depth, ad sequence, duplicate impressions)
 
-See the [full rule catalog](https://github.com/aleksUIX/vastlint) for details.
+Full rule reference with examples and fix guidance: [vastlint.org/docs/rules](https://vastlint.org/docs/rules/)
 
 ## Requirements
 

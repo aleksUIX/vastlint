@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { spawn } from 'child_process';
 // Import types only from the package (compile-time, no runtime cost).
 import type { Issue, RuleMeta } from 'vastlint';
 // Use the CJS entry directly at runtime — the package has "type":"module" which
@@ -209,6 +210,109 @@ function extractVastBlocks(text: string): VastBlock[] {
   return blocks;
 }
 
+// ── CLI integration ───────────────────────────────────────────────────────────
+
+/** JSON shape produced by `vastlint check - --format json`. Issues are identical to the WASM Issue type. */
+interface CliCheckResult {
+  issues: Issue[];
+}
+
+/**
+ * Common locations where `cargo install vastlint` or Homebrew place the binary.
+ * Tried in order when the configured path is the default `"vastlint"` and
+ * is not found on the VS Code process PATH (common on macOS GUI launches).
+ */
+const FALLBACK_CLI_PATHS = [
+  `${process.env['HOME'] ?? ''}/.cargo/bin/vastlint`,
+  '/opt/homebrew/bin/vastlint',
+  '/usr/local/bin/vastlint',
+  '/usr/bin/vastlint',
+];
+
+/** Cached resolved CLI path. `undefined` = not yet probed; `null` = not found (use WASM). */
+let resolvedCliPath: string | null | undefined = undefined;
+/** The configured path that `resolvedCliPath` corresponds to. */
+let resolvedCliConfigValue: string | undefined = undefined;
+
+/**
+ * Resolve the effective CLI binary path.
+ * Probes `configuredPath` first; if it fails and the path is the default
+ * `"vastlint"`, also tries common install locations.
+ * Returns `null` when no binary is found — callers fall back to WASM.
+ */
+async function getCliPath(configuredPath: string): Promise<string | null> {
+  if (resolvedCliConfigValue === configuredPath && resolvedCliPath !== undefined) {
+    return resolvedCliPath;
+  }
+  resolvedCliConfigValue = configuredPath;
+
+  const candidates = configuredPath === 'vastlint'
+    ? [configuredPath, ...FALLBACK_CLI_PATHS]
+    : [configuredPath];
+
+  for (const candidate of candidates) {
+    if (!candidate) continue;
+    if (await probeCliPath(candidate)) {
+      resolvedCliPath = candidate;
+      return candidate;
+    }
+  }
+
+  resolvedCliPath = null;
+  return null;
+}
+
+/** Returns true when `path` resolves to an executable vastlint binary. */
+function probeCliPath(path: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    const proc = spawn(path, ['--version'], { stdio: 'ignore' });
+    proc.on('error', () => resolve(false));
+    proc.on('close', () => resolve(true));
+  });
+}
+
+/**
+ * Spawn `vastlint check - --format json --no-color --no-fail`, write `blockXml`
+ * to stdin, and resolve with the parsed JSON result.
+ * Rejects on spawn failure (ENOENT) or CLI exit code 2 (usage error).
+ */
+interface CliSpawnOptions {
+  /** Passed as --vast-version when set. */
+  vastVersion?: string;
+}
+
+function spawnCli(cliPath: string, blockXml: string, opts: CliSpawnOptions = {}): Promise<CliCheckResult> {
+  const args = ['check', '-', '--format', 'json', '--no-color', '--no-fail'];
+  if (opts.vastVersion) {
+    args.push('--vast-version', opts.vastVersion);
+  }
+  return new Promise((resolve, reject) => {
+    const proc = spawn(
+      cliPath,
+      args,
+      { stdio: ['pipe', 'pipe', 'pipe'] },
+    );
+
+    let stdout = '';
+    proc.stdout.on('data', (chunk: Buffer) => { stdout += chunk.toString('utf8'); });
+    proc.on('error', reject);
+    proc.on('close', (code) => {
+      if (code === 2) {
+        reject(new Error('vastlint CLI usage error'));
+        return;
+      }
+      try {
+        resolve(JSON.parse(stdout.trim()) as CliCheckResult);
+      } catch {
+        reject(new Error(`vastlint CLI: unexpected output: ${stdout.slice(0, 200)}`));
+      }
+    });
+
+    proc.stdin.write(blockXml, 'utf8');
+    proc.stdin.end();
+  });
+}
+
 // ── Severity mapping ──────────────────────────────────────────────────────────
 
 function toVscodeSeverity(severity: Issue['severity']): vscode.DiagnosticSeverity {
@@ -224,20 +328,19 @@ function toVscodeSeverity(severity: Issue['severity']): vscode.DiagnosticSeverit
 /**
  * Build VS Code diagnostics for `fullText`.
  *
- * The function:
- *  1. Applies the `templateIgnoreRegex` setting (same-length replacement so
- *     positions are preserved) to strip template expressions before parsing.
- *  2. Finds every `<VAST … </VAST>` block in the (possibly template-stripped)
- *     text and validates each one independently.
- *  3. Maps block-relative line/col positions back to document-absolute
- *     positions so squiggles land on the correct location.
+ * 1. Applies `templateIgnoreRegex` (same-length replacement, preserves positions).
+ * 2. Extracts every `<VAST … </VAST>` block.
+ * 3. Validates each block via the CLI binary; falls back to WASM if not found.
+ * 4. Maps block-relative positions to document-absolute positions.
  */
-function buildDiagnostics(
+async function buildDiagnostics(
   fullText: string,
   config: vscode.WorkspaceConfiguration,
-): vscode.Diagnostic[] {
+): Promise<vscode.Diagnostic[]> {
   const ruleOverrides = (config.get<Record<string, string>>('ruleOverrides') ?? {}) as Record<string, 'error' | 'warning' | 'info' | 'off'>;
   const templateRegex = config.get<string>('templateIgnoreRegex') ?? '';
+  const cliPathConfig = config.get<string>('cliPath') ?? 'vastlint';
+  const vastVersion   = config.get<string>('vastVersion') ?? '';
 
   // Strip template expressions while preserving all character positions.
   const processedText = applyTemplateIgnore(fullText, templateRegex);
@@ -245,6 +348,9 @@ function buildDiagnostics(
   // Extract every VAST block (supports multi-VAST files and template wrappers).
   const blocks = extractVastBlocks(processedText);
   if (blocks.length === 0) return [];
+
+  // Resolve CLI binary once per configured path (cached).
+  const cliPath = await getCliPath(cliPathConfig);
 
   const minSeverity = config.get<string>('minSeverity') ?? 'info';
   const minLevel = minSeverity === 'error' ? 2 : minSeverity === 'warning' ? 1 : 0;
@@ -254,19 +360,25 @@ function buildDiagnostics(
   const allDiagnostics: vscode.Diagnostic[] = [];
 
   for (const block of blocks) {
-    let result;
+    let issues: Issue[];
     try {
-      result = validateWithOptions(block.xml, { rule_overrides: ruleOverrides });
+      if (cliPath) {
+        const result = await spawnCli(cliPath, block.xml, { vastVersion: vastVersion || undefined });
+        issues = result.issues;
+      } else {
+        // WASM fallback — also applies ruleOverrides (CLI reads them from vastlint.toml).
+        const result = validateWithOptions(block.xml, { rule_overrides: ruleOverrides });
+        issues = result.issues;
+      }
     } catch (e) {
-      // If the WASM throws (e.g. extremely malformed input), surface as a single diagnostic.
       const range = new vscode.Range(block.startLine, block.startCol, block.startLine, block.startCol);
-      const d = new vscode.Diagnostic(range, `vastlint internal error: ${e}`, vscode.DiagnosticSeverity.Error);
+      const d = new vscode.Diagnostic(range, `vastlint error: ${e}`, vscode.DiagnosticSeverity.Error);
       d.source = 'vastlint';
       allDiagnostics.push(d);
       continue;
     }
 
-    for (const issue of result.issues) {
+    for (const issue of issues) {
       const severityLevel = issue.severity === 'error' ? 2 : issue.severity === 'warning' ? 1 : 0;
       if (severityLevel < minLevel) continue;
 
@@ -297,7 +409,7 @@ function buildDiagnostics(
         const lineText = docLines[block.startLine] ?? '';
         range = new vscode.Range(
           block.startLine, block.startCol,
-          block.startLine, block.startCol + lineText.slice(block.startCol).search(/[\s>]|$/) + 5, // cover "<VAST"
+          block.startLine, block.startCol + lineText.slice(block.startCol).search(/[\s>]|$/) + 5,
         );
       }
 
@@ -334,8 +446,6 @@ function buildDiagnostics(
       diagnostic.code   = issue.id;
       diagnostic.message = issue.message;
 
-      // Store the markdown in relatedInformation so it surfaces in hovers.
-      // We also use a custom tag so the hover provider can find it.
       (diagnostic as DiagnosticWithMeta)._meta = {
         id:      issue.id,
         specRef: issue.spec_ref,
@@ -516,9 +626,10 @@ function lintDocument(
     return;
   }
 
-  const xml = doc.getText();
-  const diagnostics = buildDiagnostics(xml, config);
-  collection.set(doc.uri, diagnostics);
+  void buildDiagnostics(doc.getText(), config).then((diagnostics) => {
+    // Guard: doc may have been closed while we were awaiting.
+    collection.set(doc.uri, diagnostics);
+  });
 }
 
 // ── Extension lifecycle ───────────────────────────────────────────────────────

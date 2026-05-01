@@ -27,15 +27,24 @@ jobs:
   #
   # Covers:
   #   1. vastlint-core + vastlint-ffi  — cargo test --all (unit + integration)
-  #   2. vastlint-cli                  — build release binary, run against a
-  #                                      valid fixture (expect exit 0) and an
-  #                                      invalid fixture (expect exit 1)
+  #   2. vastlint-cli                  — build release binary; valid fixture
+  #                                      exits 0; invalid fixture exits non-0;
+  #                                      specific error/warning/info rule IDs
+  #                                      asserted via --format json; --vast-version
+  #                                      override (up and down); --ignore-pattern
+  #                                      macro suppression; fix subcommand;
+  #                                      daemon OTP protocol (Python struct.pack)
   #   3. vastlint-mcp                  — build release binary, drive initialize +
   #                                      tools/list via stdin, assert 5 tools
-  #                                      returned with correct names
+  #                                      returned with correct names; actual
+  #                                      tools/call for validate_vast (valid +
+  #                                      invalid), fix_vast, list_rules,
+  #                                      explain_rule
   #   4. vastlint-wasm                 — wasm-pack build (nodejs target) then
   #                                      a Node.js script that imports the
-  #                                      package and validates the same fixtures
+  #                                      package and validates the same fixtures;
+  #                                      specific rule IDs asserted; warning
+  #                                      fixture checked for valid=true
   smoke-test:
     name: Smoke test all modules
     runs-on: ubuntu-latest
@@ -178,6 +187,575 @@ jobs:
             process.exit(1);
           }
           console.log('WASM invalid fixture ✓ (errors=' + result.summary.errors + ', valid=false)');
+          EOF
+
+      # ── 2b. CLI smoke — specific rule IDs ────────────────────────────────
+      # Pick a representative spread across rule families and VAST versions to
+      # catch regressions in the core rule engine that cargo test would not catch
+      # at the binary level (e.g. a broken --format json serialisation).
+      - name: CLI smoke — error rule IDs (JSON output)
+        run: |
+          FIXTURES=(
+            "err_inline_missing_impression.xml:VAST-2.0-inline-impression"
+            "err_missing_adsystem.xml:VAST-2.0-inline-adsystem"
+            "err_no_version.xml:VAST-2.0-root-version"
+            "err_missing_duration.xml:VAST-2.0-linear-duration"
+            "err_mediafile_missing_attrs.xml:VAST-2.0-mediafile-delivery"
+            "err_wrapper_missing_vasttag.xml:VAST-2.0-wrapper-vastadtaguri"
+            "err_adservingid_missing.xml:VAST-4.1-adservingid-present"
+            "err_universaladid_missing.xml:VAST-4.0-universaladid-present"
+            "err_verification_vendor.xml:VAST-4.1-verification-vendor"
+            "err_companion_clicktracking_no_id.xml:VAST-4.0-companion-clicktracking-id"
+            "err_icon_missing_resource.xml:VAST-3.0-icon-resource"
+            "err_progress_no_offset.xml:VAST-3.0-progress-offset"
+          )
+          PASS=0; FAIL=0
+          for ENTRY in "${FIXTURES[@]}"; do
+            FILE="${ENTRY%%:*}"
+            RULE="${ENTRY##*:}"
+            FIXTURE="crates/vastlint-core/tests/fixtures/$FILE"
+            OUTPUT=$(./target/release/vastlint check "$FIXTURE" --format json 2>/dev/null || true)
+            if echo "$OUTPUT" | python3 -c "import sys,json; d=json.load(sys.stdin); sys.exit(0 if any(i['id']=='$RULE' for i in d['issues']) else 1)"; then
+              echo "PASS [$FILE → $RULE]"
+              PASS=$((PASS+1))
+            else
+              echo "FAIL [$FILE → $RULE not found in issues]"
+              echo "  Output: $OUTPUT" | head -5
+              FAIL=$((FAIL+1))
+            fi
+          done
+          echo "Results: $PASS passed, $FAIL failed"
+          [ "$FAIL" -eq 0 ] || exit 1
+
+      - name: CLI smoke — warning and info rule IDs (JSON output)
+        run: |
+          FIXTURES=(
+            "warn_vpaid.xml:VAST-4.1-vpaid-apiframework"
+            "warn_duplicate_impression.xml:VAST-2.0-duplicate-impression"
+            "warn_version_mismatch.xml:VAST-2.0-version-mismatch"
+            "warn_flash_mediafile.xml:VAST-2.0-flash-mediafile"
+            "warn_survey_deprecated.xml:VAST-4.1-survey-deprecated"
+            "warn_url_invalid.xml:VAST-2.0-url-invalid"
+            "warn_bitrate_conflict.xml:VAST-3.0-bitrate-conflict"
+            "warn_companion_renderingmode.xml:VAST-4.1-companion-renderingmode-value"
+            "warn_tracking_event_unknown.xml:VAST-4.1-tracking-event-value"
+            "warn_adtype_invalid.xml:VAST-4.1-adtype-value"
+            "warn_blockedadcategories_no_authority.xml:VAST-4.1-blockedadcategories-no-authority"
+            "warn_universaladid_idvalue_removed.xml:VAST-4.1-universaladid-idvalue-removed"
+            "info_http_tracking.xml:VAST-2.0-tracking-https"
+          )
+          PASS=0; FAIL=0
+          for ENTRY in "${FIXTURES[@]}"; do
+            FILE="${ENTRY%%:*}"
+            RULE="${ENTRY##*:}"
+            FIXTURE="crates/vastlint-core/tests/fixtures/$FILE"
+            OUTPUT=$(./target/release/vastlint check "$FIXTURE" --format json 2>/dev/null || true)
+            if echo "$OUTPUT" | python3 -c "import sys,json; d=json.load(sys.stdin); sys.exit(0 if any(i['id']=='$RULE' for i in d['issues']) else 1)"; then
+              echo "PASS [$FILE → $RULE]"
+              PASS=$((PASS+1))
+            else
+              echo "FAIL [$FILE → $RULE not found in issues]"
+              FAIL=$((FAIL+1))
+            fi
+          done
+          echo "Results: $PASS passed, $FAIL failed"
+          [ "$FAIL" -eq 0 ] || exit 1
+
+      # ── 2c. CLI smoke — --vast-version override ───────────────────────────
+      - name: CLI smoke — --vast-version upgrade fires 4.1 rules on 2.0 doc
+        run: |
+          # A plain VAST 2.0 document forced to 4.1 must:
+          #   • report version "4.1" in JSON
+          #   • fire VAST-4.1-adservingid-present (missing on 2.0 doc)
+          cat > /tmp/v2_simple.xml <<'XMLEOF'
+          <VAST version="2.0"><Ad id="1"><InLine>
+            <AdSystem>Test</AdSystem><AdTitle>Test Ad</AdTitle>
+            <Impression><![CDATA[https://t.example.com/imp]]></Impression>
+            <Creatives><Creative><Linear>
+              <Duration>00:00:30</Duration>
+              <MediaFiles><MediaFile type="video/mp4" width="640" height="480" bitrate="500" delivery="progressive">
+                <![CDATA[https://cdn.example.com/ad.mp4]]>
+              </MediaFile></MediaFiles>
+            </Linear></Creative></Creatives>
+          </InLine></Ad></VAST>
+          XMLEOF
+
+          OUTPUT=$(./target/release/vastlint check /tmp/v2_simple.xml --vast-version 4.1 --format json 2>/dev/null || true)
+
+          VERSION=$(echo "$OUTPUT" | python3 -c "import sys,json; print(json.load(sys.stdin)['version'])")
+          if [ "$VERSION" != "4.1" ]; then
+            echo "FAIL: expected version=4.1 in JSON, got '$VERSION'"
+            exit 1
+          fi
+          echo "PASS: version field is 4.1 ✓"
+
+          echo "$OUTPUT" | python3 -c "import sys,json; d=json.load(sys.stdin); sys.exit(0 if any(i['id']=='VAST-4.1-adservingid-present' for i in d['issues']) else 1)" || {
+            echo "FAIL: VAST-4.1-adservingid-present did not fire after --vast-version 4.1 override"
+            exit 1
+          }
+          echo "PASS: VAST-4.1-adservingid-present fires on forced 4.1 ✓"
+
+      - name: CLI smoke — --vast-version downgrade suppresses 4.x rules
+        run: |
+          # A VAST 4.1 document forced to 2.0 must NOT fire any 4.x-only rules.
+          OUTPUT=$(./target/release/vastlint check \
+            crates/vastlint-core/tests/fixtures/valid_4.1.xml \
+            --vast-version 2.0 --format json 2>/dev/null || true)
+
+          HITS=$(echo "$OUTPUT" | python3 -c "
+          import sys, json
+          d = json.load(sys.stdin)
+          bad = [i['id'] for i in d['issues'] if i['id'].startswith('VAST-4.')]
+          print(len(bad), bad)
+          ")
+          COUNT=$(echo "$HITS" | awk '{print $1}')
+          if [ "$COUNT" -ne 0 ]; then
+            echo "FAIL: 4.x rules fired after --vast-version 2.0 downgrade: $HITS"
+            exit 1
+          fi
+          echo "PASS: no 4.x rules fired after downgrade ✓"
+
+      - name: CLI smoke — --vast-version invalid value exits non-zero
+        run: |
+          set +e
+          ./target/release/vastlint check \
+            crates/vastlint-core/tests/fixtures/valid_4.2.xml \
+            --vast-version 9.9 >/dev/null 2>&1
+          CODE=$?
+          set -e
+          if [ "$CODE" -eq 0 ]; then
+            echo "FAIL: invalid --vast-version 9.9 should exit non-zero, got 0"
+            exit 1
+          fi
+          echo "PASS: --vast-version 9.9 exits $CODE (non-zero) ✓"
+
+      # ── 2d. CLI smoke — --ignore-pattern ─────────────────────────────────
+      - name: CLI smoke — --ignore-pattern suppresses macro URL errors
+        run: |
+          # A VAST with macro placeholders in URL fields fires url-empty/url-invalid
+          # without the flag.  With --ignore-pattern the macros are replaced before
+          # validation and no URL errors should appear.
+          cat > /tmp/vmacro.xml <<'XMLEOF'
+          <VAST version="4.2"><Ad id="1"><InLine>
+            <AdSystem>Acme DSP</AdSystem>
+            <AdServingId>srv-macro-01</AdServingId>
+            <AdTitle>Macro Test Ad</AdTitle>
+            <Impression><![CDATA[${IMP_URL}]]></Impression>
+            <Creatives><Creative>
+              <UniversalAdId idRegistry="Ad-ID">mac01</UniversalAdId>
+              <Linear>
+                <Duration>00:00:30</Duration>
+                <TrackingEvents>
+                  <Tracking event="start"><![CDATA[%%TRACKER_START%%]]></Tracking>
+                  <Tracking event="firstQuartile"><![CDATA[${Q1_URL}]]></Tracking>
+                  <Tracking event="midpoint"><![CDATA[${MID_URL}]]></Tracking>
+                  <Tracking event="thirdQuartile"><![CDATA[${Q3_URL}]]></Tracking>
+                  <Tracking event="complete"><![CDATA[${COMP_URL}]]></Tracking>
+                </TrackingEvents>
+                <MediaFiles><MediaFile type="video/mp4" width="1920" height="1080" bitrate="2000" delivery="progressive">
+                  <![CDATA[https://cdn.example.com/hd.mp4]]>
+                </MediaFile></MediaFiles>
+              </Linear>
+            </Creative></Creatives>
+          </InLine></Ad></VAST>
+          XMLEOF
+
+          # Without flag: url-empty must fire
+          URL_ISSUES=$(./target/release/vastlint check /tmp/vmacro.xml --format json 2>/dev/null \
+            | python3 -c "import sys,json; d=json.load(sys.stdin); print([i['id'] for i in d['issues'] if 'url' in i['id'].lower()])" || true)
+          if [ "$URL_ISSUES" = "[]" ]; then
+            echo "FAIL: expected URL errors without --ignore-pattern, got none"
+            exit 1
+          fi
+          echo "PASS: URL errors present without flag: $URL_ISSUES ✓"
+
+          # With flag: no URL errors
+          OUTPUT=$(./target/release/vastlint check /tmp/vmacro.xml \
+            --ignore-pattern '\$\{[^}]+\}|%%[^%]+%%' \
+            --format json 2>/dev/null || true)
+          URL_ISSUES=$(echo "$OUTPUT" | python3 -c "import sys,json; d=json.load(sys.stdin); print([i['id'] for i in d['issues'] if 'url' in i['id'].lower()])" || true)
+          if [ "$URL_ISSUES" != "[]" ]; then
+            echo "FAIL: expected no URL errors with --ignore-pattern, got: $URL_ISSUES"
+            exit 1
+          fi
+          echo "PASS: no URL errors after --ignore-pattern replacement ✓"
+
+      - name: CLI smoke — --ignore-pattern invalid regex exits non-zero
+        run: |
+          set +e
+          ./target/release/vastlint check \
+            crates/vastlint-core/tests/fixtures/valid_4.2.xml \
+            --ignore-pattern '[invalid' >/dev/null 2>&1
+          CODE=$?
+          set -e
+          if [ "$CODE" -eq 0 ]; then
+            echo "FAIL: invalid --ignore-pattern should exit non-zero, got 0"
+            exit 1
+          fi
+          echo "PASS: invalid --ignore-pattern exits $CODE (non-zero) ✓"
+
+      # ── 2e. CLI smoke — fix subcommand ────────────────────────────────────
+      - name: CLI smoke — fix subcommand upgrades HTTP to HTTPS
+        run: |
+          # A fixture with HTTP URLs: fix should exit 0 and output HTTPS URLs.
+          cat > /tmp/http_vast.xml <<'XMLEOF'
+          <VAST version="2.0"><Ad id="1"><InLine>
+            <AdSystem>Test</AdSystem><AdTitle>Test Ad</AdTitle>
+            <Impression>http://t.example.com/imp</Impression>
+            <Creatives><Creative><Linear>
+              <Duration>00:00:30</Duration>
+              <MediaFiles><MediaFile type="video/mp4" width="640" height="480" bitrate="500" delivery="progressive">
+                http://cdn.example.com/ad.mp4
+              </MediaFile></MediaFiles>
+            </Linear></Creative></Creatives>
+          </InLine></Ad></VAST>
+          XMLEOF
+
+          FIXED=$(./target/release/vastlint fix /tmp/http_vast.xml 2>/dev/null)
+          if [ $? -ne 0 ]; then
+            echo "FAIL: fix subcommand exited non-zero"
+            exit 1
+          fi
+          echo "PASS: fix subcommand exits 0 ✓"
+
+          if echo "$FIXED" | grep -q 'http://'; then
+            echo "FAIL: fixed output still contains http:// URLs"
+            exit 1
+          fi
+          echo "PASS: no http:// in fixed output ✓"
+
+          if ! echo "$FIXED" | grep -q 'https://'; then
+            echo "FAIL: fixed output has no https:// URLs"
+            exit 1
+          fi
+          echo "PASS: fixed output contains https:// ✓"
+
+      - name: CLI smoke — fix --dry-run exits 0 and does not modify file
+        run: |
+          cp crates/vastlint-core/tests/fixtures/valid_4.2.xml /tmp/dryrun_test.xml
+          ./target/release/vastlint fix /tmp/dryrun_test.xml --dry-run > /dev/null 2>&1
+          CODE=$?
+          if [ "$CODE" -ne 0 ]; then
+            echo "FAIL: fix --dry-run exited $CODE, expected 0"
+            exit 1
+          fi
+          echo "PASS: fix --dry-run exits 0 ✓"
+          # File must be unmodified
+          if ! diff -q crates/vastlint-core/tests/fixtures/valid_4.2.xml /tmp/dryrun_test.xml > /dev/null; then
+            echo "FAIL: --dry-run modified the input file"
+            exit 1
+          fi
+          echo "PASS: --dry-run did not modify input file ✓"
+
+      # ── 2f. CLI smoke — daemon OTP protocol ──────────────────────────────
+      - name: CLI smoke — daemon OTP protocol (valid XML → valid=true)
+        run: |
+          python3 - <<'PYEOF'
+          import subprocess, struct, json, sys
+
+          VALID_XML = open('crates/vastlint-core/tests/fixtures/valid_4.2.xml').read()
+          INVALID_XML = open('crates/vastlint-core/tests/fixtures/err_no_ad.xml').read()
+
+          def daemon_call(xml_str):
+              proc = subprocess.Popen(
+                  ['./target/release/vastlint', 'daemon'],
+                  stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL
+              )
+              encoded = xml_str.encode('utf-8')
+              proc.stdin.write(struct.pack('>I', len(encoded)) + encoded)
+              proc.stdin.close()
+              resp_len = struct.unpack('>I', proc.stdout.read(4))[0]
+              result = json.loads(proc.stdout.read(resp_len).decode('utf-8'))
+              proc.wait(timeout=5)
+              return result
+
+          # Valid fixture → valid=true, errors=0
+          r = daemon_call(VALID_XML)
+          assert r.get('valid') is True, f"FAIL: daemon valid fixture: expected valid=true, got {r}"
+          assert r.get('summary', {}).get('errors') == 0, f"FAIL: daemon valid fixture: expected errors=0, got {r}"
+          assert r.get('version') == '4.2', f"FAIL: daemon valid fixture: expected version=4.2, got {r.get('version')}"
+          print(f"PASS: daemon valid fixture → valid=true, errors=0, version=4.2 ✓")
+
+          # Invalid fixture → valid=false, errors>0
+          r = daemon_call(INVALID_XML)
+          assert r.get('valid') is False, f"FAIL: daemon invalid fixture: expected valid=false, got {r}"
+          assert r.get('summary', {}).get('errors', 0) > 0, f"FAIL: daemon invalid fixture: expected errors>0, got {r}"
+          print(f"PASS: daemon invalid fixture → valid=false, errors={r['summary']['errors']} ✓")
+
+          # Rule ID check via daemon
+          IMP_XML = open('crates/vastlint-core/tests/fixtures/err_inline_missing_impression.xml').read()
+          r = daemon_call(IMP_XML)
+          ids = [i['id'] for i in r.get('issues', [])]
+          assert 'VAST-2.0-inline-impression' in ids, f"FAIL: daemon rule ID check: VAST-2.0-inline-impression not in {ids}"
+          print(f"PASS: daemon rule ID VAST-2.0-inline-impression fires correctly ✓")
+
+          print("All daemon smoke tests passed.")
+          PYEOF
+
+      # ── 3b. MCP smoke — actual tool calls ────────────────────────────────
+      - name: MCP smoke — validate_vast (valid + invalid) and fix_vast tool calls
+        run: |
+          python3 - <<'PYEOF'
+          import subprocess, json, sys, time
+
+          VALID_XML   = open('crates/vastlint-core/tests/fixtures/valid_4.2.xml').read()
+          INVALID_XML = open('crates/vastlint-core/tests/fixtures/err_inline_missing_impression.xml').read()
+          HTTP_XML    = ('<VAST version="2.0"><Ad id="1"><InLine>'
+                         '<AdSystem>T</AdSystem><AdTitle>T</AdTitle>'
+                         '<Impression>http://t.example.com/imp</Impression>'
+                         '<Creatives><Creative><Linear><Duration>00:00:30</Duration>'
+                         '<MediaFiles><MediaFile delivery="progressive" type="video/mp4"'
+                         ' width="640" height="480">http://cdn.example.com/ad.mp4'
+                         '</MediaFile></MediaFiles></Linear></Creative></Creatives>'
+                         '</InLine></Ad></VAST>')
+
+          proc = subprocess.Popen(
+              ['./target/release/vastlint-mcp'],
+              stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL
+          )
+
+          _id = [0]
+          def send(msg):
+              _id[0] += 1
+              if 'id' not in msg:
+                  msg = dict(msg, id=_id[0])
+              proc.stdin.write((json.dumps(msg) + '\n').encode())
+              proc.stdin.flush()
+              return msg.get('id')
+
+          def read_until(target_id, timeout=10):
+              import select
+              deadline = time.monotonic() + timeout
+              buf = b''
+              while time.monotonic() < deadline:
+                  r, _, _ = select.select([proc.stdout], [], [], 0.5)
+                  if r:
+                      chunk = proc.stdout.read1(4096)
+                      if chunk:
+                          buf += chunk
+                          while b'\n' in buf:
+                              line, buf = buf.split(b'\n', 1)
+                              line = line.strip()
+                              if not line:
+                                  continue
+                              try:
+                                  d = json.loads(line)
+                              except Exception:
+                                  continue
+                              if d.get('id') == target_id:
+                                  return d
+              raise TimeoutError(f'no response for id={target_id}')
+
+          # Initialize
+          init_id = send({'jsonrpc':'2.0','method':'initialize','params':{
+              'protocolVersion':'2024-11-05','capabilities':{},'clientInfo':{'name':'ci','version':'1.0'}}})
+          read_until(init_id)
+          send({'jsonrpc':'2.0','method':'notifications/initialized','params':{}})
+          _id[0] -= 1  # notification has no id, don't count it
+
+          # validate_vast — valid fixture
+          vid = send({'jsonrpc':'2.0','method':'tools/call','params':{'name':'validate_vast','arguments':{'xml': VALID_XML}}})
+          r = read_until(vid)
+          obj = json.loads(r['result']['content'][0]['text'])
+          assert obj['valid'] is True,  f"FAIL: MCP validate_vast valid: expected valid=true, got {obj}"
+          assert obj['summary']['errors'] == 0, f"FAIL: MCP validate_vast valid: errors={obj['summary']['errors']}"
+          assert obj['version'] == '4.2', f"FAIL: MCP validate_vast valid: version={obj['version']}"
+          print("PASS: MCP validate_vast valid fixture ✓")
+
+          # validate_vast — invalid fixture with specific rule ID
+          iid = send({'jsonrpc':'2.0','method':'tools/call','params':{'name':'validate_vast','arguments':{'xml': INVALID_XML}}})
+          r = read_until(iid)
+          obj = json.loads(r['result']['content'][0]['text'])
+          assert obj['valid'] is False, f"FAIL: MCP validate_vast invalid: expected valid=false, got {obj}"
+          assert obj['summary']['errors'] > 0, f"FAIL: MCP validate_vast invalid: errors=0"
+          ids = [i['id'] for i in obj['issues']]
+          assert 'VAST-2.0-inline-impression' in ids, f"FAIL: MCP validate_vast invalid: rule ID not found in {ids}"
+          print(f"PASS: MCP validate_vast invalid fixture, VAST-2.0-inline-impression fires ✓")
+
+          # fix_vast — HTTP→HTTPS upgrade
+          fid = send({'jsonrpc':'2.0','method':'tools/call','params':{'name':'fix_vast','arguments':{'xml': HTTP_XML}}})
+          r = read_until(fid)
+          obj = json.loads(r['result']['content'][0]['text'])
+          assert obj['applied_count'] > 0, f"FAIL: MCP fix_vast: no fixes applied, got {obj}"
+          assert 'https://' in obj['xml'], f"FAIL: MCP fix_vast: no https:// in fixed XML"
+          assert 'http://' not in obj['xml'], f"FAIL: MCP fix_vast: http:// still in fixed XML"
+          print(f"PASS: MCP fix_vast applied {obj['applied_count']} fix(es), HTTP→HTTPS ✓")
+
+          proc.stdin.close()
+          proc.wait(timeout=5)
+          print("All MCP tool-call smoke tests passed.")
+          PYEOF
+
+      - name: MCP smoke — list_rules and explain_rule tool calls
+        run: |
+          python3 - <<'PYEOF'
+          import subprocess, json, time
+
+          proc = subprocess.Popen(
+              ['./target/release/vastlint-mcp'],
+              stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL
+          )
+
+          _id = [0]
+          def send(msg):
+              _id[0] += 1
+              if 'id' not in msg:
+                  msg = dict(msg, id=_id[0])
+              proc.stdin.write((json.dumps(msg) + '\n').encode())
+              proc.stdin.flush()
+              return msg.get('id')
+
+          def read_until(target_id, timeout=10):
+              import select
+              deadline = time.monotonic() + timeout
+              buf = b''
+              while time.monotonic() < deadline:
+                  r, _, _ = select.select([proc.stdout], [], [], 0.5)
+                  if r:
+                      chunk = proc.stdout.read1(4096)
+                      if chunk:
+                          buf += chunk
+                          while b'\n' in buf:
+                              line, buf = buf.split(b'\n', 1)
+                              line = line.strip()
+                              if not line:
+                                  continue
+                              try:
+                                  d = json.loads(line)
+                              except Exception:
+                                  continue
+                              if d.get('id') == target_id:
+                                  return d
+              raise TimeoutError(f'no response for id={target_id}')
+
+          init_id = send({'jsonrpc':'2.0','method':'initialize','params':{
+              'protocolVersion':'2024-11-05','capabilities':{},'clientInfo':{'name':'ci','version':'1.0'}}})
+          read_until(init_id)
+          send({'jsonrpc':'2.0','method':'notifications/initialized','params':{}})
+          _id[0] -= 1
+
+          # list_rules — must return a non-empty catalog
+          lid = send({'jsonrpc':'2.0','method':'tools/call','params':{'name':'list_rules','arguments':{}}})
+          r = read_until(lid)
+          obj = json.loads(r['result']['content'][0]['text'])
+          assert obj['count'] > 0, f"FAIL: list_rules returned count=0"
+          assert len(obj['rules']) == obj['count'], "FAIL: list_rules count mismatch"
+          ids = [rule['id'] for rule in obj['rules']]
+          for expected_id in ['VAST-2.0-inline-impression', 'VAST-4.1-adservingid-present', 'VAST-2.0-root-version']:
+              assert expected_id in ids, f"FAIL: list_rules missing rule {expected_id}"
+          print(f"PASS: MCP list_rules returned {obj['count']} rules, key IDs present ✓")
+
+          # explain_rule — known rule returns description and hint
+          eid = send({'jsonrpc':'2.0','method':'tools/call','params':{
+              'name':'explain_rule','arguments':{'rule_id':'VAST-2.0-inline-impression'}}})
+          r = read_until(eid)
+          obj = json.loads(r['result']['content'][0]['text'])
+          assert obj['id'] == 'VAST-2.0-inline-impression', f"FAIL: explain_rule wrong id: {obj['id']}"
+          assert len(obj.get('description','')) > 10, f"FAIL: explain_rule empty description"
+          assert obj.get('severity') == 'error', f"FAIL: explain_rule wrong severity: {obj.get('severity')}"
+          print(f"PASS: MCP explain_rule VAST-2.0-inline-impression: severity=error, description present ✓")
+
+          # explain_rule — unknown rule returns graceful not-found message
+          uid = send({'jsonrpc':'2.0','method':'tools/call','params':{
+              'name':'explain_rule','arguments':{'rule_id':'VAST-9.9-nonexistent'}}})
+          r = read_until(uid)
+          obj = json.loads(r['result']['content'][0]['text'])
+          assert 'not found' in obj.get('description','').lower() or obj.get('severity') == 'unknown', \
+              f"FAIL: explain_rule unknown ID did not return graceful response: {obj}"
+          print("PASS: MCP explain_rule unknown rule ID → graceful not-found ✓")
+
+          proc.stdin.close()
+          proc.wait(timeout=5)
+          print("All MCP list_rules/explain_rule smoke tests passed.")
+          PYEOF
+
+      # ── 4b. WASM smoke — specific rule IDs ───────────────────────────────
+      - name: WASM smoke — specific error rule ID fires
+        run: |
+          node - <<'EOF'
+          const { validate } = require('./npm');
+          const fs = require('fs');
+
+          const FIXTURES = [
+            ['err_inline_missing_impression.xml', 'VAST-2.0-inline-impression',  true],
+            ['err_adservingid_missing.xml',       'VAST-4.1-adservingid-present', true],
+            ['err_missing_adsystem.xml',          'VAST-2.0-inline-adsystem',     true],
+          ];
+
+          let pass = 0, fail = 0;
+          for (const [file, ruleId, expectFires] of FIXTURES) {
+            const xml = fs.readFileSync(`crates/vastlint-core/tests/fixtures/${file}`, 'utf8');
+            const result = validate(xml);
+            const fires = result.issues.some(i => i.id === ruleId);
+            if (fires === expectFires) {
+              console.log(`PASS [${file} → ${ruleId}]`);
+              pass++;
+            } else {
+              console.error(`FAIL [${file} → ${ruleId}]: expected fires=${expectFires}, got ${fires}`);
+              fail++;
+            }
+          }
+          console.log(`Results: ${pass} passed, ${fail} failed`);
+          if (fail > 0) process.exit(1);
+          EOF
+
+      - name: WASM smoke — warning fixture valid=true, warnings>0
+        run: |
+          node - <<'EOF'
+          const { validate } = require('./npm');
+          const fs = require('fs');
+
+          // warn_vpaid.xml fires VAST-4.1-vpaid-apiframework (Warning) — document
+          // must be valid=true (no errors) but have warnings>0.
+          const xml = fs.readFileSync('crates/vastlint-core/tests/fixtures/warn_vpaid.xml', 'utf8');
+          const result = validate(xml);
+
+          if (!result.summary.valid) {
+            console.error('FAIL: warn_vpaid.xml should be valid=true (warnings are not errors)');
+            process.exit(1);
+          }
+          console.log('PASS: warn_vpaid.xml valid=true ✓');
+
+          if (result.summary.warnings === 0) {
+            console.error('FAIL: warn_vpaid.xml should have warnings>0');
+            process.exit(1);
+          }
+          console.log(`PASS: warn_vpaid.xml warnings=${result.summary.warnings} ✓`);
+
+          const fires = result.issues.some(i => i.id === 'VAST-4.1-vpaid-apiframework');
+          if (!fires) {
+            console.error('FAIL: VAST-4.1-vpaid-apiframework should fire on warn_vpaid.xml');
+            console.error('Issues:', result.issues.map(i => i.id));
+            process.exit(1);
+          }
+          console.log('PASS: VAST-4.1-vpaid-apiframework fires on warn_vpaid.xml ✓');
+          EOF
+
+      - name: WASM smoke — info fixture valid=true, errors=0
+        run: |
+          node - <<'EOF'
+          const { validate } = require('./npm');
+          const fs = require('fs');
+
+          // info_http_tracking.xml fires VAST-2.0-tracking-https at Info level.
+          // Document must be valid=true and errors=0.
+          const xml = fs.readFileSync('crates/vastlint-core/tests/fixtures/info_http_tracking.xml', 'utf8');
+          const result = validate(xml);
+
+          if (!result.summary.valid) {
+            console.error('FAIL: info_http_tracking.xml should be valid=true');
+            process.exit(1);
+          }
+          if (result.summary.errors !== 0) {
+            console.error('FAIL: info_http_tracking.xml should have errors=0, got', result.summary.errors);
+            process.exit(1);
+          }
+          const fires = result.issues.some(i => i.id === 'VAST-2.0-tracking-https');
+          if (!fires) {
+            console.error('FAIL: VAST-2.0-tracking-https should fire on info_http_tracking.xml');
+            process.exit(1);
+          }
+          console.log(`PASS: info_http_tracking.xml valid=true, errors=0, VAST-2.0-tracking-https fires ✓`);
           EOF
 
   # ── WASM build (single canonical build) ─────────────────────────────────────
