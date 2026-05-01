@@ -102,7 +102,7 @@ use std::collections::HashMap;
 /// document structure.
 ///
 /// Covers all versions published by IAB Tech Lab: 2.0 through 4.3.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum VastVersion {
     V2_0,
     V3_0,
@@ -278,6 +278,11 @@ pub struct ValidationContext {
     /// Per-rule severity overrides keyed by rule ID.
     /// None means "use all recommended defaults".
     pub rule_overrides: Option<HashMap<&'static str, RuleLevel>>,
+    /// Override the VAST version used for validation, ignoring the version
+    /// attribute declared in the XML. None = auto-detect from the document
+    /// (default). Useful for validating templates or tags where the version
+    /// attribute is absent or incorrect.
+    pub forced_version: Option<VastVersion>,
 }
 
 impl Default for ValidationContext {
@@ -286,6 +291,7 @@ impl Default for ValidationContext {
             wrapper_depth: 0,
             max_wrapper_depth: 5,
             rule_overrides: None,
+            forced_version: None,
         }
     }
 }
@@ -398,7 +404,10 @@ pub fn validate(input: &str) -> ValidationResult {
 /// ```
 pub fn validate_with_context(input: &str, context: ValidationContext) -> ValidationResult {
     let doc = parse::parse(input);
-    let version = detect::detect_version(&doc);
+    let version = match context.forced_version {
+        Some(v) => DetectedVersion::Declared(v),
+        None => detect::detect_version(&doc),
+    };
     let mut issues = Vec::new();
     rules::run(&doc, &version, &context, &mut issues);
     let summary = summarize::summarize(&issues);

@@ -1,6 +1,6 @@
 [package]
 name = "vastlint-cli"
-version = "0.4.2"
+version = "0.4.3"
 edition = "2021"
 rust-version = "1.86"
 authors = ["Aleks <aleks@vastlint.org>"]
@@ -30,3 +30,5 @@ anstyle = "1"
 toml = { version = "1.1", default-features = false, features = ["parse", "serde"] }
 # Opt-in telemetry ping (rustls, no OpenSSL dependency)
 ureq = { version = "2", default-features = false, features = ["tls"] }
+# Template placeholder replacement for --ignore-pattern
+regex = { version = "1", default-features = false, features = ["std"] }

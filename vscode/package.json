@@ -2,7 +2,7 @@
   "name": "vastlint",
   "displayName": "vastlint — VAST XML Validator",
   "description": "Inline linting for IAB VAST ad tags. Highlights errors and warnings with squiggles, hover tooltips, and Problems panel integration.",
-  "version": "0.4.2",
+  "version": "0.4.3",
   "publisher": "aleksUIX",
   "license": "Apache-2.0",
   "repository": {
@@ -26,8 +26,7 @@
     "ctv"
   ],
   "activationEvents": [
-    "onLanguage:xml",
-    "onLanguage:plaintext"
+    "onStartupFinished"
   ],
   "main": "./out/extension.js",
   "contributes": {
@@ -67,6 +66,11 @@
           "type": "object",
           "default": {},
           "description": "Per-rule severity overrides. Keys are rule IDs (e.g. 'VAST-2.0-mediafile-https'). Values are 'error', 'warning', 'info', or 'off'."
+        },
+        "vastlint.templateIgnoreRegex": {
+          "type": "string",
+          "default": "",
+          "description": "A JavaScript regex pattern whose matches are erased (same-length replacement) before validation. Use this to strip template expressions so they don't produce false-positive XML parse errors. Examples: Mustache/Handlebars: '\\{\\{[^}]*\\}\\}' · ERB/EJS: '<[%=].*?%>' · Go templates: '\\{\\{[\\s\\S]*?\\}\\}'"
         }
       }
     }

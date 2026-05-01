@@ -247,6 +247,7 @@ fn validate_with_opts<'a>(
             max_wrapper_depth as u8
         },
         rule_overrides: overrides,
+        forced_version: None,
     };
 
     let result = vastlint_core::validate_with_context(input, ctx);

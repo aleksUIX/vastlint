@@ -151,6 +151,7 @@ pub fn validate_with_options(xml: &str, options: JsValue) -> Result<JsValue, JsV
             wrapper_depth: opts.wrapper_depth.unwrap_or(0),
             max_wrapper_depth: opts.max_wrapper_depth.unwrap_or(5),
             rule_overrides,
+            forced_version: None,
         }
     };
 
@@ -249,6 +250,7 @@ pub fn fix_with_options(xml: &str, options: JsValue) -> Result<JsValue, JsValue>
             wrapper_depth: opts.wrapper_depth.unwrap_or(0),
             max_wrapper_depth: opts.max_wrapper_depth.unwrap_or(5),
             rule_overrides,
+            forced_version: None,
         }
     };
 

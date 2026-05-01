@@ -141,6 +141,74 @@ const FIX_HINTS: Record<string, string> = {
   'SIMID-1.1-iframe-simid-url-https':        'Change the `<IFrameResource>` URL from `http://` to `https://`.',
 };
 
+// ── Template ignore ───────────────────────────────────────────────────────────
+
+/**
+ * Replace every match of `regexStr` with an equal-length run of zeros.
+ * Same-length replacement preserves all line/col offsets so that
+ * validator-reported positions remain accurate in the original file.
+ */
+function applyTemplateIgnore(text: string, regexStr: string): string {
+  if (!regexStr) return text;
+  let regex: RegExp;
+  try {
+    regex = new RegExp(regexStr, 'gs');
+  } catch {
+    // Invalid regex — skip silently; user will see a setting validation warning.
+    return text;
+  }
+  return text.replace(regex, (match) => '0'.repeat(match.length));
+}
+
+// ── VAST block extractor ──────────────────────────────────────────────────────
+
+interface VastBlock {
+  xml: string;
+  /** 0-based line index in the parent document where this block starts. */
+  startLine: number;
+  /** 0-based column index on startLine where '<VAST' begins. */
+  startCol: number;
+}
+
+/**
+ * Find every top-level `<VAST … </VAST>` region in `text` and return each
+ * as a VastBlock with its document-absolute start position.
+ *
+ * Works for files that contain multiple VAST documents, or VAST embedded
+ * inside template files (ERB, Go templates, Mustache, etc.).
+ */
+function extractVastBlocks(text: string): VastBlock[] {
+  const OPEN  = '<VAST';
+  const CLOSE = '</VAST>';
+  const blocks: VastBlock[] = [];
+  let pos = 0;
+
+  while (pos < text.length) {
+    const start = text.indexOf(OPEN, pos);
+    if (start === -1) break;
+
+    const closeIdx = text.indexOf(CLOSE, start);
+    if (closeIdx === -1) break;
+
+    const blockEnd = closeIdx + CLOSE.length;
+    const blockXml = text.slice(start, blockEnd);
+
+    // Count newlines before `start` to get the 0-based line number.
+    const before = text.slice(0, start);
+    let startLine = 0;
+    for (let i = 0; i < before.length; i++) {
+      if (before[i] === '\n') startLine++;
+    }
+    const lastNl   = before.lastIndexOf('\n');
+    const startCol = lastNl === -1 ? start : start - lastNl - 1;
+
+    blocks.push({ xml: blockXml, startLine, startCol });
+    pos = blockEnd;
+  }
+
+  return blocks;
+}
+
 // ── Severity mapping ──────────────────────────────────────────────────────────
 
 function toVscodeSeverity(severity: Issue['severity']): vscode.DiagnosticSeverity {
@@ -153,100 +221,134 @@ function toVscodeSeverity(severity: Issue['severity']): vscode.DiagnosticSeverit
 
 // ── Diagnostic builder ────────────────────────────────────────────────────────
 
+/**
+ * Build VS Code diagnostics for `fullText`.
+ *
+ * The function:
+ *  1. Applies the `templateIgnoreRegex` setting (same-length replacement so
+ *     positions are preserved) to strip template expressions before parsing.
+ *  2. Finds every `<VAST … </VAST>` block in the (possibly template-stripped)
+ *     text and validates each one independently.
+ *  3. Maps block-relative line/col positions back to document-absolute
+ *     positions so squiggles land on the correct location.
+ */
 function buildDiagnostics(
-  xml: string,
+  fullText: string,
   config: vscode.WorkspaceConfiguration,
 ): vscode.Diagnostic[] {
   const ruleOverrides = (config.get<Record<string, string>>('ruleOverrides') ?? {}) as Record<string, 'error' | 'warning' | 'info' | 'off'>;
+  const templateRegex = config.get<string>('templateIgnoreRegex') ?? '';
 
-  let result;
-  try {
-    result = validateWithOptions(xml, { rule_overrides: ruleOverrides });
-  } catch (e) {
-    // If the WASM throws (e.g. extremely malformed input), surface as a single diagnostic.
-    const range = new vscode.Range(0, 0, 0, 0);
-    const d = new vscode.Diagnostic(range, `vastlint internal error: ${e}`, vscode.DiagnosticSeverity.Error);
-    d.source = 'vastlint';
-    return [d];
-  }
+  // Strip template expressions while preserving all character positions.
+  const processedText = applyTemplateIgnore(fullText, templateRegex);
+
+  // Extract every VAST block (supports multi-VAST files and template wrappers).
+  const blocks = extractVastBlocks(processedText);
+  if (blocks.length === 0) return [];
 
   const minSeverity = config.get<string>('minSeverity') ?? 'info';
   const minLevel = minSeverity === 'error' ? 2 : minSeverity === 'warning' ? 1 : 0;
 
-  const lines = xml.split('\n');
-  const diagnostics: vscode.Diagnostic[] = [];
+  // Use the original (non-stripped) lines for hover/squiggle text display.
+  const docLines = fullText.split('\n');
+  const allDiagnostics: vscode.Diagnostic[] = [];
 
-  for (const issue of result.issues) {
-    const severityLevel = issue.severity === 'error' ? 2 : issue.severity === 'warning' ? 1 : 0;
-    if (severityLevel < minLevel) continue;
-
-    // Build the range. VS Code uses 0-based lines and columns.
-    let range: vscode.Range;
-    if (issue.line != null && issue.col != null) {
-      const lineIdx = issue.line - 1;
-      const colIdx  = issue.col - 1;
-      const lineText = lines[lineIdx] ?? '';
-      // Extend the squiggle to cover the tag name (up to the first space or >).
-      const tagEnd = (() => {
-        const rest = lineText.slice(colIdx + 1); // skip <
-        const tagNameEnd = rest.search(/[\s>/]/);
-        return colIdx + 1 + (tagNameEnd >= 0 ? tagNameEnd : rest.length);
-      })();
-      range = new vscode.Range(lineIdx, colIdx, lineIdx, tagEnd);
-    } else {
-      // Document-level issue — point at line 0
-      range = new vscode.Range(0, 0, 0, lines[0]?.length ?? 0);
+  for (const block of blocks) {
+    let result;
+    try {
+      result = validateWithOptions(block.xml, { rule_overrides: ruleOverrides });
+    } catch (e) {
+      // If the WASM throws (e.g. extremely malformed input), surface as a single diagnostic.
+      const range = new vscode.Range(block.startLine, block.startCol, block.startLine, block.startCol);
+      const d = new vscode.Diagnostic(range, `vastlint internal error: ${e}`, vscode.DiagnosticSeverity.Error);
+      d.source = 'vastlint';
+      allDiagnostics.push(d);
+      continue;
     }
 
-    const meta = ruleCatalog.get(issue.id);
-    const fixHint = FIX_HINTS[issue.id];
+    for (const issue of result.issues) {
+      const severityLevel = issue.severity === 'error' ? 2 : issue.severity === 'warning' ? 1 : 0;
+      if (severityLevel < minLevel) continue;
 
-    // Build the hover message as Markdown.
-    // isTrusted is intentionally left false (default): issue.message,
-    // issue.spec_ref, and issue.path are derived from XML content and could
-    // be attacker-controlled.  isTrusted=true would enable command: URIs,
-    // creating an RCE-on-hover vector.  No command: URIs are used here,
-    // so there is no functional cost to keeping it untrusted.
-    const md = new vscode.MarkdownString('', true);
-    md.appendMarkdown(`**vastlint** \`${issue.id}\`\n\n`);
-    md.appendMarkdown(`${issue.message}\n\n`);
-    if (fixHint) {
-      md.appendMarkdown(`**Fix:** ${fixHint}\n\n`);
+      // Build the range. VS Code uses 0-based lines and columns.
+      let range: vscode.Range;
+      if (issue.line != null && issue.col != null) {
+        // Map block-relative 1-based (line, col) → document-absolute 0-based.
+        const blockLineIdx = issue.line - 1;
+        const blockColIdx  = issue.col  - 1;
+
+        const docLineIdx = block.startLine + blockLineIdx;
+        // Column offset only applies to the first line of the block (where
+        // the block doesn't start at column 0 in the document).
+        const docColIdx  = blockLineIdx === 0
+          ? block.startCol + blockColIdx
+          : blockColIdx;
+
+        const lineText = docLines[docLineIdx] ?? '';
+        // Extend the squiggle to cover the tag name (up to the first space or >).
+        const tagEnd = (() => {
+          const rest = lineText.slice(docColIdx + 1); // skip <
+          const tagNameEnd = rest.search(/[\s>/]/);
+          return docColIdx + 1 + (tagNameEnd >= 0 ? tagNameEnd : rest.length);
+        })();
+        range = new vscode.Range(docLineIdx, docColIdx, docLineIdx, tagEnd);
+      } else {
+        // Document-level issue — point at the opening <VAST> tag.
+        const lineText = docLines[block.startLine] ?? '';
+        range = new vscode.Range(
+          block.startLine, block.startCol,
+          block.startLine, block.startCol + lineText.slice(block.startCol).search(/[\s>]|$/) + 5, // cover "<VAST"
+        );
+      }
+
+      const meta    = ruleCatalog.get(issue.id);
+      const fixHint = FIX_HINTS[issue.id];
+
+      // Build the hover message as Markdown.
+      // isTrusted is intentionally left false (default): issue.message,
+      // issue.spec_ref, and issue.path are derived from XML content and could
+      // be attacker-controlled.  isTrusted=true would enable command: URIs,
+      // creating an RCE-on-hover vector.  No command: URIs are used here,
+      // so there is no functional cost to keeping it untrusted.
+      const md = new vscode.MarkdownString('', true);
+      md.appendMarkdown(`**vastlint** \`${issue.id}\`\n\n`);
+      md.appendMarkdown(`${issue.message}\n\n`);
+      if (fixHint) {
+        md.appendMarkdown(`**Fix:** ${fixHint}\n\n`);
+      }
+      if (meta?.description && meta.description !== issue.message) {
+        md.appendMarkdown(`*${meta.description}*\n\n`);
+      }
+      md.appendMarkdown(`---\n`);
+      md.appendMarkdown(`**Spec:** ${issue.spec_ref}`);
+      if (meta?.source) {
+        md.appendMarkdown(` · **Source:** ${meta.source}`);
+      }
+      md.appendMarkdown(`  \n[vastlint.org/docs/rules/${issue.id}](https://vastlint.org/docs/rules/${issue.id}/)`);
+      if (issue.path) {
+        md.appendMarkdown(`  \n**Path:** \`${issue.path}\``);
+      }
+
+      const diagnostic = new vscode.Diagnostic(range, issue.message, toVscodeSeverity(issue.severity));
+      diagnostic.source = 'vastlint';
+      diagnostic.code   = issue.id;
+      diagnostic.message = issue.message;
+
+      // Store the markdown in relatedInformation so it surfaces in hovers.
+      // We also use a custom tag so the hover provider can find it.
+      (diagnostic as DiagnosticWithMeta)._meta = {
+        id:      issue.id,
+        specRef: issue.spec_ref,
+        path:    issue.path ?? undefined,
+        fixHint: fixHint,
+        fullMd:  md,
+      };
+
+      allDiagnostics.push(diagnostic);
     }
-    if (meta?.description && meta.description !== issue.message) {
-      md.appendMarkdown(`*${meta.description}*\n\n`);
-    }
-    md.appendMarkdown(`---\n`);
-    md.appendMarkdown(`**Spec:** ${issue.spec_ref}`);
-    if (meta?.source) {
-      md.appendMarkdown(` · **Source:** ${meta.source}`);
-    }
-    md.appendMarkdown(`  \n[vastlint.org/docs/rules/${issue.id}](https://vastlint.org/docs/rules/${issue.id}/)`);
-    if (issue.path) {
-      md.appendMarkdown(`  \n**Path:** \`${issue.path}\``);
-    }
-
-    const diagnostic = new vscode.Diagnostic(range, issue.message, toVscodeSeverity(issue.severity));
-    diagnostic.source = 'vastlint';
-    diagnostic.code = issue.id;
-
-    // Attach the rich hover as a related info entry (VS Code shows it on hover).
-    diagnostic.message = issue.message;
-
-    // Store the markdown in relatedInformation so it surfaces in hovers.
-    // We also use a custom tag so the hover provider can find it.
-    (diagnostic as DiagnosticWithMeta)._meta = {
-      id:       issue.id,
-      specRef:  issue.spec_ref,
-      path:     issue.path ?? undefined,
-      fixHint:  fixHint,
-      fullMd:   md,
-    };
-
-    diagnostics.push(diagnostic);
   }
 
-  return diagnostics;
+  return allDiagnostics;
 }
 
 // ── Extended diagnostic type ──────────────────────────────────────────────────
@@ -389,15 +491,14 @@ class VastlintHoverProvider implements vscode.HoverProvider {
 
 // ── Linting orchestration ─────────────────────────────────────────────────────
 
-/** Returns true if the document looks like it might be a VAST file. */
+/** Returns true if the document looks like it might contain a VAST document. */
 function isVastDocument(doc: vscode.TextDocument): boolean {
   // Accept any text-like language — detect VAST by content, not languageId,
-  // because the Dev Host may not have an XML extension and falls back to 'plaintext'.
+  // so template files (.erb, .go, .html, etc.) with embedded VAST are supported.
   const lang = doc.languageId;
   if (lang === 'log' || lang === 'output') return false;
-  // Quick heuristic — check for <VAST in the first 2 KB.
-  const head = doc.getText(new vscode.Range(0, 0, Math.min(50, doc.lineCount), 0));
-  return head.includes('<VAST') || head.includes('</VAST>');
+  // Scan full document text for <VAST (may appear anywhere in template files).
+  return doc.getText().includes('<VAST');
 }
 
 function lintDocument(
@@ -428,19 +529,16 @@ export function activate(context: vscode.ExtensionContext): void {
   const collection = vscode.languages.createDiagnosticCollection('vastlint');
   context.subscriptions.push(collection);
 
-  // Hover provider — XML files only.
+  // Hover provider — any file, content-gated by isVastDocument.
   const hoverProvider = vscode.languages.registerHoverProvider(
-    { language: 'xml', scheme: 'file' },
+    [{ scheme: 'file' }, { scheme: 'untitled' }],
     new VastlintHoverProvider(collection),
   );
   context.subscriptions.push(hoverProvider);
 
   // Code action provider — offers "Fix" actions for auto-repairable diagnostics.
   const codeActionProvider = vscode.languages.registerCodeActionsProvider(
-    [
-      { language: 'xml',       scheme: 'file' },
-      { language: 'plaintext', scheme: 'file' },
-    ],
+    [{ scheme: 'file' }, { scheme: 'untitled' }],
     new VastlintCodeActionProvider(collection),
     {
       providedCodeActionKinds: [

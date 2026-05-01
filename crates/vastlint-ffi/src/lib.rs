@@ -282,6 +282,7 @@ pub unsafe extern "C" fn vastlint_validate_with_options(
             max_wrapper_depth as u8
         },
         rule_overrides: overrides,
+        forced_version: None,
     };
 
     build_result(vastlint_core::validate_with_context(input, ctx))

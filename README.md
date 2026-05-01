@@ -138,6 +138,12 @@ vastlint check tag.xml --no-fail
 # opt in to anonymous usage telemetry (see Telemetry section below)
 vastlint check tag.xml --telemetry
 
+# override the VAST version used for validation (ignores the version= attribute)
+vastlint check tag.xml --vast-version 4.2
+
+# replace template macros before validation so URL rules don't fire on placeholders
+vastlint check tag.xml --ignore-pattern '\$\{[^}]+\}|%%[^%]+%%'
+
 # list all rules with default severity
 vastlint rules
 

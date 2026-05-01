@@ -1444,3 +1444,128 @@ fn linear_with_quartile_tracking_does_not_fire() {
         result.issues
     );
 }
+
+// ── forced_version override ───────────────────────────────────────────────────
+
+/// A minimal VAST 2.0 InLine document — valid for 2.0, missing 4.1+ required
+/// fields (`AdServingId`, `UniversalAdId`).
+const V2_INLINE_XML: &str = r#"<VAST version="2.0">
+  <Ad id="1">
+    <InLine>
+      <AdSystem>Test</AdSystem>
+      <AdTitle>Test Ad</AdTitle>
+      <Impression><![CDATA[https://t.example.com/imp]]></Impression>
+      <Creatives>
+        <Creative>
+          <Linear>
+            <Duration>00:00:30</Duration>
+            <MediaFiles>
+              <MediaFile type="video/mp4" width="640" height="480" bitrate="500" delivery="progressive">
+                <![CDATA[https://cdn.example.com/ad.mp4]]>
+              </MediaFile>
+            </MediaFiles>
+          </Linear>
+        </Creative>
+      </Creatives>
+    </InLine>
+  </Ad>
+</VAST>"#;
+
+#[test]
+fn forced_version_overrides_declared_version() {
+    use vastlint_core::{validate_with_context, ValidationContext, VastVersion};
+
+    // Force a 2.0 document to be validated as 4.1 — the 4.1-specific
+    // AdServingId rule must fire even though the document declares 2.0.
+    let ctx = ValidationContext {
+        forced_version: Some(VastVersion::V4_1),
+        ..Default::default()
+    };
+    let result = validate_with_context(V2_INLINE_XML, ctx);
+    assert!(
+        has_issue(&result, "VAST-4.1-adservingid-present"),
+        "forced V4_1 should fire VAST-4.1-adservingid-present on a 2.0 doc, got: {:#?}",
+        result.issues
+    );
+}
+
+#[test]
+fn forced_version_reported_in_result() {
+    use vastlint_core::{validate_with_context, DetectedVersion, ValidationContext, VastVersion};
+
+    let ctx = ValidationContext {
+        forced_version: Some(VastVersion::V4_1),
+        ..Default::default()
+    };
+    let result = validate_with_context(V2_INLINE_XML, ctx);
+    // The reported version should reflect the override, not the XML attribute.
+    assert_eq!(
+        result.version,
+        DetectedVersion::Declared(VastVersion::V4_1),
+        "result.version should be Declared(V4_1) when forced, got: {:?}",
+        result.version
+    );
+}
+
+#[test]
+fn no_forced_version_uses_declared_version() {
+    use vastlint_core::{validate_with_context, ValidationContext};
+
+    // Without an override the 2.0 document is validated as 2.0 and the
+    // 4.1-specific AdServingId rule must NOT fire.
+    let ctx = ValidationContext::default();
+    let result = validate_with_context(V2_INLINE_XML, ctx);
+    assert!(
+        !has_issue(&result, "VAST-4.1-adservingid-present"),
+        "VAST-4.1-adservingid-present must not fire on a plain 2.0 doc, got: {:#?}",
+        result.issues
+    );
+}
+
+#[test]
+fn forced_version_downgrade_suppresses_newer_rules() {
+    use vastlint_core::{validate_with_context, ValidationContext, VastVersion};
+
+    // A fully valid 4.1 document forced to 2.0: none of the 4.x-only rules
+    // should fire.
+    let xml = include_str!("fixtures/valid_4.1.xml");
+    let ctx = ValidationContext {
+        forced_version: Some(VastVersion::V2_0),
+        ..Default::default()
+    };
+    let result = validate_with_context(xml, ctx);
+    for issue in &result.issues {
+        assert!(
+            !issue.id.starts_with("VAST-4."),
+            "downgrading to V2_0 should suppress all 4.x rules, but {:?} fired",
+            issue.id
+        );
+    }
+}
+
+#[test]
+fn forced_version_none_is_identity() {
+    use vastlint_core::{validate, validate_with_context, ValidationContext};
+
+    // forced_version: None must produce exactly the same result as validate().
+    let xml = include_str!("fixtures/valid_4.2.xml");
+    let ctx = ValidationContext {
+        forced_version: None,
+        ..Default::default()
+    };
+    let result_ctx = validate_with_context(xml, ctx);
+    let result_plain = validate(xml);
+    assert_eq!(
+        result_ctx.summary.errors, result_plain.summary.errors,
+        "forced_version: None should be identical to validate() (errors)"
+    );
+    assert_eq!(
+        result_ctx.summary.warnings, result_plain.summary.warnings,
+        "forced_version: None should be identical to validate() (warnings)"
+    );
+    assert_eq!(
+        result_ctx.issues.len(),
+        result_plain.issues.len(),
+        "forced_version: None issue count mismatch"
+    );
+}

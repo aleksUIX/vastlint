@@ -11,7 +11,7 @@ use anstyle::{AnsiColor, Color, Style};
 use clap::{Parser, Subcommand, ValueEnum};
 use vastlint_core::{
     fix_with_context, validate_with_context, FixResult, Issue, RuleLevel, Severity,
-    ValidationContext, ValidationResult,
+    ValidationContext, ValidationResult, VastVersion,
 };
 
 mod telemetry;
@@ -77,6 +77,20 @@ enum Command {
         /// Off by default. See README for what is sent.
         #[arg(long)]
         telemetry: bool,
+
+        /// Treat the input as this VAST spec version regardless of the version
+        /// attribute declared in the XML. Useful for templates or tags where the
+        /// version attribute is absent, wrong, or not yet set.
+        /// Accepted values: 2.0, 3.0, 4.0, 4.1, 4.2, 4.3
+        #[arg(long, value_name = "VERSION")]
+        vast_version: Option<String>,
+
+        /// Replace substrings matching this regex with a safe placeholder before
+        /// validating. Use to suppress false positives from template variables
+        /// such as ${CLICK_URL}, %%TRACKING_URL%%, or [CACHEBUSTER].
+        /// Applied once to the full XML string before any parsing.
+        #[arg(long, value_name = "PATTERN")]
+        ignore_pattern: Option<String>,
     },
     /// List all known rule IDs with their default severity
     Rules,
@@ -112,7 +126,23 @@ enum Command {
         /// Skip config file loading entirely
         #[arg(long)]
         no_config: bool,
+
+        /// Treat the input as this VAST spec version regardless of the version
+        /// attribute declared in the XML.
+        /// Accepted values: 2.0, 3.0, 4.0, 4.1, 4.2, 4.3
+        #[arg(long, value_name = "VERSION")]
+        vast_version: Option<String>,
+
+        /// Replace substrings matching this regex with a safe placeholder before
+        /// fixing. Use to suppress noise from template variables.
+        #[arg(long, value_name = "PATTERN")]
+        ignore_pattern: Option<String>,
     },
+    /// Run as a long-lived port daemon for Erlang/Elixir OTP integration.
+    /// Reads length-prefixed VAST XML from stdin, writes length-prefixed JSON
+    /// validation results to stdout. Compatible with Erlang port option
+    /// `{:packet, 4}`. Runs until stdin is closed by the BEAM supervisor.
+    Daemon,
 }
 
 #[derive(ValueEnum, Clone)]
@@ -146,6 +176,8 @@ fn main() -> ExitCode {
             config,
             no_config,
             telemetry,
+            vast_version,
+            ignore_pattern,
         } => {
             if no_color {
                 std::env::set_var("NO_COLOR", "1");
@@ -160,6 +192,8 @@ fn main() -> ExitCode {
                 config,
                 no_config,
                 telemetry,
+                vast_version,
+                ignore_pattern,
             )
         }
         Command::Rules => {
@@ -174,12 +208,15 @@ fn main() -> ExitCode {
             no_color,
             config,
             no_config,
+            vast_version,
+            ignore_pattern,
         } => {
             if no_color {
                 std::env::set_var("NO_COLOR", "1");
             }
-            run_fix(file, out, dry_run, format, config, no_config)
+            run_fix(file, out, dry_run, format, config, no_config, vast_version, ignore_pattern)
         }
+        Command::Daemon => run_daemon(),
     }
 }
 
@@ -318,7 +355,23 @@ fn run_check(
     config_path: Option<String>,
     no_config: bool,
     telemetry_flag: bool,
+    vast_version: Option<String>,
+    ignore_pattern: Option<String>,
 ) -> ExitCode {
+    let forced_version = match parse_vast_version_arg(vast_version) {
+        Ok(v) => v,
+        Err(e) => {
+            eprintln!("error: {}", e);
+            return ExitCode::from(EXIT_USAGE_ERROR);
+        }
+    };
+    let ignore_re = match build_ignore_regex(ignore_pattern) {
+        Ok(r) => r,
+        Err(e) => {
+            eprintln!("error: {}", e);
+            return ExitCode::from(EXIT_USAGE_ERROR);
+        }
+    };
     let cfg = match load_config(config_path, no_config) {
         Ok(c) => c,
         Err(e) => {
@@ -368,16 +421,18 @@ fn run_check(
             }
         } else {
             // ── File / stdin mode ─────────────────────────────────────────────
-            let input = match read_input(file) {
+            let raw = match read_input(file) {
                 Ok(s) => s,
                 Err(e) => {
                     eprintln!("{}: {}", file, e);
                     return ExitCode::from(EXIT_USAGE_ERROR);
                 }
             };
+            let input = apply_ignore(&raw, &ignore_re);
 
             let ctx = ValidationContext {
                 rule_overrides: rule_overrides.clone(),
+                forced_version,
                 ..Default::default()
             };
             let result = validate_with_context(&input, ctx);
@@ -452,6 +507,7 @@ fn fetch_and_validate_chain(
                     wrapper_depth: depth,
                     max_wrapper_depth: max_depth,
                     rule_overrides: rule_overrides.clone(),
+                    forced_version: None,
                 };
                 results.push((label, validate_with_context("", ctx)));
                 break;
@@ -468,6 +524,7 @@ fn fetch_and_validate_chain(
             wrapper_depth: depth,
             max_wrapper_depth: max_depth,
             rule_overrides: rule_overrides.clone(),
+            forced_version: None,
         };
         let result = validate_with_context(&xml, ctx);
         let next_url = extract_vast_ad_tag_uri(&xml);
@@ -824,7 +881,23 @@ fn run_fix(
     format: Format,
     config_path: Option<String>,
     no_config: bool,
+    vast_version: Option<String>,
+    ignore_pattern: Option<String>,
 ) -> ExitCode {
+    let forced_version = match parse_vast_version_arg(vast_version) {
+        Ok(v) => v,
+        Err(e) => {
+            eprintln!("error: {}", e);
+            return ExitCode::from(EXIT_USAGE_ERROR);
+        }
+    };
+    let ignore_re = match build_ignore_regex(ignore_pattern) {
+        Ok(r) => r,
+        Err(e) => {
+            eprintln!("error: {}", e);
+            return ExitCode::from(EXIT_USAGE_ERROR);
+        }
+    };
     let cfg = match load_config(config_path, no_config) {
         Ok(c) => c,
         Err(e) => {
@@ -836,16 +909,18 @@ fn run_fix(
     let rule_overrides = cfg.and_then(|c| c.rule_overrides);
     let ctx = ValidationContext {
         rule_overrides,
+        forced_version,
         ..Default::default()
     };
 
-    let input = match read_input(&file) {
+    let raw = match read_input(&file) {
         Ok(s) => s,
         Err(e) => {
             eprintln!("{}: {}", file, e);
             return ExitCode::from(EXIT_USAGE_ERROR);
         }
     };
+    let input = apply_ignore(&raw, &ignore_re);
 
     let result = fix_with_context(&input, ctx);
     let is_stdin = file == "-";
@@ -1037,4 +1112,147 @@ fn run_rules() {
         "\n{}$ = revenue impact — violation results in lost impressions, broken measurement, or zero fill{}",
         DIM_STYLE.render(), DIM_STYLE.render_reset()
     );
+}
+
+// ── --vast-version / --ignore-pattern helpers ─────────────────────────────────
+
+/// Parse the `--vast-version` argument string into an optional `VastVersion`.
+fn parse_vast_version_arg(s: Option<String>) -> Result<Option<VastVersion>, String> {
+    match s.as_deref() {
+        None => Ok(None),
+        Some("2.0") => Ok(Some(VastVersion::V2_0)),
+        Some("3.0") => Ok(Some(VastVersion::V3_0)),
+        Some("4.0") => Ok(Some(VastVersion::V4_0)),
+        Some("4.1") => Ok(Some(VastVersion::V4_1)),
+        Some("4.2") => Ok(Some(VastVersion::V4_2)),
+        Some("4.3") => Ok(Some(VastVersion::V4_3)),
+        Some(other) => Err(format!(
+            "--vast-version \"{other}\" is not a recognised VAST version — accepted: 2.0, 3.0, 4.0, 4.1, 4.2, 4.3"
+        )),
+    }
+}
+
+/// Compile the `--ignore-pattern` regex. Returns `None` when no pattern was given.
+fn build_ignore_regex(pattern: Option<String>) -> Result<Option<regex::Regex>, String> {
+    match pattern {
+        None => Ok(None),
+        Some(p) => regex::Regex::new(&p)
+            .map(Some)
+            .map_err(|e| format!("--ignore-pattern: invalid regex: {e}")),
+    }
+}
+
+/// Replace every match of `re` in `input` with a benign placeholder.
+/// The placeholder is chosen to be a valid HTTPS URL so URL-field validators
+/// do not fire on the substituted positions.
+fn apply_ignore(input: &str, re: &Option<regex::Regex>) -> String {
+    match re {
+        None => input.to_owned(),
+        Some(r) => r.replace_all(input, "https://placeholder.vastlint.invalid").into_owned(),
+    }
+}
+
+// ── daemon subcommand ─────────────────────────────────────────────────────────
+
+/// OTP port daemon for Erlang/Elixir integration.
+///
+/// Protocol: 4-byte big-endian message length (Erlang `{:packet, 4}` framing).
+///   stdin  → 4-byte BE length | raw VAST XML bytes (UTF-8)
+///   stdout → 4-byte BE length | JSON validation result bytes
+///
+/// Runs until stdin EOF (BEAM supervisor closed the port). All coloured output
+/// is suppressed — stdout is reserved for the binary protocol.
+fn run_daemon() -> ExitCode {
+    use std::io::{BufWriter, ErrorKind, Write};
+
+    // Suppress any colour output that could contaminate the binary protocol.
+    std::env::set_var("NO_COLOR", "1");
+
+    let stdin = std::io::stdin();
+    let stdout = std::io::stdout();
+    let mut stdin = stdin.lock();
+    let mut out = BufWriter::new(stdout.lock());
+
+    loop {
+        // Read the 4-byte big-endian length prefix.
+        let mut len_buf = [0u8; 4];
+        match stdin.read_exact(&mut len_buf) {
+            Ok(()) => {}
+            Err(e) if e.kind() == ErrorKind::UnexpectedEof => break, // port closed — clean exit
+            Err(e) => {
+                let _ = writeln!(std::io::stderr(), "vastlint daemon: read error: {e}");
+                return ExitCode::from(EXIT_USAGE_ERROR);
+            }
+        }
+
+        let msg_len = u32::from_be_bytes(len_buf) as usize;
+        let mut xml_buf = vec![0u8; msg_len];
+        if let Err(e) = stdin.read_exact(&mut xml_buf) {
+            let _ = writeln!(std::io::stderr(), "vastlint daemon: read error: {e}");
+            return ExitCode::from(EXIT_USAGE_ERROR);
+        }
+
+        let response = match std::str::from_utf8(&xml_buf) {
+            Ok(xml) => {
+                let result = validate_with_context(xml, ValidationContext::default());
+                daemon_result_json(&result)
+            }
+            Err(_) => {
+                // Invalid UTF-8 — return a structured error response rather than crashing.
+                r#"{"version":"unknown","valid":false,"summary":{"errors":1,"warnings":0,"infos":0},"issues":[{"id":"daemon-invalid-utf8","severity":"error","message":"Input is not valid UTF-8","path":null,"spec_ref":""}]}"#
+                    .to_owned()
+            }
+        };
+
+        let bytes = response.as_bytes();
+        let out_len = (bytes.len() as u32).to_be_bytes();
+        // Any write failure means the port owner closed stdout — exit cleanly.
+        if out.write_all(&out_len).is_err()
+            || out.write_all(bytes).is_err()
+            || out.flush().is_err()
+        {
+            break;
+        }
+    }
+
+    ExitCode::SUCCESS
+}
+
+/// Serialize a `ValidationResult` to the daemon JSON wire format.
+/// Shape matches the documented vastlint-erlang OTP port response.
+fn daemon_result_json(result: &ValidationResult) -> String {
+    let version_str = result
+        .version
+        .best()
+        .map(|v| v.as_str())
+        .unwrap_or("unknown");
+
+    let issues_json: Vec<String> = result
+        .issues
+        .iter()
+        .map(|i| {
+            let path = match &i.path {
+                Some(p) => format!("\"{}\"", json_escape(p)),
+                None => "null".to_owned(),
+            };
+            format!(
+                "{{\"id\":\"{}\",\"severity\":\"{}\",\"message\":\"{}\",\"path\":{},\"spec_ref\":\"{}\"}}", 
+                i.id,
+                i.severity.as_str(),
+                json_escape(i.message),
+                path,
+                i.spec_ref,
+            )
+        })
+        .collect();
+
+    format!(
+        "{{\"version\":\"{}\",\"valid\":{},\"summary\":{{\"errors\":{},\"warnings\":{},\"infos\":{}}},\"issues\":[{}]}}",
+        version_str,
+        result.summary.is_valid(),
+        result.summary.errors,
+        result.summary.warnings,
+        result.summary.infos,
+        issues_json.join(","),
+    )
 }

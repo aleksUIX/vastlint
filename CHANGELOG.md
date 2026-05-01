@@ -6,6 +6,24 @@ GitHub Releases: <https://github.com/aleksUIX/vastlint/releases>
 
 ---
 
+## [0.4.3] - 2026-04-30
+
+### CLI (`vastlint-cli`)
+
+- **`--vast-version <version>`** (`check` and `fix`) — override the VAST version used for validation, ignoring the `version=` attribute in the XML. Accepts `2.0`, `3.0`, `4.0`, `4.1`, `4.2`, `4.3`. Useful for enforcing a floor version across all incoming tags or testing how a tag scores against a target version.
+- **`--ignore-pattern <regex>`** (`check` and `fix`) — replace all matches of the supplied regular expression with a valid HTTPS placeholder before validation. Designed for ad-server templating macros (`${IMPRESSION_URL}`, `%%CACHEBUSTER%%`) that would otherwise trigger URL-format errors on unresolved placeholders. The substitution is in-memory only — the original file is never modified.
+
+### vastlint-core
+
+- `ValidationContext` gains `forced_version: Option<VastVersion>` — when `Some`, skips XML version detection entirely and uses the supplied value. Used by the CLI flags above; available to library consumers.
+- `VastVersion` now derives `Copy`.
+
+### OTP port daemon
+
+- **`vastlint daemon`** subcommand — speaks the Erlang `{:packet, 4}` binary framing protocol over stdin/stdout. Reads 4-byte big-endian length + raw UTF-8 VAST XML; writes 4-byte big-endian length + JSON validation result. Safe for production Elixir pipelines via `NimblePool` (each worker holds one persistent `Port`). Does not require the NIF.
+
+---
+
 ## [0.4.2] - 2026-04-28
 
 ### VS Code extension
