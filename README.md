@@ -35,7 +35,7 @@ Validates VAST documents against:
 
 118 rules across required fields, schema validation, structural correctness, security, consistency, deprecated features, ambiguous usage, and value formats. Rules marked with `$` have direct revenue impact - use `vastlint check --fail-on-warning` in CI to catch them before they reach production. See [common errors](docs/common-errors.md) for the ones that cost real money. New to vastlint? Start with the [tutorial](docs/tutorial.md).
 
-Full rule reference with examples and fix instructions: [VAST error rule reference](https://vastlint.org/docs/rules)
+Full rule reference with examples and fix instructions: [VAST error rule reference](https://vastlint.org/docs/rules) · [RULES.md](RULES.md)
 
 ## Enterprise readiness
 
