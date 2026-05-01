@@ -77,6 +77,8 @@ for (const rule of rules()) {
 }
 ```
 
+Full rule reference with examples and fix guidance: [vastlint.org/docs/rules](https://vastlint.org/docs/rules/)
+
 ---
 
 ## Result shape

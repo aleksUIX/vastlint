@@ -13,6 +13,8 @@ Part of the [IAB Tech Lab AAMP](https://iabtechlab.com/standards/aamp-agentic-ad
 | `validate_vast` | Validate raw VAST XML. Returns issues with severity, rule ID, location, and spec reference. |
 | `validate_vast_url` | Fetch a VAST tag from a URL and validate it. Handles wrapper chains. |
 | `list_rules` | List all 108 validation rules with IDs, severities, and descriptions. Cache the result. |
+
+Full rule reference with examples and fix guidance: [vastlint.org/docs/rules](https://vastlint.org/docs/rules/)
 | `explain_rule` | Get full details and fix guidance for a specific rule ID. |
 
 ---
