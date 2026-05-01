@@ -71,6 +71,11 @@
           "type": "string",
           "default": "",
           "description": "A JavaScript regex pattern whose matches are erased (same-length replacement) before validation. Use this to strip template expressions so they don't produce false-positive XML parse errors. Examples: Mustache/Handlebars: '\\{\\{[^}]*\\}\\}' · ERB/EJS: '<[%=].*?%>' · Go templates: '\\{\\{[\\s\\S]*?\\}\\}'"
+        },
+        "vastlint.cliPath": {
+          "type": "string",
+          "default": "vastlint",
+          "description": "Path to the vastlint CLI binary. Defaults to 'vastlint' (searched on PATH and common install locations). Set an absolute path if the binary is not on PATH. When found, the CLI is used for validation; the bundled WASM is used as a fallback."
         }
       }
     }

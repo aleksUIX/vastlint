@@ -87,7 +87,7 @@ enum Command {
 
         /// Replace substrings matching this regex with a safe placeholder before
         /// validating. Use to suppress false positives from template variables
-        /// such as ${CLICK_URL}, %%TRACKING_URL%%, or [CACHEBUSTER].
+        /// such as ${CLICK_URL}, %%TRACKING_URL%%, or \[CACHEBUSTER\].
         /// Applied once to the full XML string before any parsing.
         #[arg(long, value_name = "PATTERN")]
         ignore_pattern: Option<String>,
@@ -214,7 +214,16 @@ fn main() -> ExitCode {
             if no_color {
                 std::env::set_var("NO_COLOR", "1");
             }
-            run_fix(file, out, dry_run, format, config, no_config, vast_version, ignore_pattern)
+            run_fix(
+                file,
+                out,
+                dry_run,
+                format,
+                config,
+                no_config,
+                vast_version,
+                ignore_pattern,
+            )
         }
         Command::Daemon => run_daemon(),
     }
@@ -1148,7 +1157,9 @@ fn build_ignore_regex(pattern: Option<String>) -> Result<Option<regex::Regex>, S
 fn apply_ignore(input: &str, re: &Option<regex::Regex>) -> String {
     match re {
         None => input.to_owned(),
-        Some(r) => r.replace_all(input, "https://placeholder.vastlint.invalid").into_owned(),
+        Some(r) => r
+            .replace_all(input, "https://placeholder.vastlint.invalid")
+            .into_owned(),
     }
 }
 
@@ -1207,9 +1218,7 @@ fn run_daemon() -> ExitCode {
         let bytes = response.as_bytes();
         let out_len = (bytes.len() as u32).to_be_bytes();
         // Any write failure means the port owner closed stdout — exit cleanly.
-        if out.write_all(&out_len).is_err()
-            || out.write_all(bytes).is_err()
-            || out.flush().is_err()
+        if out.write_all(&out_len).is_err() || out.write_all(bytes).is_err() || out.flush().is_err()
         {
             break;
         }

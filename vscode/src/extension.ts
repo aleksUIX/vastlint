@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { spawn } from 'child_process';
 // Import types only from the package (compile-time, no runtime cost).
 import type { Issue, RuleMeta } from 'vastlint';
 // Use the CJS entry directly at runtime — the package has "type":"module" which
@@ -207,6 +208,100 @@ function extractVastBlocks(text: string): VastBlock[] {
   }
 
   return blocks;
+}
+
+// ── CLI integration ───────────────────────────────────────────────────────────
+
+/** JSON shape produced by `vastlint check - --format json`. Issues are identical to the WASM Issue type. */
+interface CliCheckResult {
+  issues: Issue[];
+}
+
+/**
+ * Common locations where `cargo install vastlint` or Homebrew place the binary.
+ * Tried in order when the configured path is the default `"vastlint"` and
+ * is not found on the VS Code process PATH (common on macOS GUI launches).
+ */
+const FALLBACK_CLI_PATHS = [
+  `${process.env['HOME'] ?? ''}/.cargo/bin/vastlint`,
+  '/opt/homebrew/bin/vastlint',
+  '/usr/local/bin/vastlint',
+  '/usr/bin/vastlint',
+];
+
+/** Cached resolved CLI path. `undefined` = not yet probed; `null` = not found (use WASM). */
+let resolvedCliPath: string | null | undefined = undefined;
+/** The configured path that `resolvedCliPath` corresponds to. */
+let resolvedCliConfigValue: string | undefined = undefined;
+
+/**
+ * Resolve the effective CLI binary path.
+ * Probes `configuredPath` first; if it fails and the path is the default
+ * `"vastlint"`, also tries common install locations.
+ * Returns `null` when no binary is found — callers fall back to WASM.
+ */
+async function getCliPath(configuredPath: string): Promise<string | null> {
+  if (resolvedCliConfigValue === configuredPath && resolvedCliPath !== undefined) {
+    return resolvedCliPath;
+  }
+  resolvedCliConfigValue = configuredPath;
+
+  const candidates = configuredPath === 'vastlint'
+    ? [configuredPath, ...FALLBACK_CLI_PATHS]
+    : [configuredPath];
+
+  for (const candidate of candidates) {
+    if (!candidate) continue;
+    if (await probeCliPath(candidate)) {
+      resolvedCliPath = candidate;
+      return candidate;
+    }
+  }
+
+  resolvedCliPath = null;
+  return null;
+}
+
+/** Returns true when `path` resolves to an executable vastlint binary. */
+function probeCliPath(path: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    const proc = spawn(path, ['--version'], { stdio: 'ignore' });
+    proc.on('error', () => resolve(false));
+    proc.on('close', () => resolve(true));
+  });
+}
+
+/**
+ * Spawn `vastlint check - --format json --no-color --no-fail`, write `blockXml`
+ * to stdin, and resolve with the parsed JSON result.
+ * Rejects on spawn failure (ENOENT) or CLI exit code 2 (usage error).
+ */
+function spawnCli(cliPath: string, blockXml: string): Promise<CliCheckResult> {
+  return new Promise((resolve, reject) => {
+    const proc = spawn(
+      cliPath,
+      ['check', '-', '--format', 'json', '--no-color', '--no-fail'],
+      { stdio: ['pipe', 'pipe', 'pipe'] },
+    );
+
+    let stdout = '';
+    proc.stdout.on('data', (chunk: Buffer) => { stdout += chunk.toString('utf8'); });
+    proc.on('error', reject);
+    proc.on('close', (code) => {
+      if (code === 2) {
+        reject(new Error('vastlint CLI usage error'));
+        return;
+      }
+      try {
+        resolve(JSON.parse(stdout.trim()) as CliCheckResult);
+      } catch {
+        reject(new Error(`vastlint CLI: unexpected output: ${stdout.slice(0, 200)}`));
+      }
+    });
+
+    proc.stdin.write(blockXml, 'utf8');
+    proc.stdin.end();
+  });
 }
 
 // ── Severity mapping ──────────────────────────────────────────────────────────
