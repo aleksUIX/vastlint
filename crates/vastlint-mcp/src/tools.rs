@@ -172,8 +172,8 @@ impl VastlintServer {
                 message: issue.message.to_string(),
                 spec_ref: issue.spec_ref.to_string(),
                 path: issue.path.clone(),
-                line: issue.line.map(|l| l as u32),
-                col: issue.col.map(|c| c as u32),
+                line: issue.line,
+                col: issue.col,
             })
             .collect();
 
@@ -300,7 +300,7 @@ impl VastlintServer {
                 message: issue.message.to_string(),
                 spec_ref: issue.spec_ref.to_string(),
                 path: issue.path.clone(),
-                line: issue.line.map(|l| l as u32),
+                line: issue.line,
                 col: None,
             })
             .collect();
@@ -359,7 +359,7 @@ impl VastlintServer {
                 message: issue.message.to_string(),
                 spec_ref: issue.spec_ref.to_string(),
                 path: issue.path.clone(),
-                line: issue.line.map(|l| l as u32),
+                line: issue.line,
                 col: None,
             })
             .collect();
