@@ -27,6 +27,6 @@ clap = { version = "4", features = ["derive"] }
 anstream = "0.6"
 anstyle = "1"
 # Config file parsing
-toml = { version = "1.1", default-features = false, features = ["parse"] }
+toml = { version = "1.1", default-features = false, features = ["parse", "serde"] }
 # Opt-in telemetry ping (rustls, no OpenSSL dependency)
 ureq = { version = "2", default-features = false, features = ["tls"] }
