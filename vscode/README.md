@@ -5,11 +5,14 @@ Supports VAST 2.0 through 4.3.
 
 ## Features
 
-- **Inline squiggles** - red (error), yellow (warning), blue (info) underlines on the offending XML tag
-- **Hover tooltips** - hover over any squiggle to see the rule ID, what's wrong, and exactly how to fix it
-- **Problems panel** - all issues listed with file, line, and column; click to jump directly to the tag
-- **Live as you type** - re-validates 500ms after you stop typing, and on every save
-- **Configurable** - silence rules, change severities, or set a minimum severity threshold
+- **Inline squiggles** — red (error), yellow (warning), blue (info) underlines on the offending XML tag
+- **Hover tooltips** — rule ID, what's wrong, fix guidance, spec reference, and XPath location
+- **Problems panel** — all issues listed with file, line, and column; click to jump directly to the tag
+- **Any file type** — works in `.xml`, `.html`, `.js`, `.ts`, `.json`, templates — anywhere `<VAST>` appears
+- **Multi-block** — validates every `<VAST>...</VAST>` block in a file independently
+- **Live as you type** — re-validates 500 ms after you stop typing, and on every save
+- **CLI backend** — uses the `vastlint` CLI binary when available, falls back to WASM in-process
+- **108 rules** across VAST 2.0–4.3: required fields, schema structure, URLs, deprecations, CTV/SSAI advisories
 
 ## How it looks
 
@@ -31,7 +34,10 @@ Hover over a squiggled tag:
 |---|---|---|
 | `vastlint.enable` | `true` | Enable/disable diagnostics |
 | `vastlint.minSeverity` | `"info"` | Minimum severity to show: `"error"`, `"warning"`, or `"info"` |
-| `vastlint.ruleOverrides` | `{}` | Per-rule overrides, e.g. `{ "VAST-2.0-mediafile-https": "off" }` |
+| `vastlint.ruleOverrides` | `{}` | Per-rule severity overrides (WASM fallback only — use `vastlint.toml` in CLI mode) |
+| `vastlint.templateIgnoreRegex` | `""` | Regex for template expressions to blank out before validation (e.g. `\$\{[^}]+\}`) |
+| `vastlint.vastVersion` | `""` | Force a VAST version (`"2.0"`, `"3.0"`, `"4.0"`, `"4.1"`, `"4.2"`, `"4.3"`) — blank = auto-detect |
+| `vastlint.cliPath` | `"vastlint"` | Path to the `vastlint` CLI binary. Falls back to common install locations, then WASM. |
 
 ### Example: silence HTTP warnings
 
