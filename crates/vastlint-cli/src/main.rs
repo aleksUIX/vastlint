@@ -883,6 +883,7 @@ fn json_escape(s: &str) -> String {
 
 // ── fix subcommand ────────────────────────────────────────────────────────────
 
+#[allow(clippy::too_many_arguments)]
 fn run_fix(
     file: String,
     out: Option<String>,
