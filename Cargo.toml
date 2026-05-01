@@ -11,4 +11,4 @@ exclude = ["scratch/bench-core", "fuzz"]
 resolver = "2"
 
 [workspace.package]
-rust-version = "1.86"
+rust-version = "1.91"

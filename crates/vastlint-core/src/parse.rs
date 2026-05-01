@@ -217,7 +217,7 @@ pub fn parse(input: &str) -> VastDocument {
 
             Ok(Event::Text(e)) => {
                 if let Some(node) = stack.last_mut() {
-                    if let Ok(text) = e.unescape() {
+                    if let Ok(text) = e.xml10_content() {
                         let trimmed = text.trim().to_owned();
                         if !trimmed.is_empty() {
                             node.text = trimmed;
