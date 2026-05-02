@@ -65,10 +65,14 @@ pub struct ExplainRuleInput {
 #[allow(dead_code)]
 #[derive(Debug, Deserialize, schemars::JsonSchema, Default)]
 pub struct GetAdcpCapabilitiesInput {
-    #[schemars(description = "AdCP major version the caller's payloads conform to. When omitted, assumes highest supported version (3).")]
+    #[schemars(
+        description = "AdCP major version the caller's payloads conform to. When omitted, assumes highest supported version (3)."
+    )]
     #[serde(default)]
     pub adcp_major_version: Option<u32>,
-    #[schemars(description = "Filter to specific protocol names. When omitted, returns all supported protocols.")]
+    #[schemars(
+        description = "Filter to specific protocol names. When omitted, returns all supported protocols."
+    )]
     #[serde(default)]
     pub protocols: Option<Vec<String>>,
 }
@@ -873,7 +877,8 @@ impl VastlintServer {
                         feature_type: "binary".to_string(),
                         description: "VAST 2.0\u{2013}4.x spec compliance. Checks for required \
                             elements, correct attribute values, and structural issues per IAB VAST \
-                            specification.".to_string(),
+                            specification."
+                            .to_string(),
                         methodology_url: Some("https://vastlint.org/rules".to_string()),
                     },
                     GovernanceFeature {
@@ -881,14 +886,16 @@ impl VastlintServer {
                         feature_type: "binary".to_string(),
                         description: "Detects insecure http:// MediaFile URLs in VAST creatives \
                             that would be blocked by most video players and violate VAST 4.x \
-                            requirements.".to_string(),
+                            requirements."
+                            .to_string(),
                         methodology_url: None,
                     },
                     GovernanceFeature {
                         feature_id: "vast_wrapper_depth".to_string(),
                         feature_type: "binary".to_string(),
                         description: "Flags VAST wrapper chains that exceed the IAB-recommended \
-                            maximum redirect depth of 5 hops.".to_string(),
+                            maximum redirect depth of 5 hops."
+                            .to_string(),
                         methodology_url: None,
                     },
                 ],
