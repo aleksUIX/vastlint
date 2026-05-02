@@ -270,20 +270,18 @@ fn extract_hop_meta(xml: &str) -> HopMeta {
                         let mut width = String::new();
                         let mut height = String::new();
                         let mut bitrate = String::new();
-                        for attr_res in e.attributes() {
-                            if let Ok(attr) = attr_res {
-                                let k = std::str::from_utf8(attr.key.as_ref())
-                                    .unwrap_or("")
-                                    .to_owned();
-                                let v = String::from_utf8_lossy(&attr.value).into_owned();
-                                match k.as_str() {
-                                    "type" => mime_type = v,
-                                    "delivery" => delivery = v,
-                                    "width" => width = v,
-                                    "height" => height = v,
-                                    "bitrate" => bitrate = v,
-                                    _ => {}
-                                }
+                        for attr in e.attributes().flatten() {
+                            let k = std::str::from_utf8(attr.key.as_ref())
+                                .unwrap_or("")
+                                .to_owned();
+                            let v = String::from_utf8_lossy(&attr.value).into_owned();
+                            match k.as_str() {
+                                "type" => mime_type = v,
+                                "delivery" => delivery = v,
+                                "width" => width = v,
+                                "height" => height = v,
+                                "bitrate" => bitrate = v,
+                                _ => {}
                             }
                         }
                         pending_mf = Some((mime_type, delivery, width, height, bitrate));
