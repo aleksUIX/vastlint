@@ -86,46 +86,50 @@ jobs:
         if: steps.latest.outputs.skipped != 'true' && steps.existing.outputs.count == '0'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE_TAG: ${{ steps.latest.outputs.tag }}
+          ISSUE_SPEC: ${{ matrix.spec }}
+          ISSUE_URL: ${{ steps.latest.outputs.url }}
+          ISSUE_PUBLISHED: ${{ steps.latest.outputs.published }}
+          ISSUE_REPO: ${{ matrix.repo }}
+          ISSUE_WORKFLOW_URL: https://github.com/${{ github.repository }}/actions/workflows/spec-watch.yml
+          ISSUE_REPO_URL: https://github.com/${{ matrix.repo }}
         run: |
-          TAG="${{ steps.latest.outputs.tag }}"
-          SPEC="${{ matrix.spec }}"
-          URL="${{ steps.latest.outputs.url }}"
-          PUBLISHED="${{ steps.latest.outputs.published }}"
-          REPO="${{ matrix.repo }}"
+          printf '%s\n' \
+            "## New ${ISSUE_SPEC} release detected" \
+            "" \
+            "Tag: \`${ISSUE_TAG}\`" \
+            "Published: ${ISSUE_PUBLISHED}" \
+            "Source repo: [\`${ISSUE_REPO}\`](${ISSUE_REPO_URL})" \
+            "Release URL: ${ISSUE_URL}" \
+            "" \
+            "---" \
+            "" \
+            "This issue was opened automatically by the [spec-watch workflow](${ISSUE_WORKFLOW_URL})." \
+            "" \
+            "### Action required" \
+            "" \
+            "Review the release notes and update this issue with:" \
+            "" \
+            "- [ ] Summary of changes (new elements, removed elements, breaking schema changes)" \
+            "- [ ] New validation rules needed" \
+            "- [ ] Existing rules that need version-scoped changes" \
+            "- [ ] New migration guide page for vastlint.org" \
+            "- [ ] Spec reference files to update in \`vastlint/specs/\`" \
+            "- [ ] Version bump determination (see [RELEASE.md](../blob/main/RELEASE.md) for semver guidance)" \
+            "" \
+            "### Semver guidance" \
+            "" \
+            "| Spec change type | vastlint version bump |" \
+            "|---|---|" \
+            "| New additive rules only (no existing behaviour change) | patch or minor |" \
+            "| New required elements or breaking schema change | minor |" \
+            "| Major spec revision (e.g. VAST 5.0) | minor -> consider 1.0 milestone |" \
+            "" \
+            "Close this issue once the corresponding vastlint release ships." \
+            > /tmp/issue-body.md
 
           gh issue create \
             --repo "${{ github.repository }}" \
-            --title "Spec: ${SPEC} ${TAG}" \
+            --title "Spec: ${ISSUE_SPEC} ${ISSUE_TAG}" \
             --label "spec-tracking,enhancement" \
-            --body "## New ${SPEC} release detected
-
-**Tag:** \`${TAG}\`
-**Published:** ${PUBLISHED}
-**Source repo:** [\`${REPO}\`](https://github.com/${REPO})
-**Release URL:** ${URL}
-
----
-
-This issue was opened automatically by the [spec-watch workflow](https://github.com/${{ github.repository }}/actions/workflows/spec-watch.yml).
-
-### Action required
-
-Review the release notes and update this issue with:
-
-- [ ] Summary of changes (new elements, removed elements, breaking schema changes)
-- [ ] New validation rules needed
-- [ ] Existing rules that need version-scoped changes
-- [ ] New migration guide page for vastlint.org
-- [ ] Spec reference files to update in \`vastlint/specs/\`
-- [ ] Version bump determination (see [RELEASE.md](../blob/main/RELEASE.md) for semver guidance)
-
-### Semver guidance
-
-| Spec change type | vastlint version bump |
-|---|---|
-| New additive rules only (no existing behaviour change) | patch or minor |
-| New required elements or breaking schema change | minor |
-| Major spec revision (e.g. VAST 5.0) | minor → consider 1.0 milestone |
-
-Close this issue once the corresponding vastlint release ships.
-"
+            --body-file /tmp/issue-body.md

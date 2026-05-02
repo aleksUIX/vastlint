@@ -201,7 +201,7 @@ pub struct InspectVastOutput {
     pub chain_valid: bool,
     pub total_errors: usize,
     pub total_warnings: usize,
-    /// Why the chain stopped: "resolved" | "max_depth" | "fetch_error: <detail>" | "parse_error: <detail>"
+    /// Why the chain stopped: `"resolved"` | `"max_depth"` | `"fetch_error: <detail>"` | `"parse_error: <detail>"`
     pub stopped_reason: String,
 }
 
@@ -251,7 +251,9 @@ fn extract_hop_meta(xml: &str) -> HopMeta {
         match reader.read_event() {
             Ok(Event::Eof) | Err(_) => break,
             Ok(Event::Start(e)) => {
-                let name = std::str::from_utf8(e.name().as_ref()).unwrap_or("").to_owned();
+                let name = std::str::from_utf8(e.name().as_ref())
+                    .unwrap_or("")
+                    .to_owned();
                 match name.as_str() {
                     "InLine" => meta.ad_type = "InLine".into(),
                     "Wrapper" => meta.ad_type = "Wrapper".into(),
@@ -771,8 +773,7 @@ impl VastlintServer {
                 match wrapper_uri {
                     Some(uri) => next_url = Some(uri),
                     None => {
-                        stopped_reason =
-                            "parse_error: Wrapper has no VASTAdTagURI".to_string();
+                        stopped_reason = "parse_error: Wrapper has no VASTAdTagURI".to_string();
                     }
                 }
             }
