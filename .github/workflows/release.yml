@@ -1775,3 +1775,77 @@ jobs:
           fi
           git tag "$TAG"
           git push origin "$TAG"
+
+  # ── Sync vastlint-infra ──────────────────────────────────────────────────────
+  # After a successful npm publish, bump the `vastlint` npm dependency in
+  # vastlint-infra so the website always ships the latest WASM linter.
+  #
+  # Prerequisites (one-time setup):
+  #   1. Generate an SSH deploy key for vastlint-infra:
+  #        ssh-keygen -t ed25519 -f ~/VASTLINT_INFRA_DEPLOY_KEY -C "vastlint release bot (infra)" -N ""
+  #   2. Add ~/VASTLINT_INFRA_DEPLOY_KEY.pub as a deploy key in vastlint-infra
+  #      (Settings → Deploy keys) with write access.
+  #   3. Add ~/VASTLINT_INFRA_DEPLOY_KEY (private key) as secret VASTLINT_INFRA_DEPLOY_KEY
+  #      in this repo (Settings → Secrets → Actions).
+  #
+  # Set ENABLE_INFRA_SYNC to "true" in repo variables to activate this job.
+  sync-infra:
+    name: Sync vastlint-infra
+    needs: [publish-npm, release]
+    runs-on: ubuntu-latest
+    if: vars.ENABLE_INFRA_SYNC == 'true'
+
+    steps:
+      - name: Checkout vastlint-infra via deploy key
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        with:
+          repository: aleksUIX/vastlint-infra
+          ssh-key: ${{ secrets.VASTLINT_INFRA_DEPLOY_KEY }}
+          path: vastlint-infra
+
+      - name: Bump vastlint npm dependency to release version
+        run: |
+          TAG="${{ github.ref_name }}"
+          VERSION="${TAG#v}"
+
+          # Update both the workspace root and the web app package.json
+          for PKG in "package.json" "apps/vastlint-web/package.json"; do
+            FILE="vastlint-infra/$PKG"
+            if [[ -f "$FILE" ]]; then
+              # Use node to update the version to avoid sed quoting issues
+              node -e "
+                const fs = require('fs');
+                const pkg = JSON.parse(fs.readFileSync('$FILE', 'utf8'));
+                const updated = { ...pkg };
+                for (const section of ['dependencies', 'devDependencies']) {
+                  if (updated[section]?.vastlint !== undefined) {
+                    updated[section].vastlint = '$VERSION';
+                  }
+                }
+                fs.writeFileSync('$FILE', JSON.stringify(updated, null, 2) + '\n');
+              "
+              echo "Bumped vastlint in $PKG to ${VERSION}"
+            fi
+          done
+
+      - name: Import bot GPG key
+        run: |
+          echo "${{ secrets.BOT_GPG_KEY }}" | gpg --batch --import
+          echo "AEA67F4C8B714AC26E14ACDB67DF23E270B033DB:6:" | gpg --import-ownertrust
+
+      - name: Commit and push
+        run: |
+          TAG="${{ github.ref_name }}"
+          VERSION="${TAG#v}"
+
+          cd vastlint-infra
+          git config user.name  "vastlint release bot"
+          git config user.email "bot@vastlint.org"
+          git config user.signingkey "67DF23E270B033DB"
+          git config commit.gpgsign  true
+
+          git add package.json apps/vastlint-web/package.json
+          git diff --cached --quiet && echo "nothing to commit" && exit 0
+
+          git commit -S -m "chore: bump vastlint npm dependency to ${TAG}"
+          git push origin main

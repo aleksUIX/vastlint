@@ -1,0 +1,78 @@
+name: "New IAB spec release"
+description: Track a new or updated IAB specification that may require new vastlint rules.
+title: "Spec: [spec name] [version]"
+labels: ["spec-tracking", "enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this template when a new IAB Tech Lab specification is published (VAST, SIMID, OMID, ACIF, etc.)
+        or when an existing spec receives a meaningful revision.
+
+        This issue tracks the work needed to bring vastlint up to date with the new spec.
+
+  - type: dropdown
+    id: spec
+    attributes:
+      label: Specification
+      options:
+        - VAST
+        - SIMID
+        - OMID (Open Measurement)
+        - ACIF (Ad Creative ID Framework)
+        - AdCP (Ad Creative Parameters)
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      placeholder: e.g. 4.4, 1.3, 2.0
+    validations:
+      required: true
+
+  - type: input
+    id: release_url
+    attributes:
+      label: Release / announcement URL
+      description: Link to the GitHub release, IAB press release, or spec document.
+      placeholder: https://github.com/InteractiveAdvertisingBureau/vast/releases/tag/...
+    validations:
+      required: true
+
+  - type: textarea
+    id: changes_summary
+    attributes:
+      label: Summary of changes
+      description: What changed? New elements, removed elements, breaking schema changes, new tracking events, new macro values, etc.
+      placeholder: |
+        - New element: <Foo> required in InLine
+        - Renamed tracking event: bar → baz
+        - New XSD type: ...
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: work_needed
+    attributes:
+      label: Work needed
+      options:
+        - label: New validation rules
+        - label: Update existing rules (version-scoped behaviour change)
+        - label: Update XSD / schema reference in codebase
+        - label: Update spec reference files in `vastlint/specs/`
+        - label: New migration guide page on vastlint.org
+        - label: Update `vast-versions` page
+        - label: Update `vastlint/RULES.md`
+        - label: Update `vastlint/CHANGELOG.md`
+        - label: Version bump (see RELEASE.md for semver guidance)
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Additional notes
+      description: Anything else — edge cases, open questions, links to related issues.
+    validations:
+      required: false
