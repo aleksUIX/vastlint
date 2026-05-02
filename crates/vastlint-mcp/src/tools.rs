@@ -62,6 +62,17 @@ pub struct ExplainRuleInput {
     pub rule_id: String,
 }
 
+#[allow(dead_code)]
+#[derive(Debug, Deserialize, schemars::JsonSchema, Default)]
+pub struct GetAdcpCapabilitiesInput {
+    #[schemars(description = "AdCP major version the caller's payloads conform to. When omitted, assumes highest supported version (3).")]
+    #[serde(default)]
+    pub adcp_major_version: Option<u32>,
+    #[schemars(description = "Filter to specific protocol names. When omitted, returns all supported protocols.")]
+    #[serde(default)]
+    pub protocols: Option<Vec<String>>,
+}
+
 // ── Output types ──────────────────────────────────────────────────────────────
 
 #[derive(Serialize, schemars::JsonSchema)]
@@ -139,6 +150,48 @@ pub struct ExplainRuleOutput {
     pub description: String,
     pub source: String,
     pub hint: String,
+}
+
+// ── get_adcp_capabilities types ─────────────────────────────────────────────
+
+#[derive(Serialize, schemars::JsonSchema)]
+pub struct AdcpIdempotency {
+    pub supported: bool,
+}
+
+#[derive(Serialize, schemars::JsonSchema)]
+pub struct AdcpInfo {
+    pub major_versions: Vec<u32>,
+    pub idempotency: AdcpIdempotency,
+}
+
+#[derive(Serialize, schemars::JsonSchema)]
+pub struct GovernanceFeature {
+    pub feature_id: String,
+    #[serde(rename = "type")]
+    pub feature_type: String,
+    pub description: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub methodology_url: Option<String>,
+}
+
+#[derive(Serialize, schemars::JsonSchema)]
+pub struct PolicyRegistry {
+    pub supported: bool,
+    pub domains: Vec<String>,
+}
+
+#[derive(Serialize, schemars::JsonSchema)]
+pub struct GovernanceCapabilities {
+    pub creative_features: Vec<GovernanceFeature>,
+    pub policy_registry: PolicyRegistry,
+}
+
+#[derive(Serialize, schemars::JsonSchema)]
+pub struct GetAdcpCapabilitiesOutput {
+    pub adcp: AdcpInfo,
+    pub supported_protocols: Vec<String>,
+    pub governance: GovernanceCapabilities,
 }
 
 // ── inspect_vast types ────────────────────────────────────────────────────────
@@ -791,6 +844,59 @@ impl VastlintServer {
             total_warnings,
             stopped_reason,
             hops,
+        })
+    }
+
+    #[tool(
+        description = "AdCP protocol discovery. Returns the AdCP version, supported protocols, \
+        and governance capabilities of this vastlint agent. Call this first when integrating \
+        vastlint into an AdCP creative pipeline — it declares which VAST creative features \
+        can be evaluated (spec compliance, HTTPS enforcement, wrapper depth). \
+        Part of the Ad Context Protocol (AdCP 3.0) specification.",
+        output_schema = output_schema::<GetAdcpCapabilitiesOutput>(),
+        annotations(read_only_hint = true, idempotent_hint = true, destructive_hint = false)
+    )]
+    async fn get_adcp_capabilities(
+        &self,
+        Parameters(_input): Parameters<GetAdcpCapabilitiesInput>,
+    ) -> Json<GetAdcpCapabilitiesOutput> {
+        Json(GetAdcpCapabilitiesOutput {
+            adcp: AdcpInfo {
+                major_versions: vec![3],
+                idempotency: AdcpIdempotency { supported: false },
+            },
+            supported_protocols: vec!["governance".to_string()],
+            governance: GovernanceCapabilities {
+                creative_features: vec![
+                    GovernanceFeature {
+                        feature_id: "vast_spec_compliance".to_string(),
+                        feature_type: "binary".to_string(),
+                        description: "VAST 2.0\u{2013}4.x spec compliance. Checks for required \
+                            elements, correct attribute values, and structural issues per IAB VAST \
+                            specification.".to_string(),
+                        methodology_url: Some("https://vastlint.org/rules".to_string()),
+                    },
+                    GovernanceFeature {
+                        feature_id: "vast_media_https".to_string(),
+                        feature_type: "binary".to_string(),
+                        description: "Detects insecure http:// MediaFile URLs in VAST creatives \
+                            that would be blocked by most video players and violate VAST 4.x \
+                            requirements.".to_string(),
+                        methodology_url: None,
+                    },
+                    GovernanceFeature {
+                        feature_id: "vast_wrapper_depth".to_string(),
+                        feature_type: "binary".to_string(),
+                        description: "Flags VAST wrapper chains that exceed the IAB-recommended \
+                            maximum redirect depth of 5 hops.".to_string(),
+                        methodology_url: None,
+                    },
+                ],
+                policy_registry: PolicyRegistry {
+                    supported: false,
+                    domains: vec!["creative".to_string()],
+                },
+            },
         })
     }
 }
