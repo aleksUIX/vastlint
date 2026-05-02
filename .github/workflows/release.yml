@@ -35,7 +35,7 @@ jobs:
   #                                      macro suppression; fix subcommand;
   #                                      daemon OTP protocol (Python struct.pack)
   #   3. vastlint-mcp                  — build release binary, drive initialize +
-  #                                      tools/list via stdin, assert 6 tools
+  #                                      tools/list via stdin, assert 7 tools
   #                                      returned with correct names; actual
   #                                      tools/call for validate_vast (valid +
   #                                      invalid), fix_vast, list_rules,
@@ -113,8 +113,8 @@ jobs:
           echo "capabilities.tools present ✓"
 
           TOOL_COUNT=$(echo "$RESPONSE" | grep '"tools":\[' | grep -o '"name":"' | wc -l | tr -d ' ')
-          if [ "$TOOL_COUNT" -ne 6 ]; then
-            echo "FAIL: expected 6 tools, got $TOOL_COUNT"
+          if [ "$TOOL_COUNT" -ne 7 ]; then
+            echo "FAIL: expected 7 tools, got $TOOL_COUNT"
             echo "$RESPONSE"
             exit 1
           fi
