@@ -1,6 +1,6 @@
 [package]
 name = "vastlint-mcp"
-version = "0.4.3"
+version = "0.4.6"
 edition = "2021"
 rust-version = "1.86"
 authors = ["Aleks <aleks@vastlint.org>"]
@@ -29,8 +29,11 @@ tokio = { version = "1", features = ["full"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 
-# Fetch VAST from URL (validate_vast_url tool)
+# Fetch VAST from URL (validate_vast_url + inspect_vast tools)
 reqwest = { version = "0.12", features = ["rustls-tls"], default-features = false }
+
+# XML parsing for hop metadata extraction in inspect_vast
+quick-xml = { version = "0.39" }
 
 # Fast allocator — critical for concurrent agent workloads
 mimalloc = { version = "0.1", default-features = false }

@@ -11,11 +11,13 @@ Part of the [IAB Tech Lab AAMP](https://iabtechlab.com/standards/aamp-agentic-ad
 | Tool | Description |
 |---|---|
 | `validate_vast` | Validate raw VAST XML. Returns issues with severity, rule ID, location, and spec reference. |
-| `validate_vast_url` | Fetch a VAST tag from a URL and validate it. Handles wrapper chains. |
-| `list_rules` | List all 108 validation rules with IDs, severities, and descriptions. Cache the result. |
+| `validate_vast_url` | Fetch a VAST tag from a URL and validate it. |
+| `inspect_vast` | Follow a VAST wrapper chain hop-by-hop. Returns creative metadata and validation results for every level. |
+| `list_rules` | List all validation rules with IDs, severities, and descriptions. |
+| `explain_rule` | Get full details and fix guidance for a specific rule ID. |
+| `fix_vast` | Auto-fix deterministic issues in a VAST XML string. |
 
 Full rule reference with examples and fix guidance: [vastlint.org/docs/rules](https://vastlint.org/docs/rules/)
-| `explain_rule` | Get full details and fix guidance for a specific rule ID. |
 
 ---
 
@@ -91,10 +93,10 @@ cargo install vastlint-mcp
 ## Agentic loop example
 
 ```
-agent → validate_vast(xml)          # check for issues
-      ← {valid: false, issues: [...]}
-agent → explain_rule("VAST-2.0-duration-format")
-      ← {hint: "Duration must be HH:MM:SS ..."}
+agent → inspect_vast(url)           # follow wrapper chain, get metadata + issues per hop
+      ← {hop_count: 2, resolved: true, hops: [...]}
+agent → explain_rule("VAST-2.0-linear-tracking-quartiles")
+      ← {hint: "Add start/firstQuartile/midpoint/thirdQuartile/complete tracking events"}
 agent → fix xml, call validate_vast again
       ← {valid: true}
 ```

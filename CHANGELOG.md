@@ -6,6 +6,16 @@ GitHub Releases: <https://github.com/aleksUIX/vastlint/releases>
 
 ---
 
+## [0.4.6] - 2026-05-01
+
+### MCP server (`vastlint-mcp`)
+
+- **`inspect_vast`** — new tool that follows a VAST wrapper chain hop-by-hop, returning creative metadata (AdSystem, AdTitle, Duration, impressions, tracking events, media files, companions) and full validation results for every level of the chain. Accepts a starting URL and an optional `max_depth` (default 5). Returns `hop_count`, `resolved`, `chain_valid`, `total_errors`, `total_warnings`, and a `stopped_reason` (`resolved` | `max_depth` | `fetch_error` | `parse_error`) alongside per-hop detail.
+- `quick-xml` added as a direct dependency for hop metadata extraction.
+- Server info string updated to describe all six tools.
+
+---
+
 ## [0.4.5] - 2026-05-01
 
 ### VS Code extension
