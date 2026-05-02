@@ -195,6 +195,7 @@ pub struct GovernanceCapabilities {
 pub struct GetAdcpCapabilitiesOutput {
     pub adcp: AdcpInfo,
     pub supported_protocols: Vec<String>,
+    pub specialisms: Vec<String>,
     pub governance: GovernanceCapabilities,
 }
 
@@ -870,6 +871,7 @@ impl VastlintServer {
                 idempotency: AdcpIdempotency { supported: false },
             },
             supported_protocols: vec!["governance".to_string()],
+            specialisms: vec!["content-standards".to_string()],
             governance: GovernanceCapabilities {
                 creative_features: vec![
                     GovernanceFeature {
