@@ -6,6 +6,19 @@ GitHub Releases: <https://github.com/aleksUIX/vastlint/releases>
 
 ---
 
+## [0.4.7] - 2026-05-01
+
+### CI / release workflow
+
+- **Smoke test**: updated MCP tool-count assertion from 5 → 6 to include `inspect_vast`; added `inspect_vast` to the per-tool name check.
+- **Chrome extension publish**: replaced non-existent `trmcnvn/upload-google-chrome-extension` action (fake SHA) with the correct `mnao305/chrome-extension-upload@fdfe79400af990f5145a319e834aee64907ccff4` (v6.0.0); corrected input name `extension` → `file-path`; pinned `actions/setup-node` in chrome job to SHA `48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e` (v6.4.0).
+
+### Other
+
+- Committed docs, GitHub workflow helpers, METHODOLOGY.md, and test fixtures that were staged but not included in the v0.4.6 release commit.
+
+---
+
 ## [0.4.6] - 2026-05-01
 
 ### MCP server (`vastlint-mcp`)

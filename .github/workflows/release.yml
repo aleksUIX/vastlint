@@ -35,11 +35,11 @@ jobs:
   #                                      macro suppression; fix subcommand;
   #                                      daemon OTP protocol (Python struct.pack)
   #   3. vastlint-mcp                  — build release binary, drive initialize +
-  #                                      tools/list via stdin, assert 5 tools
+  #                                      tools/list via stdin, assert 6 tools
   #                                      returned with correct names; actual
   #                                      tools/call for validate_vast (valid +
   #                                      invalid), fix_vast, list_rules,
-  #                                      explain_rule
+  #                                      explain_rule, inspect_vast
   #   4. vastlint-wasm                 — wasm-pack build (nodejs target) then
   #                                      a Node.js script that imports the
   #                                      package and validates the same fixtures;
@@ -113,14 +113,14 @@ jobs:
           echo "capabilities.tools present ✓"
 
           TOOL_COUNT=$(echo "$RESPONSE" | grep '"tools":\[' | grep -o '"name":"' | wc -l | tr -d ' ')
-          if [ "$TOOL_COUNT" -ne 5 ]; then
-            echo "FAIL: expected 5 tools, got $TOOL_COUNT"
+          if [ "$TOOL_COUNT" -ne 6 ]; then
+            echo "FAIL: expected 6 tools, got $TOOL_COUNT"
             echo "$RESPONSE"
             exit 1
           fi
           echo "tools/list returned $TOOL_COUNT tools ✓"
 
-          for TOOL in validate_vast validate_vast_url fix_vast list_rules explain_rule; do
+          for TOOL in validate_vast validate_vast_url fix_vast list_rules explain_rule inspect_vast; do
             echo "$RESPONSE" | grep -q "\"$TOOL\"" || {
               echo "FAIL: tool '$TOOL' missing from tools/list"
               echo "$RESPONSE"
@@ -1635,7 +1635,7 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e  # v6.4.0
         with:
           node-version: 20
 
@@ -1672,9 +1672,9 @@ jobs:
           files: chrome/vastlint-extension.zip
 
       - name: Publish to Chrome Web Store
-        uses: trmcnvn/upload-google-chrome-extension@665b2ab4a2c6f1a5a6b2b4f5b3f9d0f2a1e7c8d9  # pin to a SHA once you've verified the action
+        uses: mnao305/chrome-extension-upload@fdfe79400af990f5145a319e834aee64907ccff4  # v6.0.0
         with:
-          extension: chrome/vastlint-extension.zip
+          file-path: chrome/vastlint-extension.zip
           extension-id: ${{ secrets.CHROME_EXTENSION_ID }}
           client-id: ${{ secrets.CHROME_CLIENT_ID }}
           client-secret: ${{ secrets.CHROME_CLIENT_SECRET }}
