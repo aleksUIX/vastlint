@@ -170,33 +170,10 @@ pub struct AdcpInfo {
 }
 
 #[derive(Serialize, schemars::JsonSchema)]
-pub struct GovernanceFeature {
-    pub feature_id: String,
-    #[serde(rename = "type")]
-    pub feature_type: String,
-    pub description: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub methodology_url: Option<String>,
-}
-
-#[derive(Serialize, schemars::JsonSchema)]
-pub struct PolicyRegistry {
-    pub supported: bool,
-    pub domains: Vec<String>,
-}
-
-#[derive(Serialize, schemars::JsonSchema)]
-pub struct GovernanceCapabilities {
-    pub creative_features: Vec<GovernanceFeature>,
-    pub policy_registry: PolicyRegistry,
-}
-
-#[derive(Serialize, schemars::JsonSchema)]
 pub struct GetAdcpCapabilitiesOutput {
     pub adcp: AdcpInfo,
     pub supported_protocols: Vec<String>,
     pub specialisms: Vec<String>,
-    pub governance: GovernanceCapabilities,
 }
 
 // ── inspect_vast types ────────────────────────────────────────────────────────
@@ -870,42 +847,8 @@ impl VastlintServer {
                 major_versions: vec![3],
                 idempotency: AdcpIdempotency { supported: false },
             },
-            supported_protocols: vec!["governance".to_string()],
-            specialisms: vec!["content-standards".to_string()],
-            governance: GovernanceCapabilities {
-                creative_features: vec![
-                    GovernanceFeature {
-                        feature_id: "vast_spec_compliance".to_string(),
-                        feature_type: "binary".to_string(),
-                        description: "VAST 2.0\u{2013}4.x spec compliance. Checks for required \
-                            elements, correct attribute values, and structural issues per IAB VAST \
-                            specification."
-                            .to_string(),
-                        methodology_url: Some("https://vastlint.org/rules".to_string()),
-                    },
-                    GovernanceFeature {
-                        feature_id: "vast_media_https".to_string(),
-                        feature_type: "binary".to_string(),
-                        description: "Detects insecure http:// MediaFile URLs in VAST creatives \
-                            that would be blocked by most video players and violate VAST 4.x \
-                            requirements."
-                            .to_string(),
-                        methodology_url: None,
-                    },
-                    GovernanceFeature {
-                        feature_id: "vast_wrapper_depth".to_string(),
-                        feature_type: "binary".to_string(),
-                        description: "Flags VAST wrapper chains that exceed the IAB-recommended \
-                            maximum redirect depth of 5 hops."
-                            .to_string(),
-                        methodology_url: None,
-                    },
-                ],
-                policy_registry: PolicyRegistry {
-                    supported: false,
-                    domains: vec!["creative".to_string()],
-                },
-            },
+            supported_protocols: vec!["creative".to_string()],
+            specialisms: vec!["vast_validation".to_string()],
         })
     }
 }
