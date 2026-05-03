@@ -848,7 +848,7 @@ impl VastlintServer {
                 idempotency: AdcpIdempotency { supported: false },
             },
             supported_protocols: vec!["creative".to_string()],
-            specialisms: vec!["vast_validation".to_string()],
+            specialisms: vec!["content-standards".to_string()],
         })
     }
 }
