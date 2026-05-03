@@ -20,15 +20,17 @@ jobs:
   canary:
     name: vastlint.org/mcp canary
     runs-on: ubuntu-latest
-    timeout-minutes: 110  # 90 min jitter + 10 min probe + headroom
+    timeout-minutes: 20   # 5 min jitter + 10 min probe + headroom
 
     steps:
-      - name: Random jitter (0–90 min)
+      - name: Random jitter (0–5 min)
+        # Tiny jitter so runs don't always land exactly on the hour.
+        # Kept short to avoid wasting GHA runner minutes.
         # Skip when triggered manually so workflow_dispatch is instant.
         if: github.event_name != 'workflow_dispatch'
         run: |
-          DELAY=$(( RANDOM % 5401 ))
-          echo "Sleeping ${DELAY}s ($(( DELAY / 60 ))m $(( DELAY % 60 ))s)"
+          DELAY=$(( RANDOM % 301 ))
+          echo "Sleeping ${DELAY}s"
           sleep "$DELAY"
 
       - name: Probe MCP endpoint
@@ -160,12 +162,13 @@ jobs:
           ]
 
           seed = random.randint(100000, 999999)
-          valid_xml   = random.choice(VALID_XMLS).replace("{seed}", str(seed))
-          invalid_xml = random.choice(INVALID_XMLS).replace("{seed}", str(seed))
+          valid_idx   = random.randrange(len(VALID_XMLS))
+          invalid_idx = random.randrange(len(INVALID_XMLS))
+          valid_xml   = VALID_XMLS[valid_idx].replace("{seed}", str(seed))
+          invalid_xml = INVALID_XMLS[invalid_idx].replace("{seed}", str(seed))
           http_xml    = random.choice(HTTP_XMLS).replace("{seed}", str(seed))
 
-          print(f"Seed: {seed}  (valid variant #{VALID_XMLS.index(valid_xml)+1},"
-                f" invalid variant #{INVALID_XMLS.index(invalid_xml)+1})")
+          print(f"Seed: {seed}  (valid variant #{valid_idx+1}, invalid variant #{invalid_idx+1})")
           print(f"Target: {MCP_URL}\n")
 
           # ── 1. initialize ────────────────────────────────────────────────────
