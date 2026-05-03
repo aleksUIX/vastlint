@@ -847,7 +847,7 @@ impl VastlintServer {
                 major_versions: vec![3],
                 idempotency: AdcpIdempotency { supported: false },
             },
-            supported_protocols: vec!["creative".to_string()],
+            supported_protocols: vec!["creative".to_string(), "governance".to_string()],
             specialisms: vec!["content-standards".to_string()],
         })
     }
