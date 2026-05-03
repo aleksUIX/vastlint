@@ -1,0 +1,284 @@
+name: MCP canary
+
+# Probes the live vastlint.org/mcp endpoint daily to confirm every tool
+# is reachable and returns correct results.  Input validation and response
+# structure are checked for each tool; a randomised XML pool is sampled on
+# each run so no two runs exercise exactly the same byte sequence.
+
+on:
+  schedule:
+    - cron: "0  0 * * *"  # ~00:00 UTC  ╮
+    - cron: "0  6 * * *"  # ~06:00 UTC  │ each trigger sleeps 0–90 min before
+    - cron: "0 12 * * *"  # ~12:00 UTC  │ probing, giving ~4 randomised runs/day
+    - cron: "0 18 * * *"  # ~18:00 UTC  ╯
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  canary:
+    name: vastlint.org/mcp canary
+    runs-on: ubuntu-latest
+    timeout-minutes: 110  # 90 min jitter + 10 min probe + headroom
+
+    steps:
+      - name: Random jitter (0–90 min)
+        # Skip when triggered manually so workflow_dispatch is instant.
+        if: github.event_name != 'workflow_dispatch'
+        run: |
+          DELAY=$(( RANDOM % 5401 ))
+          echo "Sleeping ${DELAY}s ($(( DELAY / 60 ))m $(( DELAY % 60 ))s)"
+          sleep "$DELAY"
+
+      - name: Probe MCP endpoint
+        run: |
+          python3 - <<'PYEOF'
+          import json, random, sys, time, urllib.request, urllib.error
+
+          MCP_URL = "https://vastlint.org/mcp"
+          TIMEOUT  = 30   # seconds per request
+          PASS     = []
+          FAIL     = []
+
+          def post(method, params=None, req_id=None):
+              req_id = req_id or random.randint(1, 99999)
+              body = {"jsonrpc": "2.0", "id": req_id, "method": method}
+              if params is not None:
+                  body["params"] = params
+              data = json.dumps(body).encode()
+              req = urllib.request.Request(
+                  MCP_URL,
+                  data=data,
+                  headers={"Content-Type": "application/json"},
+                  method="POST",
+              )
+              t0 = time.monotonic()
+              with urllib.request.urlopen(req, timeout=TIMEOUT) as resp:
+                  result = json.loads(resp.read())
+              ms = int((time.monotonic() - t0) * 1000)
+              return result, ms
+
+          def check(name, fn):
+              try:
+                  fn()
+                  PASS.append(name)
+                  print(f"PASS  {name}")
+              except AssertionError as e:
+                  FAIL.append((name, str(e)))
+                  print(f"FAIL  {name}: {e}")
+              except Exception as e:
+                  FAIL.append((name, repr(e)))
+                  print(f"ERROR {name}: {e}")
+
+          # ── XML pool — randomly varied inputs ────────────────────────────────
+          # Each run samples from these to avoid identical requests every day.
+
+          VALID_XMLS = [
+              # VAST 4.2 — linear, all required fields
+              """<VAST version="4.2"><Ad id="1"><InLine>
+                <AdSystem>Canary</AdSystem><AdServingId>canary-{seed}</AdServingId>
+                <AdTitle>Canary Ad</AdTitle>
+                <Impression><![CDATA[https://t.example.com/imp?r={seed}]]></Impression>
+                <Creatives><Creative>
+                  <UniversalAdId idRegistry="Ad-ID">cny{seed}</UniversalAdId>
+                  <Linear><Duration>00:00:30</Duration>
+                    <MediaFiles><MediaFile type="video/mp4" width="1920" height="1080"
+                        delivery="progressive" bitrate="2000">
+                      <![CDATA[https://cdn.example.com/hd.mp4?r={seed}]]>
+                    </MediaFile></MediaFiles>
+                  </Linear>
+                </Creative></Creatives>
+              </InLine></Ad></VAST>""",
+              # VAST 4.1 — includes wrapper-style AdServingId
+              """<VAST version="4.1"><Ad id="2"><InLine>
+                <AdSystem>CanaryDSP</AdSystem><AdServingId>srv-{seed}</AdServingId>
+                <AdTitle>Canary 4.1</AdTitle>
+                <Impression><![CDATA[https://imp.example.com/v?r={seed}]]></Impression>
+                <Creatives><Creative>
+                  <UniversalAdId idRegistry="ad-id.org">uid{seed}</UniversalAdId>
+                  <Linear><Duration>00:00:15</Duration>
+                    <MediaFiles><MediaFile type="video/mp4" width="1280" height="720"
+                        delivery="progressive" bitrate="1500">
+                      <![CDATA[https://cdn.example.com/720p.mp4?r={seed}]]>
+                    </MediaFile></MediaFiles>
+                  </Linear>
+                </Creative></Creatives>
+              </InLine></Ad></VAST>""",
+              # VAST 2.0 — minimal valid document
+              """<VAST version="2.0"><Ad id="3"><InLine>
+                <AdSystem>CanaryMin</AdSystem><AdTitle>Min {seed}</AdTitle>
+                <Impression><![CDATA[https://t.example.com/imp?r={seed}]]></Impression>
+                <Creatives><Creative><Linear>
+                  <Duration>00:00:30</Duration>
+                  <MediaFiles><MediaFile type="video/mp4" width="640" height="480"
+                      delivery="progressive" bitrate="500">
+                    <![CDATA[https://cdn.example.com/sd.mp4?r={seed}]]>
+                  </MediaFile></MediaFiles>
+                </Linear></Creative></Creatives>
+              </InLine></Ad></VAST>""",
+          ]
+
+          INVALID_XMLS = [
+              # Missing <Impression>
+              """<VAST version="2.0"><Ad id="1"><InLine>
+                <AdSystem>Canary</AdSystem><AdTitle>No Impression {seed}</AdTitle>
+                <Creatives><Creative><Linear>
+                  <Duration>00:00:30</Duration>
+                  <MediaFiles><MediaFile type="video/mp4" width="640" height="480"
+                      delivery="progressive">
+                    <![CDATA[https://cdn.example.com/ad.mp4]]>
+                  </MediaFile></MediaFiles>
+                </Linear></Creative></Creatives>
+              </InLine></Ad></VAST>""",
+              # Missing <AdSystem>
+              """<VAST version="2.0"><Ad id="2"><InLine>
+                <AdTitle>No AdSystem {seed}</AdTitle>
+                <Impression><![CDATA[https://t.example.com/imp]]></Impression>
+                <Creatives><Creative><Linear>
+                  <Duration>00:00:30</Duration>
+                  <MediaFiles><MediaFile type="video/mp4" width="640" height="480"
+                      delivery="progressive">
+                    <![CDATA[https://cdn.example.com/ad.mp4]]>
+                  </MediaFile></MediaFiles>
+                </Linear></Creative></Creatives>
+              </InLine></Ad></VAST>""",
+          ]
+
+          HTTP_XMLS = [
+              # HTTP URLs in Impression + MediaFile
+              """<VAST version="2.0"><Ad id="1"><InLine>
+                <AdSystem>T</AdSystem><AdTitle>HTTP Test {seed}</AdTitle>
+                <Impression>http://t.example.com/imp?r={seed}</Impression>
+                <Creatives><Creative><Linear><Duration>00:00:30</Duration>
+                  <MediaFiles><MediaFile delivery="progressive" type="video/mp4"
+                      width="640" height="480">
+                    http://cdn.example.com/ad.mp4?r={seed}
+                  </MediaFile></MediaFiles>
+                </Linear></Creative></Creatives>
+              </InLine></Ad></VAST>""",
+          ]
+
+          seed = random.randint(100000, 999999)
+          valid_xml   = random.choice(VALID_XMLS).replace("{seed}", str(seed))
+          invalid_xml = random.choice(INVALID_XMLS).replace("{seed}", str(seed))
+          http_xml    = random.choice(HTTP_XMLS).replace("{seed}", str(seed))
+
+          print(f"Seed: {seed}  (valid variant #{VALID_XMLS.index(valid_xml)+1},"
+                f" invalid variant #{INVALID_XMLS.index(invalid_xml)+1})")
+          print(f"Target: {MCP_URL}\n")
+
+          # ── 1. initialize ────────────────────────────────────────────────────
+          def check_initialize():
+              r, ms = post("initialize", {
+                  "protocolVersion": "2024-11-05",
+                  "capabilities": {},
+                  "clientInfo": {"name": "canary", "version": "1.0"},
+              })
+              assert "result" in r, f"no result field: {r}"
+              info = r["result"]
+              assert info.get("serverInfo", {}).get("name"), f"serverInfo.name missing: {info}"
+              assert "capabilities" in info, f"capabilities missing: {info}"
+              print(f"  serverInfo.name={info['serverInfo']['name']}  ({ms} ms)")
+
+          check("initialize", check_initialize)
+
+          # ── 2. tools/list ────────────────────────────────────────────────────
+          EXPECTED_TOOLS = {
+              "validate_vast", "validate_vast_url", "list_rules",
+              "explain_rule", "fix_vast", "get_adcp_capabilities",
+          }
+
+          def check_tools_list():
+              r, ms = post("tools/list")
+              tools = r.get("result", {}).get("tools", [])
+              names = {t["name"] for t in tools}
+              missing = EXPECTED_TOOLS - names
+              assert not missing, f"missing tools: {missing}"
+              print(f"  {len(tools)} tools returned  ({ms} ms)")
+
+          check("tools/list", check_tools_list)
+
+          # ── 3. validate_vast — valid XML ─────────────────────────────────────
+          def check_validate_valid():
+              r, ms = post("tools/call", {"name": "validate_vast", "arguments": {"xml": valid_xml}})
+              obj = json.loads(r["result"]["content"][0]["text"])
+              assert obj["valid"] is True,       f"expected valid=true, got {obj['valid']}"
+              assert obj["summary"]["errors"] == 0, f"expected errors=0, got {obj['summary']['errors']}"
+              print(f"  valid=true, errors=0  ({ms} ms)")
+
+          check("validate_vast — valid XML", check_validate_valid)
+
+          # ── 4. validate_vast — invalid XML ───────────────────────────────────
+          def check_validate_invalid():
+              r, ms = post("tools/call", {"name": "validate_vast", "arguments": {"xml": invalid_xml}})
+              obj = json.loads(r["result"]["content"][0]["text"])
+              assert obj["valid"] is False,         f"expected valid=false, got {obj['valid']}"
+              assert obj["summary"]["errors"] > 0,  f"expected errors>0, got {obj['summary']['errors']}"
+              print(f"  valid=false, errors={obj['summary']['errors']}  ({ms} ms)")
+
+          check("validate_vast — invalid XML", check_validate_invalid)
+
+          # ── 5. list_rules ────────────────────────────────────────────────────
+          def check_list_rules():
+              r, ms = post("tools/call", {"name": "list_rules", "arguments": {}})
+              obj = json.loads(r["result"]["content"][0]["text"])
+              assert obj["count"] > 0,                      f"count=0"
+              assert len(obj["rules"]) == obj["count"],     f"count mismatch"
+              ids = {rule["id"] for rule in obj["rules"]}
+              for expected in ("VAST-2.0-inline-impression", "VAST-4.1-adservingid-present"):
+                  assert expected in ids, f"{expected} not in catalog"
+              print(f"  {obj['count']} rules  ({ms} ms)")
+
+          check("list_rules", check_list_rules)
+
+          # ── 6. explain_rule ──────────────────────────────────────────────────
+          EXPLAIN_POOL = [
+              "VAST-2.0-inline-impression",
+              "VAST-4.1-adservingid-present",
+              "VAST-2.0-root-version",
+              "VAST-2.0-inline-adsystem",
+          ]
+
+          def check_explain_rule():
+              rule_id = random.choice(EXPLAIN_POOL)
+              r, ms = post("tools/call", {"name": "explain_rule", "arguments": {"rule_id": rule_id}})
+              obj = json.loads(r["result"]["content"][0]["text"])
+              assert obj.get("id") == rule_id,           f"id mismatch: {obj.get('id')}"
+              assert len(obj.get("description", "")) > 5, f"empty description"
+              assert obj.get("severity") in ("error", "warning", "info"), f"bad severity: {obj.get('severity')}"
+              print(f"  rule={rule_id}, severity={obj['severity']}  ({ms} ms)")
+
+          check("explain_rule", check_explain_rule)
+
+          # ── 7. fix_vast ──────────────────────────────────────────────────────
+          def check_fix_vast():
+              r, ms = post("tools/call", {"name": "fix_vast", "arguments": {"xml": http_xml}})
+              obj = json.loads(r["result"]["content"][0]["text"])
+              assert obj["applied_count"] > 0,       f"no fixes applied"
+              assert "https://" in obj["xml"],        f"no https:// in fixed XML"
+              assert "http://" not in obj["xml"],     f"http:// still present in fixed XML"
+              print(f"  {obj['applied_count']} fix(es) applied  ({ms} ms)")
+
+          check("fix_vast", check_fix_vast)
+
+          # ── 8. get_adcp_capabilities ─────────────────────────────────────────
+          def check_adcp():
+              r, ms = post("tools/call", {"name": "get_adcp_capabilities", "arguments": {}})
+              obj = json.loads(r["result"]["content"][0]["text"])
+              assert obj.get("status") == "ok",                  f"status={obj.get('status')}"
+              assert obj.get("supported_protocols"),              f"no supported_protocols"
+              assert obj.get("adcp", {}).get("major_versions"),  f"no adcp.major_versions"
+              print(f"  status=ok, protocols={obj['supported_protocols']}  ({ms} ms)")
+
+          check("get_adcp_capabilities", check_adcp)
+
+          # ── summary ──────────────────────────────────────────────────────────
+          print(f"\n{'─'*50}")
+          print(f"Results: {len(PASS)} passed, {len(FAIL)} failed")
+          if FAIL:
+              print("\nFailed checks:")
+              for name, msg in FAIL:
+                  print(f"  FAIL  {name}: {msg}")
+              sys.exit(1)
+          PYEOF

@@ -1627,7 +1627,7 @@ jobs:
     name: Publish Chrome extension
     runs-on: ubuntu-latest
     needs: [approve, release]
-    if: ${{ inputs.publish_chrome == true }}
+    if: ${{ inputs.publish_chrome == true || github.event_name == 'push' }}
 
     permissions:
       contents: write
