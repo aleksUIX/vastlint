@@ -52,7 +52,10 @@ jobs:
               req = urllib.request.Request(
                   MCP_URL,
                   data=data,
-                  headers={"Content-Type": "application/json"},
+                  headers={
+                      "Content-Type": "application/json",
+                      "User-Agent": "vastlint-canary/1.0",
+                  },
                   method="POST",
               )
               t0 = time.monotonic()
