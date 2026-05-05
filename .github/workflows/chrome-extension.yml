@@ -78,14 +78,24 @@ jobs:
       - name: Set manifest version
         if: ${{ inputs.version != '' }}
         working-directory: chrome
+        env:
+          VERSION: ${{ inputs.version }}
         run: |
-          VERSION="${{ inputs.version }}"
+          node -e "
+            const fs = require('fs');
+            const version = process.env.VERSION;
+            if (!version) throw new Error('VERSION input is required');
+            const m = JSON.parse(fs.readFileSync('manifest.json','utf8'));
+            m.version = version;
+            fs.writeFileSync('manifest.json', JSON.stringify(m, null, 2) + '\n');
+          "
           node -e "
             const fs = require('fs');
             const m = JSON.parse(fs.readFileSync('manifest.json','utf8'));
-            m.version = process.env.VERSION;
-            fs.writeFileSync('manifest.json', JSON.stringify(m, null, 2));
-          " VERSION="$VERSION"
+            if (m.version !== process.env.VERSION) {
+              throw new Error(`manifest.json version mismatch: ${m.version}`);
+            }
+          "
           echo "Stamped manifest.json to version $VERSION"
 
       - name: Install extension dependencies

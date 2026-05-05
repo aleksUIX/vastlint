@@ -7,7 +7,7 @@ authors = ["Aleks <aleks@vastlint.org>"]
 description = "C FFI bindings for vastlint-core — foundation for Go, Ruby, Java, and other language bindings"
 license = "Apache-2.0"
 repository = "https://github.com/aleksUIX/vastlint"
-homepage = "https://github.com/aleksUIX/vastlint"
+homepage = "https://vastlint.org"
 keywords = ["vast", "xml", "validator", "adtech", "ffi"]
 categories = ["external-ffi-bindings", "development-tools"]
 

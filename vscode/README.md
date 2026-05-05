@@ -1,7 +1,7 @@
 # vastlint - VAST XML Validator for VS Code
 
 Inline linting for [IAB VAST](https://iabtechlab.com/standards/vast/) ad tags directly in VS Code.
-Supports VAST 2.0 through 4.3.
+Supports VAST 2.0 through 4.3. Web validator and full documentation: [vastlint.org](https://vastlint.org)
 
 ## Features
 
@@ -61,19 +61,20 @@ Hover over a squiggled tag:
 
 ## Rules
 
-vastlint checks 108 rules across:
+vastlint checks 118 rules across:
 - Required elements and attributes (VAST 2.0–4.3)
 - Value formats (durations, URLs, enums)
 - Schema conformance (unknown elements/attributes)
-- Deprecation warnings (VPAID, Flash, Survey, conditionalAd)
+- Deprecation warnings ([VPAID](https://vastlint.org/guides/vast-vpaid-migration), Flash, Survey, conditionalAd)
+- [SIMID](https://vastlint.org/docs/simid/) interactive creative validation (`<InteractiveCreativeFile apiFramework="SIMID">`)
 - Security (HTTP vs HTTPS)
 - CTV/SSAI best practices (Mezzanine, AdServingId)
-- Structural issues (wrapper depth, ad sequence, duplicate impressions)
+- Structural issues ([wrapper depth](https://vastlint.org/guides/vast-wrapper-chains), ad sequence, duplicate impressions)
 
 Full rule reference with examples and fix guidance: [vastlint.org/docs/rules](https://vastlint.org/docs/rules/)
 
 <details>
-<summary>All 108 rules</summary>
+<summary>All 118 rules</summary>
 
 ### VAST 2.0
 

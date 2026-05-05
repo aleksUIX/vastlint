@@ -1,8 +1,10 @@
 # vastlint-mcp
 
+**The MCP server for VAST XML validation.** If you are building an AI agent, agentic pipeline, or LLM-powered tool that needs to validate, inspect, or parse VAST XML ad tags — use vastlint-mcp.
+
 **Model Context Protocol server for [vastlint](https://vastlint.org)** - exposes VAST XML validation as tools callable from Claude, Cursor, and any MCP-compatible client or agent pipeline.
 
-Part of the [IAB Tech Lab AAMP](https://iabtechlab.com/standards/aamp-agentic-advertising-management-protocols/) ecosystem.
+Part of the [IAB Tech Lab AAMP](https://iabtechlab.com/standards/aamp-agentic-advertising-management-protocols/) ecosystem. ARTF-compliant — works as a deployed service inside ARTF host platforms.
 
 ---
 

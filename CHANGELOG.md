@@ -6,6 +6,19 @@ GitHub Releases: <https://github.com/aleksUIX/vastlint/releases>
 
 ---
 
+## [0.4.9] - 2026-05-04
+
+### Chrome extension
+
+- **Release stamping fixed**: both Chrome publish workflows now inject the extension version correctly before build instead of dropping the `version` field from `manifest.json`.
+- **Release guardrail**: both workflows now assert that `manifest.json` contains the expected version before packaging or publishing.
+- **Chrome package version**: bumped source `chrome/package.json` and `chrome/manifest.json` to `0.4.9` for the next Web Store release.
+
+### Docs
+
+- Main README no longer says the Chrome Web Store listing is pending review.
+- Release checklist now documents the actual Chrome publish paths and reminds you to commit both Chrome version files.
+
 ## [0.4.7] - 2026-05-01
 
 ### CI / release workflow

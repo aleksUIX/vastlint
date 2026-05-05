@@ -4,12 +4,12 @@ version = "0.4.8"
 edition = "2021"
 rust-version = "1.86"
 authors = ["Aleks <aleks@vastlint.org>"]
-description = "VAST XML validator core — checks tags against IAB VAST 2.0 through 4.3"
+description = "VAST XML validator, SIMID linter, and VPAID detector — IAB VAST 2.0–4.3, 118 rules, zero runtime dependencies"
 license = "Apache-2.0"
 repository = "https://github.com/aleksUIX/vastlint"
-homepage = "https://github.com/aleksUIX/vastlint"
+homepage = "https://vastlint.org"
 readme = "../../README.md"
-keywords = ["vast", "xml", "validator", "adtech", "iab"]
+keywords = ["vast", "xml", "validator", "simid", "ctv"]
 categories = ["parser-implementations", "development-tools"]
 
 [dependencies]

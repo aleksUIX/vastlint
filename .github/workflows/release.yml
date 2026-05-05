@@ -1653,14 +1653,25 @@ jobs:
       # then build — so the compiled dist/manifest.json carries the right version.
       - name: Set manifest version
         working-directory: chrome
+        env:
+          VERSION: ${{ github.ref_name }}
         run: |
-          VERSION="${GITHUB_REF_NAME#v}"
           node -e "
             const fs = require('fs');
+            const version = process.env.VERSION.replace(/^v/, '');
+            if (!version) throw new Error('VERSION derived from git tag is empty');
             const m = JSON.parse(fs.readFileSync('manifest.json','utf8'));
-            m.version = process.env.VERSION;
-            fs.writeFileSync('manifest.json', JSON.stringify(m, null, 2));
-          " VERSION="$VERSION"
+            m.version = version;
+            fs.writeFileSync('manifest.json', JSON.stringify(m, null, 2) + '\n');
+          "
+          node -e "
+            const fs = require('fs');
+            const expected = process.env.VERSION.replace(/^v/, '');
+            const m = JSON.parse(fs.readFileSync('manifest.json','utf8'));
+            if (m.version !== expected) {
+              throw new Error(`manifest.json version mismatch: ${m.version}`);
+            }
+          "
 
       - name: Build extension
         working-directory: chrome

@@ -17,7 +17,7 @@ Use this file every time you cut a release. Work top to bottom.
 ## 2 — Commit + tag
 
 ```bash
-git add CHANGELOG.md vscode/package.json   # add chrome/manifest.json if changed
+git add CHANGELOG.md vscode/package.json   # add chrome/manifest.json + chrome/package.json if changed
 git commit -m "chore: release vX.Y.Z"
 git tag vX.Y.Z
 git push && git push origin vX.Y.Z
@@ -38,8 +38,12 @@ Go to **GitHub Actions → Release** and watch the run. One human approval gate 
 | `publish-docker` | Docker Hub (`aleksuix/vastlint`) | `ENABLE_DOCKER_PUBLISH=true` |
 | `publish-mcp-registry` | MCP Registry (`io.github.aleksUIX/vastlint`) | `ENABLE_MCP_REGISTRY_PUBLISH=true` |
 | `provenance` | GitHub attestation store (SLSA L3) | always on |
+| `chrome-extension` | GitHub Release asset + Chrome Web Store | tag push, or `publish_chrome=true` on manual `Release` dispatch |
 
-Chrome Web Store is **not** automatic — trigger manually via `workflow_dispatch` with `publish_chrome: true` when the Chrome extension changes.
+Chrome publish paths:
+
+1. Tagged release: the `chrome-extension` job in `Release` runs on tag pushes and publishes the zipped extension.
+2. Standalone publish: run the `Chrome Extension` workflow with `publish: true` and optional `version: 0.4.9` when you need to ship the extension outside a full repo release.
 
 ---
 
