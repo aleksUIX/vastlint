@@ -6,7 +6,11 @@ GitHub Releases: <https://github.com/aleksUIX/vastlint/releases>
 
 ---
 
-## [0.4.9] - 2026-05-04
+## [0.4.9] - 2026-05-05
+
+### CLI
+
+- **Line/column in output**: `vastlint` CLI now prints `file:line:col` (or `file:line`) alongside the XPath location for every issue, making it easier to jump to the exact source position.
 
 ### Chrome extension
 

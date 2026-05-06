@@ -3,7 +3,7 @@
     <InLine>
       <AdSystem>Test</AdSystem>
       <!-- missing AdTitle -->
-      <Impression>https://t.example.com/imp</Impression>
+      <Impression>http://t.example.com/imp</Impression>
       <Creatives>
         <Creative>
           <Linear>
