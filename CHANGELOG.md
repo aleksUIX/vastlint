@@ -6,6 +6,12 @@ GitHub Releases: <https://github.com/aleksUIX/vastlint/releases>
 
 ---
 
+## [0.4.10] - 2026-05-05
+
+### Crates
+
+- **Version alignment**: bumped all crate `Cargo.toml` files to `0.4.10` in-repo so `crates.io` always reflects the current release even when the CI auto-bump skips a version.
+
 ## [0.4.9] - 2026-05-05
 
 ### CLI
