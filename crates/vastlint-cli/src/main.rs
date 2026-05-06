@@ -817,8 +817,8 @@ fn print_issue(issue: &Issue) {
     // Line 2: XPath location + line:col (dimmed, indented under severity)
     let location = match (issue.line, issue.col) {
         (Some(l), Some(c)) => format!("{}:{}:{}", path, l, c),
-        (Some(l), None)    => format!("{}:{}", path, l),
-        _                  => path.to_owned(),
+        (Some(l), None) => format!("{}:{}", path, l),
+        _ => path.to_owned(),
     };
     println!(
         "  {}         {}{}",
