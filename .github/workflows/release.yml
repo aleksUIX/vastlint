@@ -759,6 +759,32 @@ jobs:
           console.log(`PASS: info_http_tracking.xml valid=true, errors=0, VAST-2.0-tracking-https fires ✓`);
           EOF
 
+      # ── 5. CLI smoke — default text format ───────────────────────────────
+      - name: CLI smoke — default text format contains rule ID and severity
+        run: |
+          # Default output (no --format flag) must print human-readable text
+          # with at least the rule ID and "error" for an error-level fixture.
+          OUTPUT=$(./target/release/vastlint check \
+            crates/vastlint-core/tests/fixtures/err_no_ad.xml 2>/dev/null || true)
+          if ! echo "$OUTPUT" | grep -qi 'VAST-2\.0-ad-required\|no-ad\|ad_required\|err_no_ad'; then
+            echo "FAIL: text output missing expected rule reference"
+            echo "Output was: $OUTPUT"
+            exit 1
+          fi
+          if ! echo "$OUTPUT" | grep -qi 'error'; then
+            echo "FAIL: text output missing 'error' keyword"
+            echo "Output was: $OUTPUT"
+            exit 1
+          fi
+          echo "PASS: default text format contains rule ID and severity ✓"
+
+      # ── 6. VS Code extension unit tests ──────────────────────────────────
+      - name: VS Code extension — unit tests (utils.ts pure functions)
+        working-directory: vscode
+        run: |
+          npm ci
+          npm test
+
   # ── WASM build (single canonical build) ─────────────────────────────────────
   # Builds the npm package once from the attested source tree and uploads it as
   # a workflow artifact.  publish-npm and publish-vscode both download this

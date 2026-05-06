@@ -109,8 +109,10 @@
   "scripts": {
     "vscode:prepublish": "npm run bundle",
     "compile": "tsc --noEmit",
+    "compile-emit": "tsc",
     "bundle": "node build.js",
-    "watch": "tsc -watch -p ./ --noEmit"
+    "watch": "tsc -watch -p ./ --noEmit",
+    "test": "npm run compile-emit && node --test test/utils.test.mjs"
   },
   "dependencies": {
     "vastlint": "file:../npm"

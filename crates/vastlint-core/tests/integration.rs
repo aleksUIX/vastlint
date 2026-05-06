@@ -566,6 +566,71 @@ fn interactive_creative_missing_type_fires_warning() {
     );
 }
 
+#[test]
+fn simid_type_required_fires_error() {
+    // <InteractiveCreativeFile apiFramework="SIMID"> without type="text/html"
+    let result = validate(&load("err_simid_type_required.xml"));
+    assert!(
+        has_issue(&result, "SIMID-1.0-simid-type-required"),
+        "expected SIMID-1.0-simid-type-required, got: {:#?}",
+        result.issues
+    );
+    assert!(!result.summary.is_valid());
+}
+
+#[test]
+fn simid_url_http_fires_error() {
+    // SIMID creative URL using http:// — must be blocked as insecure.
+    let result = validate(&load("err_simid_url_https.xml"));
+    assert!(
+        has_issue(&result, "SIMID-1.0-simid-url-https"),
+        "expected SIMID-1.0-simid-url-https, got: {:#?}",
+        result.issues
+    );
+    assert!(!result.summary.is_valid());
+}
+
+#[test]
+fn simid_mediafile_required_fires_error() {
+    // SIMID creative without an accompanying video <MediaFile> — SIMID §3.4.
+    let result = validate(&load("err_simid_mediafile_required.xml"));
+    assert!(
+        has_issue(&result, "SIMID-1.0-simid-mediafile-required"),
+        "expected SIMID-1.0-simid-mediafile-required, got: {:#?}",
+        result.issues
+    );
+    assert!(!result.summary.is_valid());
+}
+
+#[test]
+fn simid_variable_duration_bad_value_fires_warning() {
+    // variableDuration="yes" is invalid — only "true" is allowed per SIMID §5.
+    let result = validate(&load("warn_simid_variable_duration.xml"));
+    assert!(
+        has_issue(&result, "SIMID-1.0-simid-variable-duration-value"),
+        "expected SIMID-1.0-simid-variable-duration-value, got: {:#?}",
+        result.issues
+    );
+    // Warning only — document is still valid.
+    assert!(result.summary.is_valid());
+}
+
+#[test]
+fn valid_simid_linear_produces_no_simid_errors() {
+    // A correct SIMID linear ad must not fire any SIMID-1.0-* rules.
+    let result = validate(&load("valid_simid_linear.xml"));
+    let simid_issues: Vec<_> = result
+        .issues
+        .iter()
+        .filter(|i| i.id.starts_with("SIMID-"))
+        .collect();
+    assert!(
+        simid_issues.is_empty(),
+        "valid SIMID creative should produce no SIMID-* issues, got: {:#?}",
+        simid_issues
+    );
+}
+
 // ── OM SDK / Verification rules ───────────────────────────────────────────────
 
 #[test]

@@ -76,78 +76,227 @@ jobs:
                   FAIL.append((name, repr(e)))
                   print(f"ERROR {name}: {e}")
 
-          # ── XML pool — randomly varied inputs ────────────────────────────────
-          # Each run samples from these to avoid identical requests every day.
+          # ── XML pool — batch validate_vast sweep (15 cases, every run) ─────
+          # All cases run on every execution — no sampling.  {seed} is substituted
+          # per run so no two runs send byte-identical payloads.
+          # Each entry: (label, xml_template, expect_valid, expect_errors_gt0, expect_rule_id)
 
-          VALID_XMLS = [
-              # VAST 4.2 — linear, all required fields
-              """<VAST version="4.2"><Ad id="1"><InLine>
-                <AdSystem>Canary</AdSystem><AdServingId>canary-{seed}</AdServingId>
-                <AdTitle>Canary Ad</AdTitle>
-                <Impression><![CDATA[https://t.example.com/imp?r={seed}]]></Impression>
-                <Creatives><Creative>
-                  <UniversalAdId idRegistry="Ad-ID">cny{seed}</UniversalAdId>
-                  <Linear><Duration>00:00:30</Duration>
-                    <MediaFiles><MediaFile type="video/mp4" width="1920" height="1080"
-                        delivery="progressive" bitrate="2000">
-                      <![CDATA[https://cdn.example.com/hd.mp4?r={seed}]]>
-                    </MediaFile></MediaFiles>
-                  </Linear>
-                </Creative></Creatives>
-              </InLine></Ad></VAST>""",
-              # VAST 4.1 — includes wrapper-style AdServingId
-              """<VAST version="4.1"><Ad id="2"><InLine>
-                <AdSystem>CanaryDSP</AdSystem><AdServingId>srv-{seed}</AdServingId>
-                <AdTitle>Canary 4.1</AdTitle>
-                <Impression><![CDATA[https://imp.example.com/v?r={seed}]]></Impression>
-                <Creatives><Creative>
-                  <UniversalAdId idRegistry="ad-id.org">uid{seed}</UniversalAdId>
-                  <Linear><Duration>00:00:15</Duration>
-                    <MediaFiles><MediaFile type="video/mp4" width="1280" height="720"
-                        delivery="progressive" bitrate="1500">
-                      <![CDATA[https://cdn.example.com/720p.mp4?r={seed}]]>
-                    </MediaFile></MediaFiles>
-                  </Linear>
-                </Creative></Creatives>
-              </InLine></Ad></VAST>""",
-              # VAST 2.0 — minimal valid document
-              """<VAST version="2.0"><Ad id="3"><InLine>
-                <AdSystem>CanaryMin</AdSystem><AdTitle>Min {seed}</AdTitle>
-                <Impression><![CDATA[https://t.example.com/imp?r={seed}]]></Impression>
-                <Creatives><Creative><Linear>
-                  <Duration>00:00:30</Duration>
-                  <MediaFiles><MediaFile type="video/mp4" width="640" height="480"
-                      delivery="progressive" bitrate="500">
-                    <![CDATA[https://cdn.example.com/sd.mp4?r={seed}]]>
-                  </MediaFile></MediaFiles>
-                </Linear></Creative></Creatives>
-              </InLine></Ad></VAST>""",
-          ]
+          BATCH_CASES = [
+              # ── valid fixtures ────────────────────────────────────────────────
+              ("VAST 2.0 minimal",
+               """<VAST version="2.0"><Ad id="1"><InLine>
+                 <AdSystem>T</AdSystem><AdTitle>T {seed}</AdTitle>
+                 <Impression><![CDATA[https://t.example.com/imp?s={seed}]]></Impression>
+                 <Creatives><Creative><Linear><Duration>00:00:30</Duration>
+                   <MediaFiles><MediaFile type="video/mp4" width="640" height="480"
+                       delivery="progressive" bitrate="500">
+                     <![CDATA[https://cdn.example.com/sd.mp4?s={seed}]]>
+                   </MediaFile></MediaFiles>
+                 </Linear></Creative></Creatives>
+               </InLine></Ad></VAST>""",
+               True, False, None),
 
-          INVALID_XMLS = [
-              # Missing <Impression>
-              """<VAST version="2.0"><Ad id="1"><InLine>
-                <AdSystem>Canary</AdSystem><AdTitle>No Impression {seed}</AdTitle>
-                <Creatives><Creative><Linear>
-                  <Duration>00:00:30</Duration>
-                  <MediaFiles><MediaFile type="video/mp4" width="640" height="480"
-                      delivery="progressive">
-                    <![CDATA[https://cdn.example.com/ad.mp4]]>
-                  </MediaFile></MediaFiles>
-                </Linear></Creative></Creatives>
-              </InLine></Ad></VAST>""",
-              # Missing <AdSystem>
-              """<VAST version="2.0"><Ad id="2"><InLine>
-                <AdTitle>No AdSystem {seed}</AdTitle>
-                <Impression><![CDATA[https://t.example.com/imp]]></Impression>
-                <Creatives><Creative><Linear>
-                  <Duration>00:00:30</Duration>
-                  <MediaFiles><MediaFile type="video/mp4" width="640" height="480"
-                      delivery="progressive">
-                    <![CDATA[https://cdn.example.com/ad.mp4]]>
-                  </MediaFile></MediaFiles>
-                </Linear></Creative></Creatives>
-              </InLine></Ad></VAST>""",
+              ("VAST 3.0 minimal",
+               """<VAST version="3.0"><Ad id="1" sequence="1"><InLine>
+                 <AdSystem>T</AdSystem><AdTitle>T {seed}</AdTitle>
+                 <Impression><![CDATA[https://t.example.com/imp?s={seed}]]></Impression>
+                 <Creatives><Creative><Linear><Duration>00:00:30</Duration>
+                   <MediaFiles><MediaFile type="video/mp4" width="1280" height="720"
+                       delivery="progressive" bitrate="1000">
+                     <![CDATA[https://cdn.example.com/hd.mp4?s={seed}]]>
+                   </MediaFile></MediaFiles>
+                 </Linear></Creative></Creatives>
+               </InLine></Ad></VAST>""",
+               True, False, None),
+
+              ("VAST 4.0 linear",
+               """<VAST version="4.0"><Ad id="1"><InLine>
+                 <AdSystem>T</AdSystem><AdTitle>T {seed}</AdTitle>
+                 <Impression><![CDATA[https://t.example.com/imp?s={seed}]]></Impression>
+                 <Creatives><Creative><Linear><Duration>00:00:30</Duration>
+                   <MediaFiles><MediaFile type="video/mp4" width="1280" height="720"
+                       delivery="progressive" bitrate="1200">
+                     <![CDATA[https://cdn.example.com/hd.mp4?s={seed}]]>
+                   </MediaFile></MediaFiles>
+                 </Linear></Creative></Creatives>
+               </InLine></Ad></VAST>""",
+               True, False, None),
+
+              ("VAST 4.1 full",
+               """<VAST version="4.1"><Ad id="1"><InLine>
+                 <AdSystem>T</AdSystem><AdServingId>srv-{seed}</AdServingId>
+                 <AdTitle>T {seed}</AdTitle>
+                 <Impression><![CDATA[https://t.example.com/imp?s={seed}]]></Impression>
+                 <Creatives><Creative>
+                   <UniversalAdId idRegistry="ad-id.org">uid{seed}</UniversalAdId>
+                   <Linear><Duration>00:00:30</Duration>
+                     <MediaFiles><MediaFile type="video/mp4" width="1920" height="1080"
+                         delivery="progressive" bitrate="2000">
+                       <![CDATA[https://cdn.example.com/hd.mp4?s={seed}]]>
+                     </MediaFile></MediaFiles>
+                   </Linear>
+                 </Creative></Creatives>
+               </InLine></Ad></VAST>""",
+               True, False, None),
+
+              ("VAST 4.2 full",
+               """<VAST version="4.2"><Ad id="1"><InLine>
+                 <AdSystem>T</AdSystem><AdServingId>srv4-{seed}</AdServingId>
+                 <AdTitle>T {seed}</AdTitle>
+                 <Impression><![CDATA[https://t.example.com/imp?s={seed}]]></Impression>
+                 <Creatives><Creative>
+                   <UniversalAdId idRegistry="ad-id.org">u42{seed}</UniversalAdId>
+                   <Linear><Duration>00:00:15</Duration>
+                     <MediaFiles><MediaFile type="video/mp4" width="1280" height="720"
+                         delivery="progressive" bitrate="1500">
+                       <![CDATA[https://cdn.example.com/720p.mp4?s={seed}]]>
+                     </MediaFile></MediaFiles>
+                   </Linear>
+                 </Creative></Creatives>
+               </InLine></Ad></VAST>""",
+               True, False, None),
+
+              ("SIMID 4.1 valid",
+               """<VAST version="4.1"><Ad id="1"><InLine>
+                 <AdSystem>T</AdSystem><AdServingId>simid-{seed}</AdServingId>
+                 <AdTitle>SIMID {seed}</AdTitle>
+                 <Impression><![CDATA[https://t.example.com/imp?s={seed}]]></Impression>
+                 <Creatives><Creative>
+                   <UniversalAdId idRegistry="ad-id.org">s{seed}</UniversalAdId>
+                   <Linear><Duration>00:00:30</Duration>
+                     <MediaFiles>
+                       <MediaFile type="video/mp4" width="1920" height="1080"
+                           delivery="progressive" bitrate="2000">
+                         <![CDATA[https://cdn.example.com/hd.mp4?s={seed}]]>
+                       </MediaFile>
+                       <InteractiveCreativeFile apiFramework="SIMID" type="text/html">
+                         <![CDATA[https://creative.example.com/simid.html?s={seed}]]>
+                       </InteractiveCreativeFile>
+                     </MediaFiles>
+                   </Linear>
+                 </Creative></Creatives>
+               </InLine></Ad></VAST>""",
+               True, False, None),
+
+              ("VAST 4.1 Wrapper valid",
+               """<VAST version="4.1"><Ad id="1"><Wrapper>
+                 <AdSystem>T</AdSystem>
+                 <VASTAdTagURI><![CDATA[https://ad.example.com/tag?s={seed}]]></VASTAdTagURI>
+                 <Impression><![CDATA[https://t.example.com/imp?s={seed}]]></Impression>
+                 <Creatives/>
+               </Wrapper></Ad></VAST>""",
+               True, False, None),
+
+              # ── error fixtures ────────────────────────────────────────────────
+              ("no <Ad> element",
+               """<VAST version="2.0"></VAST>""",
+               False, True, "VAST-2.0-ad-required"),
+
+              ("missing <Impression>",
+               """<VAST version="2.0"><Ad id="1"><InLine>
+                 <AdSystem>T</AdSystem><AdTitle>T</AdTitle>
+                 <Creatives><Creative><Linear><Duration>00:00:30</Duration>
+                   <MediaFiles><MediaFile type="video/mp4" width="640" height="480"
+                       delivery="progressive">
+                     <![CDATA[https://cdn.example.com/ad.mp4]]>
+                   </MediaFile></MediaFiles>
+                 </Linear></Creative></Creatives>
+               </InLine></Ad></VAST>""",
+               False, True, "VAST-2.0-inline-impression"),
+
+              ("missing <AdSystem>",
+               """<VAST version="2.0"><Ad id="1"><InLine>
+                 <AdTitle>T</AdTitle>
+                 <Impression><![CDATA[https://t.example.com/imp]]></Impression>
+                 <Creatives><Creative><Linear><Duration>00:00:30</Duration>
+                   <MediaFiles><MediaFile type="video/mp4" width="640" height="480"
+                       delivery="progressive">
+                     <![CDATA[https://cdn.example.com/ad.mp4]]>
+                   </MediaFile></MediaFiles>
+                 </Linear></Creative></Creatives>
+               </InLine></Ad></VAST>""",
+               False, True, "VAST-2.0-inline-adsystem"),
+
+              ("missing <AdTitle>",
+               """<VAST version="2.0"><Ad id="1"><InLine>
+                 <AdSystem>T</AdSystem>
+                 <Impression><![CDATA[https://t.example.com/imp]]></Impression>
+                 <Creatives><Creative><Linear><Duration>00:00:30</Duration>
+                   <MediaFiles><MediaFile type="video/mp4" width="640" height="480"
+                       delivery="progressive">
+                     <![CDATA[https://cdn.example.com/ad.mp4]]>
+                   </MediaFile></MediaFiles>
+                 </Linear></Creative></Creatives>
+               </InLine></Ad></VAST>""",
+               False, True, "VAST-2.0-inline-adtitle"),
+
+              ("VAST 4.1 missing <AdServingId>",
+               """<VAST version="4.1"><Ad id="1"><InLine>
+                 <AdSystem>T</AdSystem><AdTitle>T</AdTitle>
+                 <Impression><![CDATA[https://t.example.com/imp]]></Impression>
+                 <Creatives><Creative>
+                   <UniversalAdId idRegistry="ad-id.org">uid1</UniversalAdId>
+                   <Linear><Duration>00:00:30</Duration>
+                     <MediaFiles><MediaFile type="video/mp4" width="1280" height="720"
+                         delivery="progressive" bitrate="1000">
+                       <![CDATA[https://cdn.example.com/hd.mp4]]>
+                     </MediaFile></MediaFiles>
+                   </Linear>
+                 </Creative></Creatives>
+               </InLine></Ad></VAST>""",
+               False, True, "VAST-4.1-adservingid-present"),
+
+              ("Wrapper missing <VASTAdTagURI>",
+               """<VAST version="2.0"><Ad id="1"><Wrapper>
+                 <AdSystem>T</AdSystem>
+                 <Impression><![CDATA[https://t.example.com/imp]]></Impression>
+                 <Creatives/>
+               </Wrapper></Ad></VAST>""",
+               False, True, "VAST-2.0-wrapper-vasttag"),
+
+              ("SIMID missing type attribute",
+               """<VAST version="4.1"><Ad id="1"><InLine>
+                 <AdSystem>T</AdSystem><AdServingId>s1</AdServingId>
+                 <AdTitle>T</AdTitle>
+                 <Impression><![CDATA[https://t.example.com/imp]]></Impression>
+                 <Creatives><Creative>
+                   <UniversalAdId idRegistry="ad-id.org">u1</UniversalAdId>
+                   <Linear><Duration>00:00:30</Duration>
+                     <MediaFiles>
+                       <MediaFile type="video/mp4" width="1920" height="1080"
+                           delivery="progressive" bitrate="2000">
+                         <![CDATA[https://cdn.example.com/hd.mp4]]>
+                       </MediaFile>
+                       <InteractiveCreativeFile apiFramework="SIMID">
+                         <![CDATA[https://creative.example.com/simid.html]]>
+                       </InteractiveCreativeFile>
+                     </MediaFiles>
+                   </Linear>
+                 </Creative></Creatives>
+               </InLine></Ad></VAST>""",
+               False, True, "SIMID-1.0-simid-type-required"),
+
+              ("SIMID HTTP URL",
+               """<VAST version="4.1"><Ad id="1"><InLine>
+                 <AdSystem>T</AdSystem><AdServingId>s2</AdServingId>
+                 <AdTitle>T</AdTitle>
+                 <Impression><![CDATA[https://t.example.com/imp]]></Impression>
+                 <Creatives><Creative>
+                   <UniversalAdId idRegistry="ad-id.org">u2</UniversalAdId>
+                   <Linear><Duration>00:00:30</Duration>
+                     <MediaFiles>
+                       <MediaFile type="video/mp4" width="1920" height="1080"
+                           delivery="progressive" bitrate="2000">
+                         <![CDATA[https://cdn.example.com/hd.mp4]]>
+                       </MediaFile>
+                       <InteractiveCreativeFile apiFramework="SIMID" type="text/html">
+                         <![CDATA[http://creative.example.com/simid.html]]>
+                       </InteractiveCreativeFile>
+                     </MediaFiles>
+                   </Linear>
+                 </Creative></Creatives>
+               </InLine></Ad></VAST>""",
+               False, True, "SIMID-1.0-simid-url-https"),
           ]
 
           HTTP_XMLS = [
@@ -164,14 +313,10 @@ jobs:
               </InLine></Ad></VAST>""",
           ]
 
-          seed = random.randint(100000, 999999)
-          valid_idx   = random.randrange(len(VALID_XMLS))
-          invalid_idx = random.randrange(len(INVALID_XMLS))
-          valid_xml   = VALID_XMLS[valid_idx].replace("{seed}", str(seed))
-          invalid_xml = INVALID_XMLS[invalid_idx].replace("{seed}", str(seed))
-          http_xml    = random.choice(HTTP_XMLS).replace("{seed}", str(seed))
+          seed     = random.randint(100000, 999999)
+          http_xml = random.choice(HTTP_XMLS).replace("{seed}", str(seed))
 
-          print(f"Seed: {seed}  (valid variant #{valid_idx+1}, invalid variant #{invalid_idx+1})")
+          print(f"Seed: {seed}  (batch: {len(BATCH_CASES)} validate_vast cases)")
           print(f"Target: {MCP_URL}\n")
 
           # ── 1. initialize ────────────────────────────────────────────────────
@@ -205,25 +350,34 @@ jobs:
 
           check("tools/list", check_tools_list)
 
-          # ── 3. validate_vast — valid XML ─────────────────────────────────────
-          def check_validate_valid():
-              r, ms = post("tools/call", {"name": "validate_vast", "arguments": {"xml": valid_xml}})
-              obj = json.loads(r["result"]["content"][0]["text"])
-              errors = obj.get("summary", {}).get("errors", -1)
-              assert errors == 0, f"expected errors=0, got {errors}"
-              print(f"  errors=0  ({ms} ms)")
+          # ── 3. validate_vast — batch sweep (15 cases) ─────────────────────────
+          def make_validate_check(lbl, xml, ev, ee, er):
+              def fn():
+                  r, ms = post("tools/call", {"name": "validate_vast", "arguments": {"xml": xml}})
+                  obj       = json.loads(r["result"]["content"][0]["text"])
+                  summary   = obj.get("summary", {})
+                  act_valid = summary.get("valid", None)
+                  errors    = summary.get("errors", -1)
+                  issue_ids = {i.get("id") for i in obj.get("issues", [])}
+                  assert act_valid == ev, (
+                      f"expected valid={ev}, got {act_valid}  "
+                      f"(errors={errors}, ids={sorted(issue_ids)[:5]})"
+                  )
+                  if ee:
+                      assert errors > 0,  f"expected errors>0, got {errors}"
+                  else:
+                      assert errors == 0, f"expected errors=0, got {errors}"
+                  if er:
+                      assert er in issue_ids, (
+                          f"expected rule {er!r} to fire, "
+                          f"got: {sorted(issue_ids)}"
+                      )
+                  print(f"  valid={act_valid}, errors={errors}  ({ms} ms)")
+              return fn
 
-          check("validate_vast — valid XML", check_validate_valid)
-
-          # ── 4. validate_vast — invalid XML ───────────────────────────────────
-          def check_validate_invalid():
-              r, ms = post("tools/call", {"name": "validate_vast", "arguments": {"xml": invalid_xml}})
-              obj = json.loads(r["result"]["content"][0]["text"])
-              errors = obj.get("summary", {}).get("errors", 0)
-              assert errors > 0, f"expected errors>0, got {errors}"
-              print(f"  errors={errors}  ({ms} ms)")
-
-          check("validate_vast — invalid XML", check_validate_invalid)
+          for lbl, xml_tpl, ev, ee, er in BATCH_CASES:
+              xml = xml_tpl.replace("{seed}", str(seed))
+              check(f"validate_vast — {lbl}", make_validate_check(lbl, xml, ev, ee, er))
 
           # ── 5. list_rules ────────────────────────────────────────────────────
           def check_list_rules():

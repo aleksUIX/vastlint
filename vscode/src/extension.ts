@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { spawn } from 'child_process';
 // Import types only from the package (compile-time, no runtime cost).
 import type { Issue, RuleMeta } from 'vastlint';
+import { applyTemplateIgnore, extractVastBlocks, mapBlockIssuePosition, type VastBlock } from './utils';
 // Use the CJS entry directly at runtime — the package has "type":"module" which
 // causes Node v22 to pick the ESM loader, breaking __dirname and WASM init.
 // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -142,75 +143,10 @@ const FIX_HINTS: Record<string, string> = {
   'SIMID-1.1-iframe-simid-url-https':        'Change the `<IFrameResource>` URL from `http://` to `https://`.',
 };
 
-// ── Template ignore ───────────────────────────────────────────────────────────
-
-/**
- * Replace every match of `regexStr` with an equal-length run of zeros.
- * Same-length replacement preserves all line/col offsets so that
- * validator-reported positions remain accurate in the original file.
- */
-function applyTemplateIgnore(text: string, regexStr: string): string {
-  if (!regexStr) return text;
-  let regex: RegExp;
-  try {
-    regex = new RegExp(regexStr, 'gs');
-  } catch {
-    // Invalid regex — skip silently; user will see a setting validation warning.
-    return text;
-  }
-  return text.replace(regex, (match) => '0'.repeat(match.length));
-}
-
-// ── VAST block extractor ──────────────────────────────────────────────────────
-
-interface VastBlock {
-  xml: string;
-  /** 0-based line index in the parent document where this block starts. */
-  startLine: number;
-  /** 0-based column index on startLine where '<VAST' begins. */
-  startCol: number;
-}
-
-/**
- * Find every top-level `<VAST … </VAST>` region in `text` and return each
- * as a VastBlock with its document-absolute start position.
- *
- * Works for files that contain multiple VAST documents, or VAST embedded
- * inside template files (ERB, Go templates, Mustache, etc.).
- */
-function extractVastBlocks(text: string): VastBlock[] {
-  const OPEN  = '<VAST';
-  const CLOSE = '</VAST>';
-  const blocks: VastBlock[] = [];
-  let pos = 0;
-
-  while (pos < text.length) {
-    const start = text.indexOf(OPEN, pos);
-    if (start === -1) break;
-
-    const closeIdx = text.indexOf(CLOSE, start);
-    if (closeIdx === -1) break;
-
-    const blockEnd = closeIdx + CLOSE.length;
-    const blockXml = text.slice(start, blockEnd);
-
-    // Count newlines before `start` to get the 0-based line number.
-    const before = text.slice(0, start);
-    let startLine = 0;
-    for (let i = 0; i < before.length; i++) {
-      if (before[i] === '\n') startLine++;
-    }
-    const lastNl   = before.lastIndexOf('\n');
-    const startCol = lastNl === -1 ? start : start - lastNl - 1;
-
-    blocks.push({ xml: blockXml, startLine, startCol });
-    pos = blockEnd;
-  }
-
-  return blocks;
-}
-
 // ── CLI integration ───────────────────────────────────────────────────────────
+
+// (applyTemplateIgnore, extractVastBlocks, mapBlockIssuePosition and VastBlock
+//  are imported from ./utils)
 
 /** JSON shape produced by `vastlint check - --format json`. Issues are identical to the WASM Issue type. */
 interface CliCheckResult {
@@ -386,15 +322,9 @@ async function buildDiagnostics(
       let range: vscode.Range;
       if (issue.line != null && issue.col != null) {
         // Map block-relative 1-based (line, col) → document-absolute 0-based.
-        const blockLineIdx = issue.line - 1;
-        const blockColIdx  = issue.col  - 1;
-
-        const docLineIdx = block.startLine + blockLineIdx;
-        // Column offset only applies to the first line of the block (where
-        // the block doesn't start at column 0 in the document).
-        const docColIdx  = blockLineIdx === 0
-          ? block.startCol + blockColIdx
-          : blockColIdx;
+        const { docLine: docLineIdx, docCol: docColIdx } = mapBlockIssuePosition(
+          issue.line, issue.col, block,
+        );
 
         const lineText = docLines[docLineIdx] ?? '';
         // Extend the squiggle to cover the tag name (up to the first space or >).
