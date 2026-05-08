@@ -1,0 +1,135 @@
+name: Spec watch
+
+# Runs every Monday at 09:00 UTC.
+# For each watched IAB repo, fetches the latest release tag and opens a
+# GitHub issue if no open issue already references that tag.
+#
+# To add a new repo: extend the REPOS matrix below.
+
+on:
+  schedule:
+    - cron: "0 9 * * 1"
+  workflow_dispatch: # allow manual trigger
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check:
+    name: Check ${{ matrix.repo }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - repo: InteractiveAdvertisingBureau/vast
+            spec: VAST
+            label: spec-tracking
+          - repo: InteractiveAdvertisingBureau/SIMID
+            spec: SIMID
+            label: spec-tracking
+          - repo: InteractiveAdvertisingBureau/Open-Measurement-SDK
+            spec: OMID (Open Measurement)
+            label: spec-tracking
+          - repo: InteractiveAdvertisingBureau/ACIF
+            spec: ACIF (Ad Creative ID Framework)
+            label: spec-tracking
+
+    steps:
+      - name: Get latest release from ${{ matrix.repo }}
+        id: latest
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Fetch the latest release (not pre-release). Falls back to latest tag
+          # if the repo has no GitHub Releases yet.
+          RELEASE=$(gh api repos/${{ matrix.repo }}/releases/latest \
+            --jq '{tag: .tag_name, url: .html_url, name: .name, published: .published_at}' \
+            2>/dev/null || echo "null")
+
+          if [ "$RELEASE" = "null" ] || [ -z "$RELEASE" ]; then
+            # No GitHub Release — try latest tag instead
+            TAG=$(gh api repos/${{ matrix.repo }}/tags \
+              --jq '.[0] | {tag: .name, url: ("https://github.com/${{ matrix.repo }}/tree/" + .name), name: .name, published: "unknown"}' \
+              2>/dev/null || echo "null")
+            RELEASE="$TAG"
+          fi
+
+          if [ "$RELEASE" = "null" ] || [ -z "$RELEASE" ]; then
+            echo "skipped=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "skipped=false" >> "$GITHUB_OUTPUT"
+          echo "tag=$(echo $RELEASE | jq -r .tag)" >> "$GITHUB_OUTPUT"
+          echo "url=$(echo $RELEASE | jq -r .url)" >> "$GITHUB_OUTPUT"
+          echo "published=$(echo $RELEASE | jq -r .published)" >> "$GITHUB_OUTPUT"
+
+      - name: Check for existing tracking issue
+        if: steps.latest.outputs.skipped != 'true'
+        id: existing
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ steps.latest.outputs.tag }}"
+          SPEC="${{ matrix.spec }}"
+
+          # Search open issues in this repo for one already tracking this tag
+          COUNT=$(gh api \
+            "repos/${{ github.repository }}/issues?state=open&labels=spec-tracking&per_page=100" \
+            --jq "[.[] | select(.title | test(\"${TAG}\"; \"i\"))] | length")
+
+          echo "count=$COUNT" >> "$GITHUB_OUTPUT"
+
+      - name: Open tracking issue
+        if: steps.latest.outputs.skipped != 'true' && steps.existing.outputs.count == '0'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE_TAG: ${{ steps.latest.outputs.tag }}
+          ISSUE_SPEC: ${{ matrix.spec }}
+          ISSUE_URL: ${{ steps.latest.outputs.url }}
+          ISSUE_PUBLISHED: ${{ steps.latest.outputs.published }}
+          ISSUE_REPO: ${{ matrix.repo }}
+          ISSUE_WORKFLOW_URL: https://github.com/${{ github.repository }}/actions/workflows/spec-watch.yml
+          ISSUE_REPO_URL: https://github.com/${{ matrix.repo }}
+        run: |
+          printf '%s\n' \
+            "## New ${ISSUE_SPEC} release detected" \
+            "" \
+            "Tag: \`${ISSUE_TAG}\`" \
+            "Published: ${ISSUE_PUBLISHED}" \
+            "Source repo: [\`${ISSUE_REPO}\`](${ISSUE_REPO_URL})" \
+            "Release URL: ${ISSUE_URL}" \
+            "" \
+            "---" \
+            "" \
+            "This issue was opened automatically by the [spec-watch workflow](${ISSUE_WORKFLOW_URL})." \
+            "" \
+            "### Action required" \
+            "" \
+            "Review the release notes and update this issue with:" \
+            "" \
+            "- [ ] Summary of changes (new elements, removed elements, breaking schema changes)" \
+            "- [ ] New validation rules needed" \
+            "- [ ] Existing rules that need version-scoped changes" \
+            "- [ ] New migration guide page for vastlint.org" \
+            "- [ ] Spec reference files to update in \`vastlint/specs/\`" \
+            "- [ ] Version bump determination (see [RELEASE.md](../blob/main/RELEASE.md) for semver guidance)" \
+            "" \
+            "### Semver guidance" \
+            "" \
+            "| Spec change type | vastlint version bump |" \
+            "|---|---|" \
+            "| New additive rules only (no existing behaviour change) | patch or minor |" \
+            "| New required elements or breaking schema change | minor |" \
+            "| Major spec revision (e.g. VAST 5.0) | minor -> consider 1.0 milestone |" \
+            "" \
+            "Close this issue once the corresponding vastlint release ships." \
+            > /tmp/issue-body.md
+
+          gh issue create \
+            --repo "${{ github.repository }}" \
+            --title "Spec: ${ISSUE_SPEC} ${ISSUE_TAG}" \
+            --label "spec-tracking,enhancement" \
+            --body-file /tmp/issue-body.md

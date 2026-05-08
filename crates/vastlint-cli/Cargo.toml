@@ -1,15 +1,15 @@
 [package]
 name = "vastlint-cli"
-version = "0.4.3"
+version = "0.4.10"
 edition = "2021"
 rust-version = "1.86"
 authors = ["Aleks <aleks@vastlint.org>"]
-description = "Command-line VAST XML validator — checks tags against IAB VAST 2.0 through 4.3"
+description = "VAST XML validator and inspector — validate, inspect wrapper chains, and auto-fix IAB VAST 2.0–4.3 ad tags"
 license = "Apache-2.0"
 repository = "https://github.com/aleksUIX/vastlint"
-homepage = "https://github.com/aleksUIX/vastlint"
+homepage = "https://vastlint.org"
 readme = "../../README.md"
-keywords = ["vast", "xml", "validator", "adtech", "iab"]
+keywords = ["vast", "xml", "validator", "simid", "ctv"]
 categories = ["command-line-utilities", "development-tools"]
 
 [[bin]]

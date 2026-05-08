@@ -1,13 +1,13 @@
 [package]
 name = "vastlint-wasm"
-version = "0.4.3"
+version = "0.4.10"
 edition = "2021"
 rust-version = "1.86"
 authors = ["Aleks <aleks@vastlint.org>"]
 description = "WASM bindings for vastlint-core — validate VAST XML in the browser, Node, Deno, and edge workers"
 license = "Apache-2.0"
 repository = "https://github.com/aleksUIX/vastlint"
-homepage = "https://github.com/aleksUIX/vastlint"
+homepage = "https://vastlint.org"
 keywords = ["vast", "xml", "validator", "adtech", "wasm"]
 categories = ["parser-implementations", "wasm"]
 

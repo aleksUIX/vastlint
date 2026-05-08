@@ -1,13 +1,13 @@
 [package]
 name = "vastlint_nif"
-version = "0.4.3"
+version = "0.4.10"
 edition = "2021"
 rust-version = "1.86"
 authors = ["Aleks <aleks@vastlint.org>"]
 description = "Erlang/Elixir NIF bindings for vastlint-core — DirtyCpu Rustler NIF for high-throughput VAST validation on the BEAM"
 license = "Apache-2.0"
 repository = "https://github.com/aleksUIX/vastlint"
-homepage = "https://github.com/aleksUIX/vastlint"
+homepage = "https://vastlint.org"
 keywords = ["vast", "xml", "validator", "adtech", "erlang"]
 categories = ["external-ffi-bindings", "development-tools"]
 

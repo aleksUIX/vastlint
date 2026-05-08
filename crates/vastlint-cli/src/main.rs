@@ -814,11 +814,16 @@ fn print_issue(issue: &Issue) {
         issue.id,
         DIM_STYLE.render_reset(),
     );
-    // Line 2: XPath location (dimmed, indented under severity)
+    // Line 2: XPath location + line:col (dimmed, indented under severity)
+    let location = match (issue.line, issue.col) {
+        (Some(l), Some(c)) => format!("{}:{}:{}", path, l, c),
+        (Some(l), None) => format!("{}:{}", path, l),
+        _ => path.to_owned(),
+    };
     println!(
         "  {}         {}{}",
         DIM_STYLE.render(),
-        path,
+        location,
         DIM_STYLE.render_reset(),
     );
 }

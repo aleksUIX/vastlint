@@ -1,0 +1,168 @@
+name: Chrome Extension
+
+# Standalone workflow for building and publishing the Chrome extension.
+# Decoupled from release.yml so it can run independently of the full release
+# pipeline, and so failures are visible in isolation.
+#
+# Triggers:
+#   push to main   — build + zip only (no publish). Validates the build is clean.
+#   workflow_dispatch — build + optional publish to Chrome Web Store.
+#
+# Required secrets (Settings → Secrets → Actions):
+#   CHROME_EXTENSION_ID   — e.g. abcdefghijklmnopqrstuvwxyzabcdef
+#   CHROME_CLIENT_ID      — OAuth2 client ID from Google Cloud Console
+#   CHROME_CLIENT_SECRET  — OAuth2 client secret
+#   CHROME_REFRESH_TOKEN  — long-lived refresh token (see README for how to obtain)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'chrome/**'
+      - 'npm/**'
+      - '.github/workflows/chrome-extension.yml'
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: "Publish to Chrome Web Store"
+        type: boolean
+        default: false
+        required: false
+      version:
+        description: "Version to set (e.g. 0.4.9). Leave blank to use manifest.json version."
+        type: string
+        default: ''
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  build-chrome:
+    name: Build Chrome extension
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e  # v6.4.0
+        with:
+          node-version: '20'
+
+      # The extension depends on the vastlint npm package (file:../npm).
+      # That package requires the compiled WASM blobs to be present.
+      # On push/dispatch we build WASM fresh rather than requiring the
+      # release pipeline to have run first.
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@3c5f7ea28cd621ae0bf5283f0e981fb97b8a7af9
+        with:
+          toolchain: stable
+          targets: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4  # v2.9.1
+
+      - name: Install wasm-pack
+        run: cargo install wasm-pack --locked
+
+      - name: Build WASM (bundler target — consumed by extension)
+        run: wasm-pack build crates/vastlint-wasm --target bundler --out-dir ../../npm/pkg
+
+      - name: Build WASM (nodejs target — needed for npm package assembly)
+        run: wasm-pack build crates/vastlint-wasm --target nodejs --out-dir ../../npm/pkg-node
+
+      - name: Assemble npm package
+        run: node npm/scripts/assemble.js
+
+      # Stamp version if explicitly provided via workflow_dispatch input.
+      # On push builds we leave the manifest version as-is.
+      - name: Set manifest version
+        if: ${{ inputs.version != '' }}
+        working-directory: chrome
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          node -e "
+            const fs = require('fs');
+            const version = process.env.VERSION;
+            if (!version) throw new Error('VERSION input is required');
+            const m = JSON.parse(fs.readFileSync('manifest.json','utf8'));
+            m.version = version;
+            fs.writeFileSync('manifest.json', JSON.stringify(m, null, 2) + '\n');
+          "
+          node -e "
+            const fs = require('fs');
+            const m = JSON.parse(fs.readFileSync('manifest.json','utf8'));
+            if (m.version !== process.env.VERSION) {
+              throw new Error(`manifest.json version mismatch: ${m.version}`);
+            }
+          "
+          echo "Stamped manifest.json to version $VERSION"
+
+      - name: Install extension dependencies
+        working-directory: chrome
+        run: npm ci
+
+      - name: Build extension
+        working-directory: chrome
+        run: npm run build
+
+      # Smoke-check: dist/ must contain the key files the extension needs.
+      - name: Verify build output
+        working-directory: chrome
+        run: |
+          REQUIRED=(
+            dist/manifest.json
+            dist/content.js
+            dist/service-worker.js
+            dist/popup.js
+            dist/popup.html
+            dist/vastlint_wasm_bg.wasm
+          )
+          MISSING=0
+          for f in "${REQUIRED[@]}"; do
+            if [ ! -f "$f" ]; then
+              echo "MISSING: $f"
+              MISSING=$((MISSING + 1))
+            else
+              echo "OK: $f"
+            fi
+          done
+          [ "$MISSING" -eq 0 ] || { echo "$MISSING required file(s) missing from dist/"; exit 1; }
+
+      - name: Zip dist/
+        working-directory: chrome
+        run: |
+          cd dist
+          zip -r ../vastlint-extension.zip .
+          echo "Archive size: $(du -sh ../vastlint-extension.zip | cut -f1)"
+
+      - name: Upload zip as workflow artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        with:
+          name: vastlint-extension.zip
+          path: chrome/vastlint-extension.zip
+          retention-days: 7
+
+  publish-chrome:
+    name: Publish to Chrome Web Store
+    runs-on: ubuntu-latest
+    needs: build-chrome
+    # Only publish when explicitly requested via workflow_dispatch
+    if: ${{ inputs.publish == true }}
+
+    steps:
+      - name: Download extension zip
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c  # v8.0.1
+        with:
+          name: vastlint-extension.zip
+          path: chrome
+
+      - name: Publish to Chrome Web Store
+        uses: mnao305/chrome-extension-upload@fdfe79400af990f5145a319e834aee64907ccff4  # v6.0.0
+        with:
+          file-path: chrome/vastlint-extension.zip
+          extension-id: ${{ secrets.CHROME_EXTENSION_ID }}
+          client-id: ${{ secrets.CHROME_CLIENT_ID }}
+          client-secret: ${{ secrets.CHROME_CLIENT_SECRET }}
+          refresh-token: ${{ secrets.CHROME_REFRESH_TOKEN }}
+          publish: true

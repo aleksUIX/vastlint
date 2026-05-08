@@ -1,0 +1,414 @@
+name: MCP canary
+
+# Probes the live vastlint.org/mcp endpoint daily to confirm every tool
+# is reachable and returns correct results.  Input validation and response
+# structure are checked for each tool; a randomised XML pool is sampled on
+# each run so no two runs exercise exactly the same byte sequence.
+
+on:
+  schedule:
+    - cron: "0  0 * * *"  # ~00:00 UTC  ╮
+    - cron: "0  6 * * *"  # ~06:00 UTC  │ each trigger sleeps 0–90 min before
+    - cron: "0 12 * * *"  # ~12:00 UTC  │ probing, giving ~4 randomised runs/day
+    - cron: "0 18 * * *"  # ~18:00 UTC  ╯
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  canary:
+    name: vastlint.org/mcp canary
+    runs-on: ubuntu-latest
+    timeout-minutes: 20   # 5 min jitter + 10 min probe + headroom
+
+    steps:
+      - name: Random jitter (0–5 min)
+        # Tiny jitter so runs don't always land exactly on the hour.
+        # Kept short to avoid wasting GHA runner minutes.
+        # Skip when triggered manually so workflow_dispatch is instant.
+        if: github.event_name != 'workflow_dispatch'
+        run: |
+          DELAY=$(( RANDOM % 301 ))
+          echo "Sleeping ${DELAY}s"
+          sleep "$DELAY"
+
+      - name: Probe MCP endpoint
+        run: |
+          python3 - <<'PYEOF'
+          import json, random, sys, time, urllib.request, urllib.error
+
+          MCP_URL = "https://vastlint.org/mcp"
+          TIMEOUT  = 30   # seconds per request
+          PASS     = []
+          FAIL     = []
+
+          def post(method, params=None, req_id=None):
+              req_id = req_id or random.randint(1, 99999)
+              body = {"jsonrpc": "2.0", "id": req_id, "method": method}
+              if params is not None:
+                  body["params"] = params
+              data = json.dumps(body).encode()
+              req = urllib.request.Request(
+                  MCP_URL,
+                  data=data,
+                  headers={
+                      "Content-Type": "application/json",
+                      "User-Agent": "vastlint-canary/1.0",
+                  },
+                  method="POST",
+              )
+              t0 = time.monotonic()
+              with urllib.request.urlopen(req, timeout=TIMEOUT) as resp:
+                  result = json.loads(resp.read())
+              ms = int((time.monotonic() - t0) * 1000)
+              return result, ms
+
+          def check(name, fn):
+              try:
+                  fn()
+                  PASS.append(name)
+                  print(f"PASS  {name}")
+              except AssertionError as e:
+                  FAIL.append((name, str(e)))
+                  print(f"FAIL  {name}: {e}")
+              except Exception as e:
+                  FAIL.append((name, repr(e)))
+                  print(f"ERROR {name}: {e}")
+
+          # ── XML pool — batch validate_vast sweep (15 cases, every run) ─────
+          # All cases run on every execution — no sampling.  {seed} is substituted
+          # per run so no two runs send byte-identical payloads.
+          # Each entry: (label, xml_template, expect_valid, expect_errors_gt0, expect_rule_id)
+
+          BATCH_CASES = [
+              # ── valid fixtures ────────────────────────────────────────────────
+              ("VAST 2.0 minimal",
+               """<VAST version="2.0"><Ad id="1"><InLine>
+                 <AdSystem>T</AdSystem><AdTitle>T {seed}</AdTitle>
+                 <Impression><![CDATA[https://t.example.com/imp?s={seed}]]></Impression>
+                 <Creatives><Creative><Linear><Duration>00:00:30</Duration>
+                   <MediaFiles><MediaFile type="video/mp4" width="640" height="480"
+                       delivery="progressive" bitrate="500">
+                     <![CDATA[https://cdn.example.com/sd.mp4?s={seed}]]>
+                   </MediaFile></MediaFiles>
+                 </Linear></Creative></Creatives>
+               </InLine></Ad></VAST>""",
+               True, False, None),
+
+              ("VAST 3.0 minimal",
+               """<VAST version="3.0"><Ad id="1" sequence="1"><InLine>
+                 <AdSystem>T</AdSystem><AdTitle>T {seed}</AdTitle>
+                 <Impression><![CDATA[https://t.example.com/imp?s={seed}]]></Impression>
+                 <Creatives><Creative><Linear><Duration>00:00:30</Duration>
+                   <MediaFiles><MediaFile type="video/mp4" width="1280" height="720"
+                       delivery="progressive" bitrate="1000">
+                     <![CDATA[https://cdn.example.com/hd.mp4?s={seed}]]>
+                   </MediaFile></MediaFiles>
+                 </Linear></Creative></Creatives>
+               </InLine></Ad></VAST>""",
+               True, False, None),
+
+              ("VAST 4.0 linear",
+               """<VAST version="4.0"><Ad id="1"><InLine>
+                 <AdSystem>T</AdSystem><AdTitle>T {seed}</AdTitle>
+                 <Impression><![CDATA[https://t.example.com/imp?s={seed}]]></Impression>
+                 <Creatives><Creative>
+                   <UniversalAdId idRegistry="ad-id.org">u40{seed}</UniversalAdId>
+                   <Linear><Duration>00:00:30</Duration>
+                     <MediaFiles><MediaFile type="video/mp4" width="1280" height="720"
+                         delivery="progressive" bitrate="1200">
+                       <![CDATA[https://cdn.example.com/hd.mp4?s={seed}]]>
+                     </MediaFile></MediaFiles>
+                   </Linear>
+                 </Creative></Creatives>
+               </InLine></Ad></VAST>""",
+               True, False, None),
+
+              ("VAST 4.1 full",
+               """<VAST version="4.1"><Ad id="1"><InLine>
+                 <AdSystem>T</AdSystem><AdServingId>srv-{seed}</AdServingId>
+                 <AdTitle>T {seed}</AdTitle>
+                 <Impression><![CDATA[https://t.example.com/imp?s={seed}]]></Impression>
+                 <Creatives><Creative>
+                   <UniversalAdId idRegistry="ad-id.org">uid{seed}</UniversalAdId>
+                   <Linear><Duration>00:00:30</Duration>
+                     <MediaFiles><MediaFile type="video/mp4" width="1920" height="1080"
+                         delivery="progressive" bitrate="2000">
+                       <![CDATA[https://cdn.example.com/hd.mp4?s={seed}]]>
+                     </MediaFile></MediaFiles>
+                   </Linear>
+                 </Creative></Creatives>
+               </InLine></Ad></VAST>""",
+               True, False, None),
+
+              ("VAST 4.2 full",
+               """<VAST version="4.2"><Ad id="1"><InLine>
+                 <AdSystem>T</AdSystem><AdServingId>srv4-{seed}</AdServingId>
+                 <AdTitle>T {seed}</AdTitle>
+                 <Impression><![CDATA[https://t.example.com/imp?s={seed}]]></Impression>
+                 <Creatives><Creative>
+                   <UniversalAdId idRegistry="ad-id.org">u42{seed}</UniversalAdId>
+                   <Linear><Duration>00:00:15</Duration>
+                     <MediaFiles><MediaFile type="video/mp4" width="1280" height="720"
+                         delivery="progressive" bitrate="1500">
+                       <![CDATA[https://cdn.example.com/720p.mp4?s={seed}]]>
+                     </MediaFile></MediaFiles>
+                   </Linear>
+                 </Creative></Creatives>
+               </InLine></Ad></VAST>""",
+               True, False, None),
+
+              ("SIMID 4.1 valid",
+               """<VAST version="4.1"><Ad id="1"><InLine>
+                 <AdSystem>T</AdSystem><AdServingId>simid-{seed}</AdServingId>
+                 <AdTitle>SIMID {seed}</AdTitle>
+                 <Impression><![CDATA[https://t.example.com/imp?s={seed}]]></Impression>
+                 <Creatives><Creative>
+                   <UniversalAdId idRegistry="ad-id.org">s{seed}</UniversalAdId>
+                   <Linear><Duration>00:00:30</Duration>
+                     <MediaFiles>
+                       <MediaFile type="video/mp4" width="1920" height="1080"
+                           delivery="progressive" bitrate="2000">
+                         <![CDATA[https://cdn.example.com/hd.mp4?s={seed}]]>
+                       </MediaFile>
+                       <InteractiveCreativeFile apiFramework="SIMID" type="text/html">
+                         <![CDATA[https://creative.example.com/simid.html?s={seed}]]>
+                       </InteractiveCreativeFile>
+                     </MediaFiles>
+                   </Linear>
+                 </Creative></Creatives>
+               </InLine></Ad></VAST>""",
+               True, False, None),
+
+              ("VAST 4.1 Wrapper valid",
+               """<VAST version="4.1"><Ad id="1"><Wrapper>
+                 <AdSystem>T</AdSystem>
+                 <VASTAdTagURI><![CDATA[https://ad.example.com/tag?s={seed}]]></VASTAdTagURI>
+                 <Impression><![CDATA[https://t.example.com/imp?s={seed}]]></Impression>
+                 <Creatives/>
+               </Wrapper></Ad></VAST>""",
+               True, False, None),
+
+              # ── error fixtures ────────────────────────────────────────────────
+              ("no <Ad> element",
+               """<VAST version="2.0"></VAST>""",
+               False, True, "VAST-2.0-root-has-ad-or-error"),
+
+              ("missing <Impression>",
+               """<VAST version="2.0"><Ad id="1"><InLine>
+                 <AdSystem>T</AdSystem><AdTitle>T</AdTitle>
+                 <Creatives><Creative><Linear><Duration>00:00:30</Duration>
+                   <MediaFiles><MediaFile type="video/mp4" width="640" height="480"
+                       delivery="progressive">
+                     <![CDATA[https://cdn.example.com/ad.mp4]]>
+                   </MediaFile></MediaFiles>
+                 </Linear></Creative></Creatives>
+               </InLine></Ad></VAST>""",
+               False, True, "VAST-2.0-inline-impression"),
+
+              ("missing <AdSystem>",
+               """<VAST version="2.0"><Ad id="1"><InLine>
+                 <AdTitle>T</AdTitle>
+                 <Impression><![CDATA[https://t.example.com/imp]]></Impression>
+                 <Creatives><Creative><Linear><Duration>00:00:30</Duration>
+                   <MediaFiles><MediaFile type="video/mp4" width="640" height="480"
+                       delivery="progressive">
+                     <![CDATA[https://cdn.example.com/ad.mp4]]>
+                   </MediaFile></MediaFiles>
+                 </Linear></Creative></Creatives>
+               </InLine></Ad></VAST>""",
+               False, True, "VAST-2.0-inline-adsystem"),
+
+              ("missing <AdTitle>",
+               """<VAST version="2.0"><Ad id="1"><InLine>
+                 <AdSystem>T</AdSystem>
+                 <Impression><![CDATA[https://t.example.com/imp]]></Impression>
+                 <Creatives><Creative><Linear><Duration>00:00:30</Duration>
+                   <MediaFiles><MediaFile type="video/mp4" width="640" height="480"
+                       delivery="progressive">
+                     <![CDATA[https://cdn.example.com/ad.mp4]]>
+                   </MediaFile></MediaFiles>
+                 </Linear></Creative></Creatives>
+               </InLine></Ad></VAST>""",
+               False, True, "VAST-2.0-inline-adtitle"),
+
+              ("VAST 4.1 missing <AdServingId>",
+               """<VAST version="4.1"><Ad id="1"><InLine>
+                 <AdSystem>T</AdSystem><AdTitle>T</AdTitle>
+                 <Impression><![CDATA[https://t.example.com/imp]]></Impression>
+                 <Creatives><Creative>
+                   <UniversalAdId idRegistry="ad-id.org">uid1</UniversalAdId>
+                   <Linear><Duration>00:00:30</Duration>
+                     <MediaFiles><MediaFile type="video/mp4" width="1280" height="720"
+                         delivery="progressive" bitrate="1000">
+                       <![CDATA[https://cdn.example.com/hd.mp4]]>
+                     </MediaFile></MediaFiles>
+                   </Linear>
+                 </Creative></Creatives>
+               </InLine></Ad></VAST>""",
+               False, True, "VAST-4.1-adservingid-present"),
+
+              ("Wrapper missing <VASTAdTagURI>",
+               """<VAST version="2.0"><Ad id="1"><Wrapper>
+                 <AdSystem>T</AdSystem>
+                 <Impression><![CDATA[https://t.example.com/imp]]></Impression>
+                 <Creatives/>
+               </Wrapper></Ad></VAST>""",
+               False, True, "VAST-2.0-wrapper-vastadtaguri"),
+          ]
+
+          HTTP_XMLS = [
+              # HTTP URLs in Impression + MediaFile
+              """<VAST version="2.0"><Ad id="1"><InLine>
+                <AdSystem>T</AdSystem><AdTitle>HTTP Test {seed}</AdTitle>
+                <Impression>http://t.example.com/imp?r={seed}</Impression>
+                <Creatives><Creative><Linear><Duration>00:00:30</Duration>
+                  <MediaFiles><MediaFile delivery="progressive" type="video/mp4"
+                      width="640" height="480">
+                    http://cdn.example.com/ad.mp4?r={seed}
+                  </MediaFile></MediaFiles>
+                </Linear></Creative></Creatives>
+              </InLine></Ad></VAST>""",
+          ]
+
+          seed     = random.randint(100000, 999999)
+          http_xml = random.choice(HTTP_XMLS).replace("{seed}", str(seed))
+
+          print(f"Seed: {seed}  (batch: {len(BATCH_CASES)} validate_vast cases)")
+          print(f"Target: {MCP_URL}\n")
+
+          # ── 1. initialize ────────────────────────────────────────────────────
+          def check_initialize():
+              r, ms = post("initialize", {
+                  "protocolVersion": "2024-11-05",
+                  "capabilities": {},
+                  "clientInfo": {"name": "canary", "version": "1.0"},
+              })
+              assert "result" in r, f"no result field: {r}"
+              info = r["result"]
+              assert info.get("serverInfo", {}).get("name"), f"serverInfo.name missing: {info}"
+              assert "capabilities" in info, f"capabilities missing: {info}"
+              print(f"  serverInfo.name={info['serverInfo']['name']}  ({ms} ms)")
+
+          check("initialize", check_initialize)
+
+          # ── 2. tools/list ────────────────────────────────────────────────────
+          EXPECTED_TOOLS = {
+              "validate_vast", "validate_vast_url", "list_rules",
+              "explain_rule", "fix_vast", "get_adcp_capabilities",
+          }
+
+          def check_tools_list():
+              r, ms = post("tools/list")
+              tools = r.get("result", {}).get("tools", [])
+              names = {t["name"] for t in tools}
+              missing = EXPECTED_TOOLS - names
+              assert not missing, f"missing tools: {missing}"
+              print(f"  {len(tools)} tools returned  ({ms} ms)")
+
+          check("tools/list", check_tools_list)
+
+          # ── 3. validate_vast — batch sweep (13 cases) ─────────────────────────
+          # Validity is checked via errors count (not the 'valid' field, whose
+          # location in the response may vary across server versions).
+          def make_validate_check(lbl, xml, ev, ee, er):
+              def fn():
+                  r, ms = post("tools/call", {"name": "validate_vast", "arguments": {"xml": xml}})
+                  obj       = json.loads(r["result"]["content"][0]["text"])
+                  summary   = obj.get("summary", {})
+                  errors    = summary.get("errors", -1)
+                  issue_ids = {i.get("id") for i in obj.get("issues", [])}
+                  if ev:   # expect valid (errors == 0)
+                      assert errors == 0, (
+                          f"expected errors=0 (valid), got errors={errors}, "
+                          f"ids={sorted(issue_ids)[:5]}"
+                      )
+                  else:    # expect invalid (errors > 0)
+                      assert errors > 0, (
+                          f"expected errors>0 (invalid), got errors={errors}, "
+                          f"ids={sorted(issue_ids)[:5]}"
+                      )
+                  if er:
+                      assert er in issue_ids, (
+                          f"expected rule {er!r} to fire, "
+                          f"got: {sorted(issue_ids)}"
+                      )
+                  print(f"  errors={errors}  ({ms} ms)")
+              return fn
+
+          for lbl, xml_tpl, ev, ee, er in BATCH_CASES:
+              xml = xml_tpl.replace("{seed}", str(seed))
+              check(f"validate_vast — {lbl}", make_validate_check(lbl, xml, ev, ee, er))
+
+          print(f"  {len(BATCH_CASES)} validate_vast cases completed")
+
+          # ── 5. list_rules ────────────────────────────────────────────────────
+          def check_list_rules():
+              r, ms = post("tools/call", {"name": "list_rules", "arguments": {}})
+              obj = json.loads(r["result"]["content"][0]["text"])
+              rules = [v for k, v in obj.items() if k != "status"]
+              count = len(rules)
+              assert count > 0, f"count=0"
+              ids = {rule["id"] for rule in rules}
+              for expected in ("VAST-2.0-inline-impression", "VAST-4.1-adservingid-present"):
+                  assert expected in ids, f"{expected} not in catalog"
+              print(f"  {count} rules  ({ms} ms)")
+
+          check("list_rules", check_list_rules)
+
+          # ── 6. explain_rule ──────────────────────────────────────────────────
+          EXPLAIN_POOL = [
+              "VAST-2.0-inline-impression",
+              "VAST-4.1-adservingid-present",
+              "VAST-2.0-root-version",
+              "VAST-2.0-inline-adsystem",
+          ]
+
+          def check_explain_rule():
+              rule_id = random.choice(EXPLAIN_POOL)
+              r, ms = post("tools/call", {"name": "explain_rule", "arguments": {"rule_id": rule_id}})
+              obj = json.loads(r["result"]["content"][0]["text"])
+              assert obj.get("id") == rule_id,           f"id mismatch: {obj.get('id')}"
+              assert len(obj.get("description", "")) > 5, f"empty description"
+              severity = obj.get("default_severity") or obj.get("severity")
+              assert severity in ("error", "warning", "info"), f"bad severity: {severity}"
+              print(f"  rule={rule_id}, severity={severity}  ({ms} ms)")
+
+          check("explain_rule", check_explain_rule)
+
+          # ── 7. fix_vast ──────────────────────────────────────────────────────
+          def check_fix_vast():
+              r, ms = post("tools/call", {"name": "fix_vast", "arguments": {"xml": http_xml}})
+              obj = json.loads(r["result"]["content"][0]["text"])
+              assert "xml" in obj,           f"missing xml field"
+              assert "applied_count" in obj, f"missing applied_count"
+              assert "remaining" in obj,     f"missing remaining field"
+              http_issues = [i for i in obj["remaining"]
+                             if "https" in i.get("id", "").lower()
+                             or "http" in i.get("message", "").lower()]
+              assert len(http_issues) > 0,   f"expected HTTP→HTTPS issues in remaining"
+              print(f"  shape ok, {len(obj['remaining'])} remaining issue(s)  ({ms} ms)")
+
+          check("fix_vast", check_fix_vast)
+
+          # ── 8. get_adcp_capabilities ─────────────────────────────────────────
+          def check_adcp():
+              r, ms = post("tools/call", {"name": "get_adcp_capabilities", "arguments": {}})
+              obj = json.loads(r["result"]["content"][0]["text"])
+              assert obj.get("status") == "ok",                  f"status={obj.get('status')}"
+              assert obj.get("supported_protocols"),              f"no supported_protocols"
+              assert obj.get("adcp", {}).get("major_versions"),  f"no adcp.major_versions"
+              print(f"  status=ok, protocols={obj['supported_protocols']}  ({ms} ms)")
+
+          check("get_adcp_capabilities", check_adcp)
+
+          # ── summary ──────────────────────────────────────────────────────────
+          print(f"\n{'─'*50}")
+          print(f"Results: {len(PASS)} passed, {len(FAIL)} failed")
+          if FAIL:
+              print("\nFailed checks:")
+              for name, msg in FAIL:
+                  print(f"  FAIL  {name}: {msg}")
+              sys.exit(1)
+          PYEOF

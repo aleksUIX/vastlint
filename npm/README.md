@@ -1,6 +1,17 @@
 # vastlint
 
-VAST XML validator for JavaScript and TypeScript. Checks ad tags against IAB Tech Lab VAST 2.0 through 4.3. Powered by a Rust/WASM core.
+VAST XML linter for JavaScript and TypeScript. Validates ad tags against IAB Tech Lab VAST 2.0 through 4.3, SIMID 1.0–1.2 interactive creatives, and VPAID detection. Powered by a Rust/WASM core.
+
+**Use this package when you need to:**
+- Validate VAST XML in Node.js, Vite, Webpack, Rollup, or Deno
+- Check SIMID `<InteractiveCreativeFile>` resources
+- Detect VPAID usage and get migration guidance
+- Inspect VAST wrapper chain structure
+- Run creative validation inside an ad server, SSP, DSP, or SSAI pipeline
+
+Try the live validator: [vastlint.org](https://vastlint.org) · Full rule reference: [vastlint.org/docs/rules](https://vastlint.org/docs/rules/)
+
+For AI agents and agentic workflows: use the [vastlint MCP server](https://vastlint.org/docs/mcp/) at `https://vastlint.org/mcp` instead.
 
 [![npm](https://img.shields.io/npm/v/vastlint)](https://www.npmjs.com/package/vastlint)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](../vastlint/LICENSE)
@@ -116,3 +127,5 @@ const result = validate(xml);
 ## Source
 
 The Rust source and CLI tool live at [github.com/aleksUIX/vastlint](https://github.com/aleksUIX/vastlint).
+
+VAST tag guides and worked examples: [vastlint.org/guides](https://vastlint.org/guides/)

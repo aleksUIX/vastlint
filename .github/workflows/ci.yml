@@ -94,7 +94,7 @@ jobs:
       - name: Build vastlint-mcp
         run: cargo build --release -p vastlint-mcp
 
-      - name: MCP smoke — initialize + tools/list returns 5 tools
+      - name: MCP smoke — initialize + tools/list returns 7 tools
         run: |
           RESPONSE=$(
             (
@@ -115,17 +115,17 @@ jobs:
           }
           echo "capabilities.tools present ✓"
 
-          # tools/list must return exactly 5 tools
+          # tools/list must return exactly 7 tools
           TOOL_COUNT=$(echo "$RESPONSE" | grep '"tools":\[' | grep -o '"name":"' | wc -l | tr -d ' ')
-          if [ "$TOOL_COUNT" -ne 5 ]; then
-            echo "FAIL: expected 5 tools, got $TOOL_COUNT"
+          if [ "$TOOL_COUNT" -ne 7 ]; then
+            echo "FAIL: expected 7 tools, got $TOOL_COUNT"
             echo "$RESPONSE"
             exit 1
           fi
           echo "tools/list returned $TOOL_COUNT tools ✓"
 
           # each expected tool must be present
-          for TOOL in validate_vast validate_vast_url fix_vast list_rules explain_rule; do
+          for TOOL in validate_vast validate_vast_url fix_vast list_rules explain_rule inspect_vast; do
             echo "$RESPONSE" | grep -q "\"$TOOL\"" || {
               echo "FAIL: tool '$TOOL' missing from tools/list"
               echo "$RESPONSE"
@@ -206,7 +206,7 @@ jobs:
       - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4  # v2.9.1
 
       - name: Install cargo-fuzz
-        run: cargo install cargo-fuzz --locked
+        run: cargo install cargo-fuzz
 
       - name: Seed corpus from test fixtures
         run: |

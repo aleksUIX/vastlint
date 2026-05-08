@@ -6,6 +6,62 @@ GitHub Releases: <https://github.com/aleksUIX/vastlint/releases>
 
 ---
 
+## [0.4.10] - 2026-05-05
+
+### Crates
+
+- **Version alignment**: bumped all crate `Cargo.toml` files to `0.4.10` in-repo so `crates.io` always reflects the current release even when the CI auto-bump skips a version.
+
+## [0.4.9] - 2026-05-05
+
+### CLI
+
+- **Line/column in output**: `vastlint` CLI now prints `file:line:col` (or `file:line`) alongside the XPath location for every issue, making it easier to jump to the exact source position.
+
+### Chrome extension
+
+- **Release stamping fixed**: both Chrome publish workflows now inject the extension version correctly before build instead of dropping the `version` field from `manifest.json`.
+- **Release guardrail**: both workflows now assert that `manifest.json` contains the expected version before packaging or publishing.
+- **Chrome package version**: bumped source `chrome/package.json` and `chrome/manifest.json` to `0.4.9` for the next Web Store release.
+
+### Docs
+
+- Main README no longer says the Chrome Web Store listing is pending review.
+- Release checklist now documents the actual Chrome publish paths and reminds you to commit both Chrome version files.
+
+## [0.4.7] - 2026-05-01
+
+### CI / release workflow
+
+- **Smoke test**: updated MCP tool-count assertion from 5 → 6 to include `inspect_vast`; added `inspect_vast` to the per-tool name check.
+- **Chrome extension publish**: replaced non-existent `trmcnvn/upload-google-chrome-extension` action (fake SHA) with the correct `mnao305/chrome-extension-upload@fdfe79400af990f5145a319e834aee64907ccff4` (v6.0.0); corrected input name `extension` → `file-path`; pinned `actions/setup-node` in chrome job to SHA `48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e` (v6.4.0).
+
+### Other
+
+- Committed docs, GitHub workflow helpers, METHODOLOGY.md, and test fixtures that were staged but not included in the v0.4.6 release commit.
+
+---
+
+## [0.4.6] - 2026-05-01
+
+### MCP server (`vastlint-mcp`)
+
+- **`inspect_vast`** — new tool that follows a VAST wrapper chain hop-by-hop, returning creative metadata (AdSystem, AdTitle, Duration, impressions, tracking events, media files, companions) and full validation results for every level of the chain. Accepts a starting URL and an optional `max_depth` (default 5). Returns `hop_count`, `resolved`, `chain_valid`, `total_errors`, `total_warnings`, and a `stopped_reason` (`resolved` | `max_depth` | `fetch_error` | `parse_error`) alongside per-hop detail.
+- `quick-xml` added as a direct dependency for hop metadata extraction.
+- Server info string updated to describe all six tools.
+
+---
+
+## [0.4.5] - 2026-05-01
+
+### VS Code extension
+
+- **Updated extension description** — flyout text in the VS Code extensions panel now reflects CLI backend, any-file-type support, and 108 rules.
+- **Settings table** — README now documents all six settings including `vastlint.templateIgnoreRegex`, `vastlint.vastVersion`, and `vastlint.cliPath`.
+- **Full rule reference** — collapsed rule table (108 rules, each linking to `vastlint.org/docs/rules/{id}/`) added to the extension README.
+
+---
+
 ## [0.4.4] - 2026-04-30
 
 ### VS Code extension

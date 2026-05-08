@@ -35,11 +35,11 @@ jobs:
   #                                      macro suppression; fix subcommand;
   #                                      daemon OTP protocol (Python struct.pack)
   #   3. vastlint-mcp                  — build release binary, drive initialize +
-  #                                      tools/list via stdin, assert 5 tools
+  #                                      tools/list via stdin, assert 7 tools
   #                                      returned with correct names; actual
   #                                      tools/call for validate_vast (valid +
   #                                      invalid), fix_vast, list_rules,
-  #                                      explain_rule
+  #                                      explain_rule, inspect_vast
   #   4. vastlint-wasm                 — wasm-pack build (nodejs target) then
   #                                      a Node.js script that imports the
   #                                      package and validates the same fixtures;
@@ -113,14 +113,14 @@ jobs:
           echo "capabilities.tools present ✓"
 
           TOOL_COUNT=$(echo "$RESPONSE" | grep '"tools":\[' | grep -o '"name":"' | wc -l | tr -d ' ')
-          if [ "$TOOL_COUNT" -ne 5 ]; then
-            echo "FAIL: expected 5 tools, got $TOOL_COUNT"
+          if [ "$TOOL_COUNT" -ne 7 ]; then
+            echo "FAIL: expected 7 tools, got $TOOL_COUNT"
             echo "$RESPONSE"
             exit 1
           fi
           echo "tools/list returned $TOOL_COUNT tools ✓"
 
-          for TOOL in validate_vast validate_vast_url fix_vast list_rules explain_rule; do
+          for TOOL in validate_vast validate_vast_url fix_vast list_rules explain_rule inspect_vast; do
             echo "$RESPONSE" | grep -q "\"$TOOL\"" || {
               echo "FAIL: tool '$TOOL' missing from tools/list"
               echo "$RESPONSE"
@@ -411,7 +411,8 @@ jobs:
           </InLine></Ad></VAST>
           XMLEOF
 
-          FIXED=$(./target/release/vastlint fix /tmp/http_vast.xml 2>/dev/null)
+          # Use stdin mode (-) so the fixed XML is written to stdout, not in-place.
+          FIXED=$(./target/release/vastlint fix - < /tmp/http_vast.xml 2>/dev/null)
           if [ $? -ne 0 ]; then
             echo "FAIL: fix subcommand exited non-zero"
             exit 1
@@ -550,8 +551,8 @@ jobs:
           init_id = send({'jsonrpc':'2.0','method':'initialize','params':{
               'protocolVersion':'2024-11-05','capabilities':{},'clientInfo':{'name':'ci','version':'1.0'}}})
           read_until(init_id)
-          send({'jsonrpc':'2.0','method':'notifications/initialized','params':{}})
-          _id[0] -= 1  # notification has no id, don't count it
+          proc.stdin.write((json.dumps({'jsonrpc':'2.0','method':'notifications/initialized','params':{}}) + '\n').encode())
+          proc.stdin.flush()
 
           # validate_vast — valid fixture
           vid = send({'jsonrpc':'2.0','method':'tools/call','params':{'name':'validate_vast','arguments':{'xml': VALID_XML}}})
@@ -631,8 +632,8 @@ jobs:
           init_id = send({'jsonrpc':'2.0','method':'initialize','params':{
               'protocolVersion':'2024-11-05','capabilities':{},'clientInfo':{'name':'ci','version':'1.0'}}})
           read_until(init_id)
-          send({'jsonrpc':'2.0','method':'notifications/initialized','params':{}})
-          _id[0] -= 1
+          proc.stdin.write((json.dumps({'jsonrpc':'2.0','method':'notifications/initialized','params':{}}) + '\n').encode())
+          proc.stdin.flush()
 
           # list_rules — must return a non-empty catalog
           lid = send({'jsonrpc':'2.0','method':'tools/call','params':{'name':'list_rules','arguments':{}}})
@@ -757,6 +758,32 @@ jobs:
           }
           console.log(`PASS: info_http_tracking.xml valid=true, errors=0, VAST-2.0-tracking-https fires ✓`);
           EOF
+
+      # ── 5. CLI smoke — default text format ───────────────────────────────
+      - name: CLI smoke — default text format contains rule ID and severity
+        run: |
+          # Default output (no --format flag) must print human-readable text
+          # with at least the rule ID and "error" for an error-level fixture.
+          OUTPUT=$(./target/release/vastlint check \
+            crates/vastlint-core/tests/fixtures/err_no_ad.xml 2>/dev/null || true)
+          if ! echo "$OUTPUT" | grep -qi 'VAST-2\.0-ad-required\|no-ad\|ad_required\|err_no_ad'; then
+            echo "FAIL: text output missing expected rule reference"
+            echo "Output was: $OUTPUT"
+            exit 1
+          fi
+          if ! echo "$OUTPUT" | grep -qi 'error'; then
+            echo "FAIL: text output missing 'error' keyword"
+            echo "Output was: $OUTPUT"
+            exit 1
+          fi
+          echo "PASS: default text format contains rule ID and severity ✓"
+
+      # ── 6. VS Code extension unit tests ──────────────────────────────────
+      - name: VS Code extension — unit tests (utils.ts pure functions)
+        working-directory: vscode
+        run: |
+          npm ci
+          npm test
 
   # ── WASM build (single canonical build) ─────────────────────────────────────
   # Builds the npm package once from the attested source tree and uploads it as
@@ -1102,7 +1129,7 @@ jobs:
 
   release:
     name: Create GitHub Release
-    needs: [approve, build, build-ffi, build-nif, build-wasm, publish-vscode]
+    needs: [approve, build, build-ffi, build-nif, build-wasm]
     runs-on: ubuntu-latest
     permissions:
       contents: write  # create the GitHub Release and upload assets
@@ -1625,8 +1652,8 @@ jobs:
   chrome-extension:
     name: Publish Chrome extension
     runs-on: ubuntu-latest
-    needs: smoke-test
-    if: ${{ inputs.publish_chrome == true }}
+    needs: [approve, release, build-wasm]
+    if: ${{ inputs.publish_chrome == true || github.event_name == 'push' }}
 
     permissions:
       contents: write
@@ -1634,7 +1661,13 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
 
-      - uses: actions/setup-node@v6
+      - name: Download assembled npm package
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c  # v8.0.1
+        with:
+          name: wasm-npm-package
+          path: npm
+
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e  # v6.4.0
         with:
           node-version: 20
 
@@ -1646,14 +1679,25 @@ jobs:
       # then build — so the compiled dist/manifest.json carries the right version.
       - name: Set manifest version
         working-directory: chrome
+        env:
+          VERSION: ${{ github.ref_name }}
         run: |
-          VERSION="${GITHUB_REF_NAME#v}"
           node -e "
             const fs = require('fs');
+            const version = process.env.VERSION.replace(/^v/, '');
+            if (!version) throw new Error('VERSION derived from git tag is empty');
             const m = JSON.parse(fs.readFileSync('manifest.json','utf8'));
-            m.version = process.env.VERSION;
-            fs.writeFileSync('manifest.json', JSON.stringify(m, null, 2));
-          " VERSION="$VERSION"
+            m.version = version;
+            fs.writeFileSync('manifest.json', JSON.stringify(m, null, 2) + '\n');
+          "
+          node -e "
+            const fs = require('fs');
+            const expected = process.env.VERSION.replace(/^v/, '');
+            const m = JSON.parse(fs.readFileSync('manifest.json','utf8'));
+            if (m.version !== expected) {
+              throw new Error(`manifest.json version mismatch: ${m.version}`);
+            }
+          "
 
       - name: Build extension
         working-directory: chrome
@@ -1666,14 +1710,14 @@ jobs:
           zip -r ../vastlint-extension.zip .
 
       - name: Upload zip to GitHub Release
-        uses: softprops/action-gh-release@c95fe1489396fe8a9eb87c0abf8aa5b2ef267fda  # v2.2.1
+        uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda  # v3.0.0
         with:
           files: chrome/vastlint-extension.zip
 
       - name: Publish to Chrome Web Store
-        uses: trmcnvn/upload-google-chrome-extension@665b2ab4a2c6f1a5a6b2b4f5b3f9d0f2a1e7c8d9  # pin to a SHA once you've verified the action
+        uses: mnao305/chrome-extension-upload@fdfe79400af990f5145a319e834aee64907ccff4  # v6.0.0
         with:
-          extension: chrome/vastlint-extension.zip
+          file-path: chrome/vastlint-extension.zip
           extension-id: ${{ secrets.CHROME_EXTENSION_ID }}
           client-id: ${{ secrets.CHROME_CLIENT_ID }}
           client-secret: ${{ secrets.CHROME_CLIENT_SECRET }}
@@ -1774,3 +1818,77 @@ jobs:
           fi
           git tag "$TAG"
           git push origin "$TAG"
+
+  # ── Sync vastlint-infra ──────────────────────────────────────────────────────
+  # After a successful npm publish, bump the `vastlint` npm dependency in
+  # vastlint-infra so the website always ships the latest WASM linter.
+  #
+  # Prerequisites (one-time setup):
+  #   1. Generate an SSH deploy key for vastlint-infra:
+  #        ssh-keygen -t ed25519 -f ~/VASTLINT_INFRA_DEPLOY_KEY -C "vastlint release bot (infra)" -N ""
+  #   2. Add ~/VASTLINT_INFRA_DEPLOY_KEY.pub as a deploy key in vastlint-infra
+  #      (Settings → Deploy keys) with write access.
+  #   3. Add ~/VASTLINT_INFRA_DEPLOY_KEY (private key) as secret VASTLINT_INFRA_DEPLOY_KEY
+  #      in this repo (Settings → Secrets → Actions).
+  #
+  # Set ENABLE_INFRA_SYNC to "true" in repo variables to activate this job.
+  sync-infra:
+    name: Sync vastlint-infra
+    needs: [publish-npm, release]
+    runs-on: ubuntu-latest
+    if: vars.ENABLE_INFRA_SYNC == 'true'
+
+    steps:
+      - name: Checkout vastlint-infra via deploy key
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        with:
+          repository: aleksUIX/vastlint-infra
+          ssh-key: ${{ secrets.VASTLINT_INFRA_DEPLOY_KEY }}
+          path: vastlint-infra
+
+      - name: Bump vastlint npm dependency to release version
+        run: |
+          TAG="${{ github.ref_name }}"
+          VERSION="${TAG#v}"
+
+          # Update both the workspace root and the web app package.json
+          for PKG in "package.json" "apps/vastlint-web/package.json"; do
+            FILE="vastlint-infra/$PKG"
+            if [[ -f "$FILE" ]]; then
+              # Use node to update the version to avoid sed quoting issues
+              node -e "
+                const fs = require('fs');
+                const pkg = JSON.parse(fs.readFileSync('$FILE', 'utf8'));
+                const updated = { ...pkg };
+                for (const section of ['dependencies', 'devDependencies']) {
+                  if (updated[section]?.vastlint !== undefined) {
+                    updated[section].vastlint = '$VERSION';
+                  }
+                }
+                fs.writeFileSync('$FILE', JSON.stringify(updated, null, 2) + '\n');
+              "
+              echo "Bumped vastlint in $PKG to ${VERSION}"
+            fi
+          done
+
+      - name: Import bot GPG key
+        run: |
+          echo "${{ secrets.BOT_GPG_KEY }}" | gpg --batch --import
+          echo "AEA67F4C8B714AC26E14ACDB67DF23E270B033DB:6:" | gpg --import-ownertrust
+
+      - name: Commit and push
+        run: |
+          TAG="${{ github.ref_name }}"
+          VERSION="${TAG#v}"
+
+          cd vastlint-infra
+          git config user.name  "vastlint release bot"
+          git config user.email "bot@vastlint.org"
+          git config user.signingkey "67DF23E270B033DB"
+          git config commit.gpgsign  true
+
+          git add package.json apps/vastlint-web/package.json
+          git diff --cached --quiet && echo "nothing to commit" && exit 0
+
+          git commit -S -m "chore: bump vastlint npm dependency to ${TAG}"
+          git push origin main
