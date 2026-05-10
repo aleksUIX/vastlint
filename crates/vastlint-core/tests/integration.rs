@@ -55,8 +55,7 @@ fn assert_large_publica_warning_fixture(name: &str) {
     assert_eq!(
         result.summary.warnings, 12,
         "expected 12 warnings for {name}, got {}: {:#?}",
-        result.summary.warnings,
-        result.issues
+        result.summary.warnings, result.issues
     );
     assert!(result.summary.is_valid());
 }
