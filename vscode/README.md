@@ -1,31 +1,29 @@
 # vastlint - VAST XML Validator for VS Code
 
 Inline linting for [IAB VAST](https://iabtechlab.com/standards/vast/) ad tags directly in VS Code.
-Supports VAST 2.0 through 4.3. Web validator and full documentation: [vastlint.org](https://vastlint.org)
+Supports VAST 2.0 through 4.3 with clean Problems entries, concise hovers, fix guidance, and direct docs links. Web validator and full documentation: [vastlint.org](https://vastlint.org)
 
 ## Features
 
 - **Inline squiggles** — red (error), yellow (warning), blue (info) underlines on the offending XML tag
-- **Hover tooltips** — rule ID, what's wrong, fix guidance, spec reference, and XPath location
-- **Problems panel** — all issues listed with file, line, and column; click to jump directly to the tag
+- **Hover tooltips** — concise issue summary, fix guidance, and a direct rule docs link
+- **Problems panel** — clean issue titles with file, line, and column; click to jump directly to the tag
 - **Any file type** — works in `.xml`, `.html`, `.js`, `.ts`, `.json`, templates — anywhere `<VAST>` appears
 - **Multi-block** — validates every `<VAST>...</VAST>` block in a file independently
 - **Live as you type** — re-validates 500 ms after you stop typing, and on every save
 - **CLI backend** — uses the `vastlint` CLI binary when available, falls back to WASM in-process
-- **108 rules** across VAST 2.0–4.3: required fields, schema structure, URLs, deprecations, CTV/SSAI advisories
+- **118 rules** across VAST 2.0–4.3: required fields, schema structure, URLs, deprecations, CTV/SSAI advisories
 
 ## How it looks
 
 Hover over a squiggled tag:
 
 ```
-🔴 vastlint `VAST-2.0-inline-adsystem`
-
-<InLine> is missing required <AdSystem>
+🔴 <InLine> is missing required <AdSystem>
 
 ✅ Fix: Add `<AdSystem>` inside `<InLine>`, e.g. `<AdSystem>My Ad Server</AdSystem>`.
 
-📖 IAB VAST 2.0 §2.3.1  -  `/VAST/Ad[0]/InLine`
+Docs: vastlint.org/docs/rules/VAST-2.0-inline-adsystem
 ```
 
 ## Settings

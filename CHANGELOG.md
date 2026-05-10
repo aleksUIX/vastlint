@@ -6,6 +6,29 @@ GitHub Releases: <https://github.com/aleksUIX/vastlint/releases>
 
 ---
 
+## [0.4.11] - 2026-05-10
+
+### VS Code extension
+
+- **Cleaner diagnostics UI**: Problems entries now stay focused on the human-readable issue text while hovers link straight to the per-rule docs page. Quick fixes still resolve the correct rule ID even when VS Code does not surface `diagnostic.code` directly.
+- **Utility coverage**: extracted template-ignore, multi-block extraction, and block-relative position mapping into `vscode/src/utils.ts`, with dedicated unit tests covering template masking and embedded multi-block coordinates.
+
+### Core tests
+
+- **SIMID fixtures expanded**: added valid and invalid SIMID integration fixtures covering missing media files, missing MIME types, HTTPS enforcement, and variable-duration warnings.
+- **Large-tag regression coverage**: added large Publica-style fixtures so oversized production tags stay covered by integration tests.
+
+### CI / release workflow
+
+- **MCP canary sweep**: `validate_vast` canary coverage now runs a deterministic 15-case batch across VAST 2.0-4.2, wrappers, SIMID, and representative error fixtures instead of sampling a smaller XML pool.
+- **Release smoke tests**: the release workflow now asserts that default CLI text output includes severity and a rule reference, and it runs the VS Code extension unit test suite before publishing.
+- **Fuzz install compatibility**: removed `--locked` from `cargo install cargo-fuzz` in CI to avoid the nightly `rustix` resolver failure.
+
+### Docs
+
+- Updated the main README's VS Code section to match the cleaned Problems/hover experience.
+- Corrected the public rules catalog header to reflect the current 118-rule set.
+
 ## [0.4.10] - 2026-05-05
 
 ### Crates
