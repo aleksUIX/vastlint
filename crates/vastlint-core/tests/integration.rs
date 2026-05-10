@@ -24,6 +24,43 @@ fn issues_with_severity(
         .collect()
 }
 
+fn assert_large_publica_warning_fixture(name: &str) {
+    let result = validate(&load(name));
+    let errors = issues_with_severity(&result, Severity::Error);
+
+    assert!(
+        errors.is_empty(),
+        "expected no errors for {name}, got: {errors:#?}"
+    );
+    assert!(
+        has_issue(&result, "VAST-2.0-version-mismatch"),
+        "expected VAST-2.0-version-mismatch for {name}, got: {:#?}",
+        result.issues
+    );
+    assert!(
+        has_issue(&result, "VAST-2.0-extension-misplaced-element"),
+        "expected VAST-2.0-extension-misplaced-element for {name}, got: {:#?}",
+        result.issues
+    );
+    assert!(
+        has_issue(&result, "VAST-3.0-skip-event-no-skipoffset"),
+        "expected VAST-3.0-skip-event-no-skipoffset for {name}, got: {:#?}",
+        result.issues
+    );
+    assert!(
+        has_issue(&result, "VAST-3.0-pricing-model-case"),
+        "expected VAST-3.0-pricing-model-case for {name}, got: {:#?}",
+        result.issues
+    );
+    assert_eq!(
+        result.summary.warnings, 12,
+        "expected 12 warnings for {name}, got {}: {:#?}",
+        result.summary.warnings,
+        result.issues
+    );
+    assert!(result.summary.is_valid());
+}
+
 // ── valid fixtures ────────────────────────────────────────────────────────────
 
 #[test]
@@ -1398,6 +1435,18 @@ fn ad_sequence_mixed_fires_warning() {
         "expected VAST-2.0-ad-sequence, got: {:#?}",
         result.issues
     );
+}
+
+// ── large real-world warning fixtures ────────────────────────────────────────
+
+#[test]
+fn large_publica_fixture_stays_warning_only() {
+    assert_large_publica_warning_fixture("warn_publica_large.xml");
+}
+
+#[test]
+fn large_publica_pod_fixture_stays_warning_only() {
+    assert_large_publica_warning_fixture("warn_publica_large_pod.xml");
 }
 
 // ── wrapper depth ─────────────────────────────────────────────────────────────

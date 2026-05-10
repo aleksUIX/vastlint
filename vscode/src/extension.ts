@@ -373,7 +373,6 @@ async function buildDiagnostics(
 
       const diagnostic = new vscode.Diagnostic(range, issue.message, toVscodeSeverity(issue.severity));
       diagnostic.source = 'vastlint';
-      diagnostic.code   = issue.id;
       diagnostic.message = issue.message;
 
       (diagnostic as DiagnosticWithMeta)._meta = {
@@ -405,6 +404,16 @@ interface DiagnosticWithMeta extends vscode.Diagnostic {
   _meta?: DiagnosticMeta;
 }
 
+function getDiagnosticRuleId(diagnostic: vscode.Diagnostic): string | undefined {
+  const metaId = (diagnostic as DiagnosticWithMeta)._meta?.id;
+  if (metaId) return metaId;
+  if (typeof diagnostic.code === 'string') return diagnostic.code;
+  if (diagnostic.code && typeof diagnostic.code === 'object' && 'value' in diagnostic.code) {
+    return String(diagnostic.code.value);
+  }
+  return undefined;
+}
+
 // ── Auto-fix ──────────────────────────────────────────────────────────────────
 
 /** Rule IDs that vastlint-core can repair automatically. */
@@ -426,7 +435,7 @@ class VastlintCodeActionProvider implements vscode.CodeActionProvider {
     // context.diagnostics is often empty when the cursor isn't on the squiggle.
     const allDiags = (this.collection.get(document.uri) ?? []) as vscode.Diagnostic[];
     const fixableDiags = allDiags.filter(
-      (d) => d.source === 'vastlint' && FIXABLE_RULE_IDS.has(d.code as string),
+      (d) => d.source === 'vastlint' && FIXABLE_RULE_IDS.has(getDiagnosticRuleId(d) ?? ''),
     );
     if (fixableDiags.length === 0) return [];
 
@@ -449,9 +458,10 @@ class VastlintCodeActionProvider implements vscode.CodeActionProvider {
     // One quick-fix per fixable diagnostic whose rule was actually applied.
     const appliedIds = new Set(fixResult.applied.map((f) => f.rule_id));
     for (const diag of fixableDiags) {
-      if (!appliedIds.has(diag.code as string)) continue;
+      const ruleId = getDiagnosticRuleId(diag);
+      if (!ruleId || !appliedIds.has(ruleId)) continue;
       const action = new vscode.CodeAction(
-        `vastlint: Fix \`${diag.code as string}\``,
+        `vastlint: Fix \`${ruleId}\``,
         vscode.CodeActionKind.QuickFix,
       );
       action.diagnostics = [diag];
@@ -513,12 +523,9 @@ class VastlintHoverProvider implements vscode.HoverProvider {
         md.appendMarkdown(`  \n\u{1F527} *${m.fixHint}*`);
       }
 
-      // Line 3: compact footer — rule ID links to docs, spec ref, optional path.
-      // Note: do NOT wrap the link in italic (*) — VS Code's markdown renderer
-      // may fail to open the href when the link is inside an emphasis span.
+      // Line 3: docs link only — spec and XML path are already visible elsewhere.
       const docsUrl = `https://vastlint.org/docs/rules/${m.id}/`;
-      md.appendMarkdown(`  \n[\`${m.id}\`](${docsUrl}) · *${m.specRef}*`);
-      if (m.path) md.appendMarkdown(` · \`${m.path}\``);
+      md.appendMarkdown(`  \n[\`${m.id}\`](${docsUrl})`);
 
       if (i < hits.length - 1) {
         md.appendMarkdown('\n\n---\n\n');
