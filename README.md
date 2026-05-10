@@ -434,7 +434,7 @@ See the [vastlint-go README](https://github.com/aleksUIX/vastlint-go) for the fu
 
 ## Use from VS Code
 
-Install the [vastlint extension](https://marketplace.visualstudio.com/items?itemName=aleksuix.vastlint) from the VS Code Marketplace. VAST XML files are validated as you type - errors and warnings appear inline with rule IDs and spec references, no terminal required.
+Install the [vastlint extension](https://marketplace.visualstudio.com/items?itemName=aleksuix.vastlint) from the VS Code Marketplace. VAST XML files are validated as you type with clean Problems entries, concise hovers, direct rule docs links, and no terminal required.
 
 ```
 ext install aleksuix.vastlint

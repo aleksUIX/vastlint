@@ -2,7 +2,7 @@
 
 Full reference documentation for every rule is at **[vastlint.org/docs/rules](https://vastlint.org/docs/rules/)**.
 
-108 rules across IAB VAST 2.0 – 4.3. Each rule has a stable ID, a default severity (`error` / `warning` / `info`), and a dedicated docs page with the spec reference, examples, and fix guidance.
+118 rules across IAB VAST 2.0 – 4.3. Each rule has a stable ID, a default severity (`error` / `warning` / `info`), and a dedicated docs page with the spec reference, examples, and fix guidance.
 
 ---
 
