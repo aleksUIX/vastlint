@@ -24,7 +24,7 @@ mimalloc = { version = "0.1", default-features = false }
 # Argument parsing
 clap = { version = "4", features = ["derive"] }
 # Coloured terminal output
-anstream = "0.6"
+anstream = "1.0"
 anstyle = "1"
 # Config file parsing
 toml = { version = "1.1", default-features = false, features = ["parse", "serde"] }
