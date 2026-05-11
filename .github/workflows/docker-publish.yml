@@ -1,0 +1,86 @@
+name: Docker Publish
+
+# Standalone workflow for manually publishing the Docker image from an existing
+# ref. This is intended for backfills and retries when the main release pipeline
+# skipped Docker publishing.
+
+on:
+  workflow_dispatch:
+    inputs:
+      git_ref:
+        description: "Git ref to build (for example v0.4.11, main, or a commit SHA)"
+        type: string
+        default: 'v0.4.11'
+        required: true
+      version:
+        description: "Docker tag to publish without a leading v (for example 0.4.11)"
+        type: string
+        default: '0.4.11'
+        required: true
+      push_latest:
+        description: "Also push aleksuix/vastlint:latest"
+        type: boolean
+        default: true
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  publish-docker:
+    name: Publish to Docker Hub
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        with:
+          ref: ${{ inputs.git_ref }}
+
+      - name: Validate version input
+        shell: bash
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
+            echo "version must be plain semver like 0.4.11"
+            exit 1
+          }
+
+      - name: Derive tags
+        id: tags
+        shell: bash
+        env:
+          VERSION: ${{ inputs.version }}
+          PUSH_LATEST: ${{ inputs.push_latest }}
+        run: |
+          {
+            echo 'tags<<EOF'
+            echo "aleksuix/vastlint:$VERSION"
+            if [ "$PUSH_LATEST" = 'true' ]; then
+              echo 'aleksuix/vastlint:latest'
+            fi
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@ce360397dd3f832beb865e1373c09c0e9f86d70a  # v4.0.0
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd  # v4.0.0
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121  # v4.1.0
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f  # v7.1.0
+        with:
+          context: .
+          file: Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.tags.outputs.tags }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
