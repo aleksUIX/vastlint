@@ -8,6 +8,14 @@ fn rules_markdown_path() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../../RULES.md")
 }
 
+fn vscode_readme_path() -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../vscode/README.md")
+}
+
+fn read_text(path: &Path) -> String {
+    fs::read_to_string(path).unwrap_or_else(|error| panic!("could not read {}: {error}", path.display()))
+}
+
 fn severity_label(severity: Severity) -> &'static str {
     match severity {
         Severity::Error => "error",
@@ -22,23 +30,10 @@ fn parse_rule_id(cell: &str) -> Option<&str> {
     Some(rule_id)
 }
 
-fn parse_rules_markdown() -> (usize, BTreeMap<String, (String, String)>) {
-    let path = rules_markdown_path();
-    let text = fs::read_to_string(&path)
-        .unwrap_or_else(|error| panic!("could not read {}: {error}", path.display()));
-
-    let declared_count = text
-        .lines()
-        .find_map(|line| {
-            if !line.contains(" rules across ") {
-                return None;
-            }
-
-            line.split_whitespace().next()?.parse::<usize>().ok()
-        })
-        .unwrap_or_else(|| panic!("could not find declared rule count in {}", path.display()));
-
+fn parse_rule_rows(path: &Path) -> BTreeMap<String, (String, String)> {
+    let text = read_text(path);
     let mut rows = BTreeMap::new();
+
     for line in text.lines() {
         if !line.starts_with("| [") {
             continue;
@@ -62,30 +57,25 @@ fn parse_rules_markdown() -> (usize, BTreeMap<String, (String, String)>) {
         );
     }
 
-    (declared_count, rows)
+    rows
 }
 
-#[test]
-fn rules_markdown_declared_count_matches_catalog() {
-    let (declared_count, rows) = parse_rules_markdown();
-    let catalog = all_rules();
+fn parse_vscode_readme_embedded_count() -> usize {
+    let path = vscode_readme_path();
+    let text = read_text(&path);
 
-    assert_eq!(
-        declared_count,
-        catalog.len(),
-        "RULES.md declared count drifted from all_rules()"
-    );
-    assert_eq!(
-        rows.len(),
-        catalog.len(),
-        "RULES.md row count drifted from all_rules()"
-    );
+    text.lines()
+        .find_map(|line| {
+            let line = line.trim();
+            let count = line.strip_prefix("<summary>All ")?;
+            let count = count.strip_suffix(" rules</summary>")?;
+            count.parse::<usize>().ok()
+        })
+        .unwrap_or_else(|| panic!("could not find embedded rule count in {}", path.display()))
 }
 
-#[test]
-fn rules_markdown_matches_catalog_ids_and_severities() {
-    let (_, rows) = parse_rules_markdown();
-    let catalog: BTreeMap<_, _> = all_rules()
+fn catalog_severities() -> BTreeMap<String, String> {
+    all_rules()
         .iter()
         .map(|rule| {
             (
@@ -93,7 +83,26 @@ fn rules_markdown_matches_catalog_ids_and_severities() {
                 severity_label(rule.default_severity).to_owned(),
             )
         })
-        .collect();
+        .collect()
+}
+
+fn assert_rule_rows_match_catalog(
+    label: &str,
+    declared_count: usize,
+    rows: &BTreeMap<String, (String, String)>,
+) {
+    let catalog = catalog_severities();
+
+    assert_eq!(
+        declared_count,
+        catalog.len(),
+        "{label} declared count drifted from all_rules()"
+    );
+    assert_eq!(
+        rows.len(),
+        catalog.len(),
+        "{label} row count drifted from all_rules()"
+    );
 
     let missing: Vec<_> = catalog
         .keys()
@@ -120,9 +129,43 @@ fn rules_markdown_matches_catalog_ids_and_severities() {
 
     assert!(
         missing.is_empty() && extra.is_empty() && severity_mismatches.is_empty(),
-        "RULES.md drifted from all_rules()\nmissing: {:?}\nextra: {:?}\nseverity mismatches: {:?}",
+        "{label} drifted from all_rules()\nmissing: {:?}\nextra: {:?}\nseverity mismatches: {:?}",
         missing,
         extra,
         severity_mismatches
     );
+}
+
+fn parse_rules_markdown() -> (usize, BTreeMap<String, (String, String)>) {
+    let path = rules_markdown_path();
+    let text = read_text(&path);
+
+    let declared_count = text
+        .lines()
+        .find_map(|line| {
+            if !line.contains(" rules across ") {
+                return None;
+            }
+
+            line.split_whitespace().next()?.parse::<usize>().ok()
+        })
+        .unwrap_or_else(|| panic!("could not find declared rule count in {}", path.display()));
+
+    (declared_count, parse_rule_rows(&path))
+}
+
+#[test]
+fn rules_markdown_matches_catalog_ids_and_severities() {
+    let (_, rows) = parse_rules_markdown();
+    let (declared_count, _) = parse_rules_markdown();
+    assert_rule_rows_match_catalog("RULES.md", declared_count, &rows);
+}
+
+#[test]
+fn vscode_readme_rule_list_matches_catalog_ids_and_severities() {
+    let path = vscode_readme_path();
+    let rows = parse_rule_rows(&path);
+    let declared_count = parse_vscode_readme_embedded_count();
+
+    assert_rule_rows_match_catalog("vscode/README.md", declared_count, &rows);
 }

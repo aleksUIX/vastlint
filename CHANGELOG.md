@@ -17,7 +17,7 @@ GitHub Releases: <https://github.com/aleksUIX/vastlint/releases>
 
 - **Rules catalog fixed**: `RULES.md` now matches the shipped 121-rule catalog, including SIMID entries, the quartile-tracking warning, and correct warning severity for the HTTP transport rules.
 - **Count drift removed**: refreshed stale `118 rules` references across the main README, package metadata, MCP docs, roadmap, and architecture docs.
-- **VS Code README deduplicated**: replaced the embedded stale rule table with links to the canonical online docs and `RULES.md` so the extension docs do not drift independently.
+- **VS Code README resynced**: restored the embedded rule list with `vastlint.org` links and added parity coverage so the extension README stays aligned with the canonical rule catalog.
 
 ### Tests
 
