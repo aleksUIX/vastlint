@@ -33,7 +33,7 @@ Validates VAST documents against:
 - [Ad-ID](https://www.ad-id.org/) registry format — UniversalAdId
 - [IAB Tech Lab SIMID](https://iabtechlab.com/simid/) 1.0, 1.0.1, 1.1, 1.2 — interactive creative validation for `<InteractiveCreativeFile apiFramework="SIMID">` and nonlinear `<IFrameResource>` (the IAB-sanctioned VPAID replacement)
 
-118 rules across required fields, schema validation, structural correctness, security, consistency, deprecated features, ambiguous usage, and value formats. Rules marked with `$` have direct revenue impact - use `vastlint check --fail-on-warning` in CI to catch them before they reach production. See [common errors](docs/common-errors.md) for the ones that cost real money. New to vastlint? Start with the [tutorial](docs/tutorial.md).
+121 rules across required fields, schema validation, structural correctness, security, consistency, deprecated features, ambiguous usage, value formats, and SIMID-specific validation. Rules marked with `$` have direct revenue impact - use `vastlint check --fail-on-warning` in CI to catch them before they reach production. See [common errors](docs/common-errors.md) for the ones that cost real money. New to vastlint? Start with the [tutorial](docs/tutorial.md).
 
 Full rule reference with examples and fix instructions: [VAST error rule reference](https://vastlint.org/docs/rules) · [RULES.md](RULES.md)
 
@@ -374,7 +374,7 @@ All three bindings share the same compiled Rust core — identical rule enforcem
 
 ## Use from JavaScript / TypeScript
 
-[`vastlint`](https://www.npmjs.com/package/vastlint) is published on npm. Same 118 rules, same core - compiled to WASM.
+[`vastlint`](https://www.npmjs.com/package/vastlint) is published on npm. Same 121 rules, same core - compiled to WASM.
 
 ```sh
 npm install vastlint
@@ -512,7 +512,7 @@ Returns the same structured result as the CLI and library: version, issues with 
 
 ## Use from a browser
 
-Paste any VAST tag into the web validator at **[VAST tag validator](https://vastlint.org/validate)** - no install, no account, nothing stored. Runs the same 118 rules as the CLI, entirely in your browser via WebAssembly.
+Paste any VAST tag into the web validator at **[VAST tag validator](https://vastlint.org/validate)** - no install, no account, nothing stored. Runs the same 121 rules as the CLI, entirely in your browser via WebAssembly.
 
 ## Telemetry
 

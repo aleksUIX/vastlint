@@ -10,7 +10,7 @@
 //! - [`validate_with_context`] -- validate with rule overrides or wrapper depth
 //! - [`fix`] -- fix deterministic issues and return repaired XML
 //! - [`fix_with_context`] -- fix with rule overrides or wrapper depth
-//! - [`all_rules`] -- list the full 118-rule catalog
+//! - [`all_rules`] -- list the full 121-rule catalog
 //!
 //! # Performance — allocator recommendation
 //!

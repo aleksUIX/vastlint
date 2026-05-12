@@ -11,12 +11,12 @@ Where vastlint is today and where it's going.
 
 | Milestone | Detail |
 |---|---|
-| **Core library** | `vastlint-core` v0.4 on crates.io - zero-dependency Rust library, 118 rules, VAST 2.0–4.3. |
+| **Core library** | `vastlint-core` v0.4 on crates.io - zero-dependency Rust library, 121 rules, VAST 2.0–4.3 plus SIMID validation. |
 | **CLI** | `vastlint` on crates.io and Homebrew (`brew install aleksUIX/tap/vastlint`). JS/WASM on npm, Go bindings on GitHub. |
 | **Web validator** | Paste or drop a VAST tag at [vastlint.org/validate](https://vastlint.org/validate) - structured report, nothing stored. |
 | **VS Code extension** | Inline VAST XML validation as you type - errors and warnings with rule IDs and spec refs, directly in your editor. [Install →](https://marketplace.visualstudio.com/items?itemName=aleksuix.vastlint) |
-| **REST API** | Authenticated `/validate` endpoint on [RapidAPI](https://rapidapi.com/aleksUIX/api/vastlint). Same 118 rules, WASM-powered, sub-millisecond response. |
-| **MCP server** | Model Context Protocol server wrapping vastlint-core. Hosted SSE endpoint at `https://vastlint.org/mcp` - no install needed. Five tools: `validate_vast`, `validate_vast_url`, `list_rules`, `explain_rule`, `fix_vast`. Published to [registry.modelcontextprotocol.io](https://registry.modelcontextprotocol.io/servers/io.github.aleksUIX/vastlint) and Smithery. Works with Claude Desktop, Cursor, Windsurf, VS Code, and any MCP-compatible client. |
+| **REST API** | Authenticated `/validate` endpoint on [RapidAPI](https://rapidapi.com/aleksUIX/api/vastlint). Same 121 rules, WASM-powered, sub-millisecond response. |
+| **MCP server** | Model Context Protocol server wrapping vastlint-core. Hosted SSE endpoint at `https://vastlint.org/mcp` - no install needed. Six tools: `validate_vast`, `validate_vast_url`, `list_rules`, `explain_rule`, `fix_vast`, `inspect_vast`. Published to [registry.modelcontextprotocol.io](https://registry.modelcontextprotocol.io/servers/io.github.aleksUIX/vastlint) and Smithery. Works with Claude Desktop, Cursor, Windsurf, VS Code, and any MCP-compatible client. |
 | **AAMP / ARTF compatibility** | vastlint-core and the MCP server are callable by AI buyer and seller agents operating under IAB Tech Lab's [AAMP](https://iabtechlab.com/standards/aamp-agentic-advertising-management-protocols/) and [ARTF](https://iabtechlab.com/standards/artf/) frameworks via the live MCP endpoint. |
 | **SIMID validation (all versions)** | `<InteractiveCreativeFile apiFramework="SIMID">` and `<IFrameResource apiFramework="SIMID">` validated against all published SIMID versions (1.0, 1.0.1, 1.1, 1.2) - required `type="text/html"`, HTTPS enforcement, video fallback presence, nonlinear placement, and `apiFramework` casing. |
 | **Revenue impact classification** | `IndustryBestPractice` rule source + `revenue_impact()` API - 12 rules marked `$` in `vastlint rules` output. HTTP tracker rules promoted to `Warning`. New `VAST-2.0-linear-tracking-quartiles` rule detects Linear ads with no measurement signal. |

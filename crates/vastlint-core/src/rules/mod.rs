@@ -138,10 +138,13 @@ pub static CATALOG: &[RuleMeta] = &[
     RuleMeta { id: "VAST-2.0-creativeextensions-unknown-child", default_severity: Severity::Error, description: "<CreativeExtensions> may only contain <CreativeExtension> elements",                     source: VastXsd  },
     RuleMeta { id: "VAST-4.2-closedcaptionfiles-unknown-child", default_severity: Severity::Error, description: "<ClosedCaptionFiles> may only contain <ClosedCaptionFile> elements",                     source: VastXsd  },
     RuleMeta { id: "VAST-2.0-extension-misplaced-element",          default_severity: Severity::Warning, description: "<Extension> contains an element that has a dedicated location in the VAST spec",   source: VastSpec },
+    RuleMeta { id: "VAST-2.0-extension-cdata",                      default_severity: Severity::Warning, description: "<Extension> leaf text payload with XML-sensitive characters should be wrapped in CDATA so JSON blobs and URL-rich vendor data do not rely on fragile XML escaping", source: Xml },
     RuleMeta { id: "VAST-2.0-creative-extension-misplaced-element", default_severity: Severity::Warning, description: "<CreativeExtension> contains an element that has a dedicated location in the VAST spec", source: VastSpec },
+    RuleMeta { id: "VAST-2.0-creative-extension-cdata",             default_severity: Severity::Warning, description: "<CreativeExtension> leaf text payload with XML-sensitive characters should be wrapped in CDATA so JSON blobs and URL-rich vendor data do not rely on fragile XML escaping", source: Xml },
     // security.rs
     RuleMeta { id: "VAST-2.0-mediafile-https",         default_severity: Severity::Warning, description: "<MediaFile> URL uses HTTP instead of HTTPS — blocked by mixed-content policy on secure inventory",                source: IndustryBestPractice },
     RuleMeta { id: "VAST-2.0-tracking-https",          default_severity: Severity::Warning, description: "Tracking or click URL uses HTTP instead of HTTPS — blocked by mixed-content policy; measurement signal lost",   source: IndustryBestPractice },
+    RuleMeta { id: "VAST-2.0-url-cdata",               default_severity: Severity::Warning, description: "URI value is not wrapped in CDATA",                                                             source: VastSpec },
     RuleMeta { id: "VAST-2.0-url-empty",               default_severity: Severity::Error,   description: "URL field is empty",                                                                            source: VastSpec },
     RuleMeta { id: "VAST-2.0-url-invalid",             default_severity: Severity::Warning, description: "URL field does not appear to be a valid URI",                                                   source: Rfc3986  },
     // consistency.rs

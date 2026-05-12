@@ -875,6 +875,144 @@ fn clean_extensions_produce_no_misplaced_warnings() {
     );
 }
 
+#[test]
+fn extension_leaf_text_with_sensitive_chars_needs_cdata() {
+        let xml = r#"<VAST version="2.0">
+    <Ad id="1">
+        <InLine>
+            <AdSystem>Test</AdSystem>
+            <AdTitle>Test</AdTitle>
+            <Impression><![CDATA[https://t.example.com/imp]]></Impression>
+            <Creatives>
+                <Creative>
+                    <Linear>
+                        <Duration>00:00:30</Duration>
+                        <MediaFiles>
+                            <MediaFile delivery="progressive" type="video/mp4" width="640" height="360"><![CDATA[https://cdn.example.com/ad.mp4]]></MediaFile>
+                        </MediaFiles>
+                    </Linear>
+                </Creative>
+            </Creatives>
+            <Extensions>
+                <Extension type="vendor">alpha&amp;beta</Extension>
+            </Extensions>
+        </InLine>
+    </Ad>
+</VAST>"#;
+        let result = validate(xml);
+    let issue = result
+        .issues
+        .iter()
+        .find(|i| i.id == "VAST-2.0-extension-cdata")
+        .unwrap_or_else(|| panic!("expected VAST-2.0-extension-cdata, got: {:#?}", result.issues));
+        assert!(
+        issue.severity == Severity::Warning,
+        "extension-cdata should stay at warning severity, got: {:#?}",
+        issue
+        );
+}
+
+#[test]
+fn extension_leaf_text_with_cdata_does_not_warn() {
+        let xml = r#"<VAST version="2.0">
+    <Ad id="1">
+        <InLine>
+            <AdSystem>Test</AdSystem>
+            <AdTitle>Test</AdTitle>
+            <Impression><![CDATA[https://t.example.com/imp]]></Impression>
+            <Creatives>
+                <Creative>
+                    <Linear>
+                        <Duration>00:00:30</Duration>
+                        <MediaFiles>
+                            <MediaFile delivery="progressive" type="video/mp4" width="640" height="360"><![CDATA[https://cdn.example.com/ad.mp4]]></MediaFile>
+                        </MediaFiles>
+                    </Linear>
+                </Creative>
+            </Creatives>
+            <Extensions>
+                <Extension type="vendor"><![CDATA[alpha&beta]]></Extension>
+            </Extensions>
+        </InLine>
+    </Ad>
+</VAST>"#;
+        let result = validate(xml);
+        assert!(
+                !has_issue(&result, "VAST-2.0-extension-cdata"),
+                "CDATA-wrapped leaf Extension text should not fire extension-cdata, got: {:#?}",
+                result.issues
+        );
+}
+
+#[test]
+fn creative_extension_leaf_text_with_sensitive_chars_needs_cdata() {
+        let xml = r#"<VAST version="2.0">
+    <Ad id="1">
+        <InLine>
+            <AdSystem>Test</AdSystem>
+            <AdTitle>Test</AdTitle>
+            <Impression><![CDATA[https://t.example.com/imp]]></Impression>
+            <Creatives>
+                <Creative>
+                    <Linear>
+                        <Duration>00:00:30</Duration>
+                        <MediaFiles>
+                            <MediaFile delivery="progressive" type="video/mp4" width="640" height="360"><![CDATA[https://cdn.example.com/ad.mp4]]></MediaFile>
+                        </MediaFiles>
+                    </Linear>
+                    <CreativeExtensions>
+                        <CreativeExtension>alpha&amp;beta</CreativeExtension>
+                    </CreativeExtensions>
+                </Creative>
+            </Creatives>
+        </InLine>
+    </Ad>
+</VAST>"#;
+        let result = validate(xml);
+        let issue = result
+                .issues
+                .iter()
+                .find(|i| i.id == "VAST-2.0-creative-extension-cdata")
+                .unwrap_or_else(|| panic!("expected VAST-2.0-creative-extension-cdata, got: {:#?}", result.issues));
+        assert!(
+                issue.severity == Severity::Warning,
+                "creative-extension-cdata should stay at warning severity, got: {:#?}",
+                issue
+        );
+}
+
+#[test]
+fn creative_extension_leaf_text_with_cdata_does_not_warn() {
+        let xml = r#"<VAST version="2.0">
+    <Ad id="1">
+        <InLine>
+            <AdSystem>Test</AdSystem>
+            <AdTitle>Test</AdTitle>
+            <Impression><![CDATA[https://t.example.com/imp]]></Impression>
+            <Creatives>
+                <Creative>
+                    <Linear>
+                        <Duration>00:00:30</Duration>
+                        <MediaFiles>
+                            <MediaFile delivery="progressive" type="video/mp4" width="640" height="360"><![CDATA[https://cdn.example.com/ad.mp4]]></MediaFile>
+                        </MediaFiles>
+                    </Linear>
+                    <CreativeExtensions>
+                        <CreativeExtension><![CDATA[alpha&beta]]></CreativeExtension>
+                    </CreativeExtensions>
+                </Creative>
+            </Creatives>
+        </InLine>
+    </Ad>
+</VAST>"#;
+        let result = validate(xml);
+        assert!(
+                !has_issue(&result, "VAST-2.0-creative-extension-cdata"),
+                "CDATA-wrapped leaf CreativeExtension text should not fire creative-extension-cdata, got: {:#?}",
+                result.issues
+        );
+}
+
 // ── inline required fields ────────────────────────────────────────────────────
 
 #[test]
@@ -1172,6 +1310,78 @@ fn cdata_in_url_is_handled() {
         "CDATA-wrapped URLs should be valid, got: {:#?}",
         result.issues
     );
+        assert!(
+                !has_issue(&result, "VAST-2.0-url-cdata"),
+                "CDATA-wrapped URLs should not trigger the url-cdata warning"
+        );
+}
+
+#[test]
+fn warns_on_non_cdata_url_inside_extension() {
+        let xml = r#"<VAST version="2.0">
+    <Ad id="1">
+        <InLine>
+            <AdSystem>Test</AdSystem>
+            <AdTitle>Test</AdTitle>
+            <Impression><![CDATA[https://t.example.com/imp]]></Impression>
+            <Creatives>
+                <Creative>
+                    <Linear>
+                        <Duration>00:00:30</Duration>
+                        <MediaFiles>
+                            <MediaFile delivery="progressive" type="video/mp4" width="640" height="360"><![CDATA[https://cdn.example.com/ad.mp4]]></MediaFile>
+                        </MediaFiles>
+                    </Linear>
+                </Creative>
+            </Creatives>
+            <Extensions>
+                <Extension type="vendor">
+                    <TrackingUrl>https://vendor.example.com/pixel?a=1&amp;b=2</TrackingUrl>
+                </Extension>
+            </Extensions>
+        </InLine>
+    </Ad>
+</VAST>"#;
+        let result = validate(xml);
+        assert!(
+                has_issue(&result, "VAST-2.0-url-cdata"),
+                "plain-text extension URLs should trigger the url-cdata warning, got: {:#?}",
+                result.issues
+        );
+}
+
+#[test]
+fn does_not_warn_on_cdata_url_inside_extension() {
+        let xml = r#"<VAST version="2.0">
+    <Ad id="1">
+        <InLine>
+            <AdSystem>Test</AdSystem>
+            <AdTitle>Test</AdTitle>
+            <Impression><![CDATA[https://t.example.com/imp]]></Impression>
+            <Creatives>
+                <Creative>
+                    <Linear>
+                        <Duration>00:00:30</Duration>
+                        <MediaFiles>
+                            <MediaFile delivery="progressive" type="video/mp4" width="640" height="360"><![CDATA[https://cdn.example.com/ad.mp4]]></MediaFile>
+                        </MediaFiles>
+                    </Linear>
+                </Creative>
+            </Creatives>
+            <Extensions>
+                <Extension type="vendor">
+                    <TrackingUrl><![CDATA[https://vendor.example.com/pixel?a=1&b=2]]></TrackingUrl>
+                </Extension>
+            </Extensions>
+        </InLine>
+    </Ad>
+</VAST>"#;
+        let result = validate(xml);
+        assert!(
+                !has_issue(&result, "VAST-2.0-url-cdata"),
+                "CDATA-wrapped extension URLs should not trigger the url-cdata warning, got: {:#?}",
+                result.issues
+        );
 }
 
 #[test]

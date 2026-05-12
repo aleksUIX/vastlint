@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "VAST Lint",
   "version": "0.4.10",
-  "description": "Detect and validate VAST XML on any page. IAB VAST 2.0–4.3, SIMID, VPAID. 118 rules. Wrapper chains. By vastlint.org.",
+  "description": "Detect and validate VAST XML on any page. IAB VAST 2.0–4.3, SIMID, VPAID. 121 rules. Wrapper chains. By vastlint.org.",
   "permissions": ["activeTab", "storage"],
   "host_permissions": ["<all_urls>"],
   "icons": {

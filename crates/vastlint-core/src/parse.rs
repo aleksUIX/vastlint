@@ -24,8 +24,10 @@ pub struct Node {
     pub name: String,
     /// Attributes on this element.
     pub attrs: Vec<Attr>,
-    /// Text / CDATA content, trimmed. Empty string if none.
+    /// Text / CDATA content, trimmed and concatenated across adjacent segments.
     pub text: String,
+    /// True when any part of `text` came from a CDATA section.
+    pub text_has_cdata: bool,
     /// Child elements.
     pub children: Vec<Node>,
     /// 1-based line number of the opening tag in the source XML.
@@ -40,6 +42,7 @@ impl Node {
             name,
             attrs,
             text: String::new(),
+            text_has_cdata: false,
             children: Vec::new(),
             line,
             col,
@@ -126,6 +129,44 @@ fn byte_offset_to_line_col(input: &[u8], offset: usize) -> (u32, u32) {
     }
     let col = (safe - line_start) as u32 + 1;
     (line, col)
+}
+
+fn append_text_segment(node: &mut Node, segment: &str, from_cdata: bool) {
+    let trimmed = segment.trim();
+    if trimmed.is_empty() {
+        return;
+    }
+
+    node.text.push_str(trimmed);
+    if from_cdata {
+        node.text_has_cdata = true;
+    }
+}
+
+fn decode_general_reference(reference: &str) -> Option<String> {
+    if let Some(hex) = reference
+        .strip_prefix("#x")
+        .or_else(|| reference.strip_prefix("#X"))
+    {
+        let codepoint = u32::from_str_radix(hex, 16).ok()?;
+        let ch = char::from_u32(codepoint)?;
+        return Some(ch.to_string());
+    }
+
+    if let Some(decimal) = reference.strip_prefix('#') {
+        let codepoint = decimal.parse::<u32>().ok()?;
+        let ch = char::from_u32(codepoint)?;
+        return Some(ch.to_string());
+    }
+
+    match reference {
+        "amp" => Some("&".to_owned()),
+        "lt" => Some("<".to_owned()),
+        "gt" => Some(">".to_owned()),
+        "apos" => Some("'".to_owned()),
+        "quot" => Some("\"".to_owned()),
+        _ => None,
+    }
 }
 
 /// Parse a VAST XML string into a VastDocument.
@@ -218,10 +259,7 @@ pub fn parse(input: &str) -> VastDocument {
             Ok(Event::Text(e)) => {
                 if let Some(node) = stack.last_mut() {
                     if let Ok(text) = e.xml10_content() {
-                        let trimmed = text.trim().to_owned();
-                        if !trimmed.is_empty() {
-                            node.text = trimmed;
-                        }
+                        append_text_segment(node, text.as_ref(), false);
                     }
                 }
             }
@@ -230,9 +268,19 @@ pub fn parse(input: &str) -> VastDocument {
                 if let Some(node) = stack.last_mut() {
                     let bytes = e.into_inner();
                     if let Ok(text) = std::str::from_utf8(&bytes) {
-                        let trimmed = text.trim().to_owned();
-                        if !trimmed.is_empty() {
-                            node.text = trimmed;
+                        append_text_segment(node, text, true);
+                    }
+                }
+            }
+
+            Ok(Event::GeneralRef(e)) => {
+                if let Some(node) = stack.last_mut() {
+                    if let Ok(reference) = std::str::from_utf8(e.as_ref()) {
+                        if let Some(decoded) = decode_general_reference(reference) {
+                            append_text_segment(node, &decoded, false);
+                        } else {
+                            let raw = format!("&{};", reference);
+                            append_text_segment(node, &raw, false);
                         }
                     }
                 }
@@ -303,6 +351,41 @@ mod tests {
             .child("Impression")
             .unwrap();
         assert_eq!(imp.text, "https://example.com/imp");
+        assert!(imp.text_has_cdata);
+    }
+
+    #[test]
+    fn concatenates_split_cdata_text() {
+        let xml = r#"<VAST version="4.1"><Ad><InLine><Impression><![CDATA[https://example.com/imp?a=1]]><![CDATA[&b=2]]></Impression></InLine></Ad></VAST>"#;
+        let doc = parse(xml);
+        let imp = doc
+            .root
+            .child("Ad")
+            .unwrap()
+            .child("InLine")
+            .unwrap()
+            .child("Impression")
+            .unwrap();
+        assert_eq!(imp.text, "https://example.com/imp?a=1&b=2");
+        assert!(imp.text_has_cdata);
+    }
+
+    #[test]
+    fn preserves_entity_references_in_text() {
+        let xml = r#"<VAST version="2.0"><Ad><InLine><AdSystem>Test</AdSystem><AdTitle>Test</AdTitle><Impression>https://t.example.com/imp</Impression><Creatives><Creative><Linear><Duration>00:00:30</Duration><MediaFiles><MediaFile delivery="progressive" type="video/mp4" width="640" height="360">https://cdn.example.com/ad.mp4</MediaFile></MediaFiles></Linear></Creative></Creatives><Extensions><Extension>alpha&amp;beta</Extension></Extensions></InLine></Ad></VAST>"#;
+        let doc = parse(xml);
+        let extension = doc
+            .root
+            .child("Ad")
+            .unwrap()
+            .child("InLine")
+            .unwrap()
+            .child("Extensions")
+            .unwrap()
+            .child("Extension")
+            .unwrap();
+        assert_eq!(extension.text, "alpha&beta");
+        assert!(!extension.text_has_cdata);
     }
 
     #[test]

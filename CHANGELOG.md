@@ -6,6 +6,23 @@ GitHub Releases: <https://github.com/aleksUIX/vastlint/releases>
 
 ---
 
+## [0.4.12] - 2026-05-11
+
+### Core validator
+
+- **CDATA-aware leaf payload checks**: the parser now preserves adjacent text and CDATA segments, retains entity references in plain text, and enables accurate warnings for URL, `Extension`, and `CreativeExtension` payloads that should be wrapped in CDATA.
+- **New advisory rules**: added `VAST-2.0-url-cdata`, `VAST-2.0-extension-cdata`, and `VAST-2.0-creative-extension-cdata` as warning-level guidance for fragile leaf-text payloads.
+
+### Docs
+
+- **Rules catalog fixed**: `RULES.md` now matches the shipped 121-rule catalog, including SIMID entries, the quartile-tracking warning, and correct warning severity for the HTTP transport rules.
+- **Count drift removed**: refreshed stale `118 rules` references across the main README, package metadata, MCP docs, roadmap, and architecture docs.
+- **VS Code README deduplicated**: replaced the embedded stale rule table with links to the canonical online docs and `RULES.md` so the extension docs do not drift independently.
+
+### Tests
+
+- **Rules markdown parity**: added `crates/vastlint-core/tests/rules_markdown.rs` so `RULES.md` count, IDs, and severities must stay aligned with `all_rules()`.
+
 ## [0.4.11] - 2026-05-10
 
 ### VS Code extension

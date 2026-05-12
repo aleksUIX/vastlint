@@ -2,7 +2,7 @@
 
 Full reference documentation for every rule is at **[vastlint.org/docs/rules](https://vastlint.org/docs/rules/)**.
 
-118 rules across IAB VAST 2.0 – 4.3. Each rule has a stable ID, a default severity (`error` / `warning` / `info`), and a dedicated docs page with the spec reference, examples, and fix guidance.
+121 rules across IAB VAST 2.0 – 4.3 and SIMID 1.0 – 1.1. Each rule has a stable ID, a default severity (`error` / `warning` / `info`), and a dedicated docs page with the spec reference, examples, and fix guidance.
 
 ---
 
@@ -25,7 +25,7 @@ Full reference documentation for every rule is at **[vastlint.org/docs/rules](ht
 | [VAST-2.0-mediafile-delivery-enum](https://vastlint.org/docs/rules/VAST-2.0-mediafile-delivery-enum/) | error | `delivery` must be `"progressive"` or `"streaming"` |
 | [VAST-2.0-mediafile-type](https://vastlint.org/docs/rules/VAST-2.0-mediafile-type/) | error | `<MediaFile>` must have a `type` attribute |
 | [VAST-2.0-mediafile-dimensions](https://vastlint.org/docs/rules/VAST-2.0-mediafile-dimensions/) | error | `<MediaFile>` must have `width` and `height` attributes |
-| [VAST-2.0-mediafile-https](https://vastlint.org/docs/rules/VAST-2.0-mediafile-https/) | info | MediaFile URL uses HTTP instead of HTTPS |
+| [VAST-2.0-mediafile-https](https://vastlint.org/docs/rules/VAST-2.0-mediafile-https/) | warning | MediaFile URL uses HTTP instead of HTTPS |
 | [VAST-2.0-wrapper-adsystem](https://vastlint.org/docs/rules/VAST-2.0-wrapper-adsystem/) | error | `<Wrapper>` must contain `<AdSystem>` |
 | [VAST-2.0-wrapper-impression](https://vastlint.org/docs/rules/VAST-2.0-wrapper-impression/) | error | `<Wrapper>` must contain at least one `<Impression>` |
 | [VAST-2.0-wrapper-vastadtaguri](https://vastlint.org/docs/rules/VAST-2.0-wrapper-vastadtaguri/) | error | `<Wrapper>` must contain `<VASTAdTagURI>` |
@@ -52,14 +52,18 @@ Full reference documentation for every rule is at **[vastlint.org/docs/rules](ht
 | [VAST-2.0-companion-unknown-child](https://vastlint.org/docs/rules/VAST-2.0-companion-unknown-child/) | error | `<Companion>` contains an unrecognised child element |
 | [VAST-2.0-creativeextensions-unknown-child](https://vastlint.org/docs/rules/VAST-2.0-creativeextensions-unknown-child/) | error | `<CreativeExtensions>` may only contain `<CreativeExtension>` elements |
 | [VAST-2.0-extension-misplaced-element](https://vastlint.org/docs/rules/VAST-2.0-extension-misplaced-element/) | warning | `<Extension>` contains an element that has a dedicated location in the VAST spec |
+| [VAST-2.0-extension-cdata](https://vastlint.org/docs/rules/VAST-2.0-extension-cdata/) | warning | `<Extension>` leaf text payload with XML-sensitive characters should be wrapped in CDATA so JSON blobs and URL-rich vendor data do not rely on fragile XML escaping |
 | [VAST-2.0-creative-extension-misplaced-element](https://vastlint.org/docs/rules/VAST-2.0-creative-extension-misplaced-element/) | warning | `<CreativeExtension>` contains an element that has a dedicated location in the VAST spec |
-| [VAST-2.0-tracking-https](https://vastlint.org/docs/rules/VAST-2.0-tracking-https/) | info | Tracking or click URL uses HTTP instead of HTTPS |
+| [VAST-2.0-creative-extension-cdata](https://vastlint.org/docs/rules/VAST-2.0-creative-extension-cdata/) | warning | `<CreativeExtension>` leaf text payload with XML-sensitive characters should be wrapped in CDATA so JSON blobs and URL-rich vendor data do not rely on fragile XML escaping |
+| [VAST-2.0-tracking-https](https://vastlint.org/docs/rules/VAST-2.0-tracking-https/) | warning | Tracking or click URL uses HTTP instead of HTTPS |
+| [VAST-2.0-url-cdata](https://vastlint.org/docs/rules/VAST-2.0-url-cdata/) | warning | URI value is not wrapped in CDATA |
 | [VAST-2.0-url-empty](https://vastlint.org/docs/rules/VAST-2.0-url-empty/) | error | URL field is empty |
 | [VAST-2.0-url-invalid](https://vastlint.org/docs/rules/VAST-2.0-url-invalid/) | warning | URL field does not appear to be a valid URI |
 | [VAST-2.0-parse-error](https://vastlint.org/docs/rules/VAST-2.0-parse-error/) | error | XML parse error — document may be malformed |
 | [VAST-2.0-version-mismatch](https://vastlint.org/docs/rules/VAST-2.0-version-mismatch/) | warning | Declared version does not match structural signals |
 | [VAST-2.0-duplicate-impression](https://vastlint.org/docs/rules/VAST-2.0-duplicate-impression/) | warning | Duplicate `<Impression>` URL within the same `<Ad>` |
 | [VAST-2.0-flash-mediafile](https://vastlint.org/docs/rules/VAST-2.0-flash-mediafile/) | warning | Flash MediaFile type is no longer supported |
+| [VAST-2.0-linear-tracking-quartiles](https://vastlint.org/docs/rules/VAST-2.0-linear-tracking-quartiles/) | warning | `<Linear>` has no standard quartile tracking events — measurement system receives no signal |
 | [VAST-2.0-duration-format](https://vastlint.org/docs/rules/VAST-2.0-duration-format/) | error | Duration value does not match `HH:MM:SS[.mmm]` format |
 
 ---
@@ -153,6 +157,22 @@ Full reference documentation for every rule is at **[vastlint.org/docs/rules](ht
 | Rule | Severity | Description |
 |------|----------|-------------|
 | [VAST-4.3-js-resource-browser-optional](https://vastlint.org/docs/rules/VAST-4.3-js-resource-browser-optional/) | warning | `<JavaScriptResource>` should have a `browserOptional` attribute |
+
+---
+
+## SIMID rules
+
+| Rule | Severity | Description |
+|------|----------|-------------|
+| [SIMID-1.0-simid-type-required](https://vastlint.org/docs/rules/SIMID-1.0-simid-type-required/) | error | `<InteractiveCreativeFile apiFramework="SIMID">` must have `type="text/html"` |
+| [SIMID-1.0-simid-url-empty](https://vastlint.org/docs/rules/SIMID-1.0-simid-url-empty/) | error | `<InteractiveCreativeFile apiFramework="SIMID">` must contain a non-empty URL |
+| [SIMID-1.0-simid-url-https](https://vastlint.org/docs/rules/SIMID-1.0-simid-url-https/) | error | `<InteractiveCreativeFile apiFramework="SIMID">` URL must use HTTPS |
+| [SIMID-1.0-simid-variable-duration-value](https://vastlint.org/docs/rules/SIMID-1.0-simid-variable-duration-value/) | warning | `<InteractiveCreativeFile>` `variableDuration` attribute must be `"true"` when present |
+| [SIMID-1.0-simid-mediafile-required](https://vastlint.org/docs/rules/SIMID-1.0-simid-mediafile-required/) | error | Linear SIMID ad must include a video/audio `<MediaFile>` alongside the interactive creative |
+| [SIMID-1.1-nonlinear-simid-no-iframe](https://vastlint.org/docs/rules/SIMID-1.1-nonlinear-simid-no-iframe/) | error | `<NonLinear apiFramework="SIMID">` must contain an `<IFrameResource>` |
+| [SIMID-1.1-iframe-simid-type-required](https://vastlint.org/docs/rules/SIMID-1.1-iframe-simid-type-required/) | warning | `<IFrameResource>` in SIMID `<NonLinear>` should have `type="text/html"` |
+| [SIMID-1.1-iframe-simid-url-empty](https://vastlint.org/docs/rules/SIMID-1.1-iframe-simid-url-empty/) | error | `<IFrameResource>` in SIMID `<NonLinear>` must contain a non-empty URL |
+| [SIMID-1.1-iframe-simid-url-https](https://vastlint.org/docs/rules/SIMID-1.1-iframe-simid-url-https/) | error | `<IFrameResource>` in SIMID `<NonLinear>` URL must use HTTPS |
 
 ---
 

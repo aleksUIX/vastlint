@@ -39,6 +39,8 @@ pub fn check(
 
 /// Recursively check all known URL-bearing elements within a subtree.
 fn check_url_elements(node: &Node, path: &str, ctx: &ValidationContext, issues: &mut Vec<Issue>) {
+    maybe_warn_on_non_cdata_uri(node, path, ctx, issues);
+
     const URL_ELEMENTS: &[&str] = &[
         "Impression",
         "Error",
@@ -122,6 +124,32 @@ fn check_url_elements(node: &Node, path: &str, ctx: &ValidationContext, issues: 
     }
 }
 
+fn maybe_warn_on_non_cdata_uri(
+    node: &Node,
+    path: &str,
+    ctx: &ValidationContext,
+    issues: &mut Vec<Issue>,
+) {
+    if !node.children.is_empty() || node.text.is_empty() || node.text_has_cdata {
+        return;
+    }
+
+    if !looks_like_uri(&node.text) {
+        return;
+    }
+
+    emit(
+        ctx,
+        issues,
+        "VAST-2.0-url-cdata",
+        Severity::Warning,
+        "URI value is not wrapped in CDATA",
+        Some(path.to_owned()),
+        "IAB VAST 2.0 §2",
+        Some(node),
+    );
+}
+
 /// Check that a string is a plausible URL (not empty, starts with a known
 /// scheme). Uses the `url` crate for full parse validation.
 fn check_url_value(value: &str, path: &str, ctx: &ValidationContext, issues: &mut Vec<Issue>) {
@@ -149,7 +177,7 @@ fn check_url_value(value: &str, path: &str, ctx: &ValidationContext, issues: &mu
         return;
     }
 
-    if url::Url::parse(value).is_err() {
+    if !looks_like_uri(value) {
         emit(
             ctx,
             issues,
@@ -161,4 +189,16 @@ fn check_url_value(value: &str, path: &str, ctx: &ValidationContext, issues: &mu
             None,
         )
     }
+}
+
+fn looks_like_uri(value: &str) -> bool {
+    if value.is_empty() {
+        return false;
+    }
+
+    if value.starts_with("data:") || value == "about:blank" {
+        return true;
+    }
+
+    url::Url::parse(value).is_ok()
 }

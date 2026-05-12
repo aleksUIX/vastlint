@@ -325,6 +325,14 @@ fn check_extensions(node: &Node, path: &str, ctx: &ValidationContext, issues: &m
             )
         } else {
             let ext_path = format!("{}/Extension[{}]", path, i);
+            maybe_warn_on_extension_like_text_without_cdata(
+                child,
+                &ext_path,
+                "VAST-2.0-extension-cdata",
+                "<Extension> leaf text payload with XML-sensitive characters should be wrapped in CDATA so JSON blobs and URL-rich vendor data do not rely on fragile XML escaping",
+                ctx,
+                issues,
+            );
             scan_extension_for_misplaced_elements(
                 child,
                 &ext_path,
@@ -334,6 +342,46 @@ fn check_extensions(node: &Node, path: &str, ctx: &ValidationContext, issues: &m
             );
         }
     }
+}
+
+fn maybe_warn_on_extension_like_text_without_cdata(
+    node: &Node,
+    path: &str,
+    rule_id: &'static str,
+    message: &'static str,
+    ctx: &ValidationContext,
+    issues: &mut Vec<Issue>,
+) {
+    if !node.children.is_empty() || node.text.is_empty() || node.text_has_cdata {
+        return;
+    }
+
+    if extension_text_is_uri_like(&node.text) || !contains_xml_sensitive_text(&node.text) {
+        return;
+    }
+
+    emit(
+        ctx,
+        issues,
+        rule_id,
+        Severity::Warning,
+        message,
+        Some(path.to_owned()),
+        "W3C XML 1.0 §2.7",
+        Some(node),
+    );
+}
+
+fn contains_xml_sensitive_text(value: &str) -> bool {
+    value.contains('&') || value.contains('<')
+}
+
+fn extension_text_is_uri_like(value: &str) -> bool {
+    if value.starts_with("data:") || value == "about:blank" {
+        return true;
+    }
+
+    url::Url::parse(value).is_ok()
 }
 
 fn check_video_clicks(node: &Node, path: &str, ctx: &ValidationContext, issues: &mut Vec<Issue>) {
@@ -602,6 +650,14 @@ fn check_creative_extensions(
             )
         } else {
             let ext_path = format!("{}/CreativeExtension[{}]", path, i);
+            maybe_warn_on_extension_like_text_without_cdata(
+                child,
+                &ext_path,
+                "VAST-2.0-creative-extension-cdata",
+                "<CreativeExtension> leaf text payload with XML-sensitive characters should be wrapped in CDATA so JSON blobs and URL-rich vendor data do not rely on fragile XML escaping",
+                ctx,
+                issues,
+            );
             scan_extension_for_misplaced_elements(
                 child,
                 &ext_path,
