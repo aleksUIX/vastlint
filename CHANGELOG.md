@@ -6,6 +6,22 @@ GitHub Releases: <https://github.com/aleksUIX/vastlint/releases>
 
 ---
 
+## [0.4.13] - 2026-05-11
+
+### VS Code extension
+
+- **Packaging compatibility restored**: aligned the extension typing floor with `engines.vscode` so `vsce package` works without raising the minimum supported VS Code version above 1.85.
+- **Release metadata aligned**: the VS Code package manifest and lockfile now carry the correct extension version for packaged builds.
+
+### Dependencies
+
+- **Rust dependency refresh**: bumped `quick-xml` to `0.40.0` and `tokio` to `1.52.3`.
+- **Tooling updates**: bumped VS Code dev typing support to `@types/node 25.7.0` and upgraded `actions/dependency-review-action` to `v5.0.0`.
+
+### CI
+
+- **Formatting gate fixed**: normalized Rust test formatting so the cross-platform CI matrix and dependency PR reruns pass cleanly again.
+
 ## [0.4.12] - 2026-05-11
 
 ### Core validator
