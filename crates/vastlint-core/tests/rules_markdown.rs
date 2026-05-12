@@ -13,7 +13,8 @@ fn vscode_readme_path() -> PathBuf {
 }
 
 fn read_text(path: &Path) -> String {
-    fs::read_to_string(path).unwrap_or_else(|error| panic!("could not read {}: {error}", path.display()))
+    fs::read_to_string(path)
+        .unwrap_or_else(|error| panic!("could not read {}: {error}", path.display()))
 }
 
 fn severity_label(severity: Severity) -> &'static str {
@@ -48,7 +49,11 @@ fn parse_rule_rows(path: &Path) -> BTreeMap<String, (String, String)> {
         );
 
         let rule_id = parse_rule_id(parts[0]).unwrap_or_else(|| {
-            panic!("could not parse rule id from {} row: {}", path.display(), line)
+            panic!(
+                "could not parse rule id from {} row: {}",
+                path.display(),
+                line
+            )
         });
 
         rows.insert(

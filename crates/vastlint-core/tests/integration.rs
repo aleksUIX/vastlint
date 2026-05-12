@@ -877,7 +877,7 @@ fn clean_extensions_produce_no_misplaced_warnings() {
 
 #[test]
 fn extension_leaf_text_with_sensitive_chars_needs_cdata() {
-        let xml = r#"<VAST version="2.0">
+    let xml = r#"<VAST version="2.0">
     <Ad id="1">
         <InLine>
             <AdSystem>Test</AdSystem>
@@ -899,22 +899,27 @@ fn extension_leaf_text_with_sensitive_chars_needs_cdata() {
         </InLine>
     </Ad>
 </VAST>"#;
-        let result = validate(xml);
+    let result = validate(xml);
     let issue = result
         .issues
         .iter()
         .find(|i| i.id == "VAST-2.0-extension-cdata")
-        .unwrap_or_else(|| panic!("expected VAST-2.0-extension-cdata, got: {:#?}", result.issues));
-        assert!(
+        .unwrap_or_else(|| {
+            panic!(
+                "expected VAST-2.0-extension-cdata, got: {:#?}",
+                result.issues
+            )
+        });
+    assert!(
         issue.severity == Severity::Warning,
         "extension-cdata should stay at warning severity, got: {:#?}",
         issue
-        );
+    );
 }
 
 #[test]
 fn extension_leaf_text_with_cdata_does_not_warn() {
-        let xml = r#"<VAST version="2.0">
+    let xml = r#"<VAST version="2.0">
     <Ad id="1">
         <InLine>
             <AdSystem>Test</AdSystem>
@@ -936,17 +941,17 @@ fn extension_leaf_text_with_cdata_does_not_warn() {
         </InLine>
     </Ad>
 </VAST>"#;
-        let result = validate(xml);
-        assert!(
-                !has_issue(&result, "VAST-2.0-extension-cdata"),
-                "CDATA-wrapped leaf Extension text should not fire extension-cdata, got: {:#?}",
-                result.issues
-        );
+    let result = validate(xml);
+    assert!(
+        !has_issue(&result, "VAST-2.0-extension-cdata"),
+        "CDATA-wrapped leaf Extension text should not fire extension-cdata, got: {:#?}",
+        result.issues
+    );
 }
 
 #[test]
 fn creative_extension_leaf_text_with_sensitive_chars_needs_cdata() {
-        let xml = r#"<VAST version="2.0">
+    let xml = r#"<VAST version="2.0">
     <Ad id="1">
         <InLine>
             <AdSystem>Test</AdSystem>
@@ -968,22 +973,27 @@ fn creative_extension_leaf_text_with_sensitive_chars_needs_cdata() {
         </InLine>
     </Ad>
 </VAST>"#;
-        let result = validate(xml);
-        let issue = result
-                .issues
-                .iter()
-                .find(|i| i.id == "VAST-2.0-creative-extension-cdata")
-                .unwrap_or_else(|| panic!("expected VAST-2.0-creative-extension-cdata, got: {:#?}", result.issues));
-        assert!(
-                issue.severity == Severity::Warning,
-                "creative-extension-cdata should stay at warning severity, got: {:#?}",
-                issue
-        );
+    let result = validate(xml);
+    let issue = result
+        .issues
+        .iter()
+        .find(|i| i.id == "VAST-2.0-creative-extension-cdata")
+        .unwrap_or_else(|| {
+            panic!(
+                "expected VAST-2.0-creative-extension-cdata, got: {:#?}",
+                result.issues
+            )
+        });
+    assert!(
+        issue.severity == Severity::Warning,
+        "creative-extension-cdata should stay at warning severity, got: {:#?}",
+        issue
+    );
 }
 
 #[test]
 fn creative_extension_leaf_text_with_cdata_does_not_warn() {
-        let xml = r#"<VAST version="2.0">
+    let xml = r#"<VAST version="2.0">
     <Ad id="1">
         <InLine>
             <AdSystem>Test</AdSystem>
@@ -1005,8 +1015,8 @@ fn creative_extension_leaf_text_with_cdata_does_not_warn() {
         </InLine>
     </Ad>
 </VAST>"#;
-        let result = validate(xml);
-        assert!(
+    let result = validate(xml);
+    assert!(
                 !has_issue(&result, "VAST-2.0-creative-extension-cdata"),
                 "CDATA-wrapped leaf CreativeExtension text should not fire creative-extension-cdata, got: {:#?}",
                 result.issues
@@ -1310,15 +1320,15 @@ fn cdata_in_url_is_handled() {
         "CDATA-wrapped URLs should be valid, got: {:#?}",
         result.issues
     );
-        assert!(
-                !has_issue(&result, "VAST-2.0-url-cdata"),
-                "CDATA-wrapped URLs should not trigger the url-cdata warning"
-        );
+    assert!(
+        !has_issue(&result, "VAST-2.0-url-cdata"),
+        "CDATA-wrapped URLs should not trigger the url-cdata warning"
+    );
 }
 
 #[test]
 fn warns_on_non_cdata_url_inside_extension() {
-        let xml = r#"<VAST version="2.0">
+    let xml = r#"<VAST version="2.0">
     <Ad id="1">
         <InLine>
             <AdSystem>Test</AdSystem>
@@ -1342,17 +1352,17 @@ fn warns_on_non_cdata_url_inside_extension() {
         </InLine>
     </Ad>
 </VAST>"#;
-        let result = validate(xml);
-        assert!(
-                has_issue(&result, "VAST-2.0-url-cdata"),
-                "plain-text extension URLs should trigger the url-cdata warning, got: {:#?}",
-                result.issues
-        );
+    let result = validate(xml);
+    assert!(
+        has_issue(&result, "VAST-2.0-url-cdata"),
+        "plain-text extension URLs should trigger the url-cdata warning, got: {:#?}",
+        result.issues
+    );
 }
 
 #[test]
 fn does_not_warn_on_cdata_url_inside_extension() {
-        let xml = r#"<VAST version="2.0">
+    let xml = r#"<VAST version="2.0">
     <Ad id="1">
         <InLine>
             <AdSystem>Test</AdSystem>
@@ -1376,12 +1386,12 @@ fn does_not_warn_on_cdata_url_inside_extension() {
         </InLine>
     </Ad>
 </VAST>"#;
-        let result = validate(xml);
-        assert!(
-                !has_issue(&result, "VAST-2.0-url-cdata"),
-                "CDATA-wrapped extension URLs should not trigger the url-cdata warning, got: {:#?}",
-                result.issues
-        );
+    let result = validate(xml);
+    assert!(
+        !has_issue(&result, "VAST-2.0-url-cdata"),
+        "CDATA-wrapped extension URLs should not trigger the url-cdata warning, got: {:#?}",
+        result.issues
+    );
 }
 
 #[test]
