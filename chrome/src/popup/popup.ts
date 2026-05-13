@@ -23,6 +23,11 @@ async function init() {
   const scanBtn  = document.getElementById('scan-btn') as HTMLButtonElement;
   const siteToggle = document.getElementById('site-toggle') as HTMLButtonElement;
   const toggleLabel = siteToggle.querySelector('.toggle-label') as HTMLElement;
+  const versionEl = document.getElementById('extension-version');
+
+  if (versionEl) {
+    versionEl.textContent = `v${chrome.runtime.getManifest().version}`;
+  }
 
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (!tab?.id) {

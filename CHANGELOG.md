@@ -6,6 +6,13 @@ GitHub Releases: <https://github.com/aleksUIX/vastlint/releases>
 
 ---
 
+## [0.4.14] - 2026-05-12
+
+### Release metadata
+
+- **Channel versions aligned**: bumped the Rust crates, npm package, VS Code extension, and Chrome extension manifests and lockfiles to `0.4.14` so all published artifacts share the same release version.
+- **Chrome popup version sourced from the manifest**: the extension footer now reads `chrome.runtime.getManifest().version` instead of a hardcoded string, preventing future UI version drift.
+
 ## [0.4.13] - 2026-05-11
 
 ### VS Code extension
