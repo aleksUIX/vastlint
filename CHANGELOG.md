@@ -6,6 +6,17 @@ GitHub Releases: <https://github.com/aleksUIX/vastlint/releases>
 
 ---
 
+## [0.4.15] - 2026-05-13
+
+### Docs
+
+- **React drop-in example**: added `npm/examples/VastLintTakeHomePage.jsx`, a copy-paste frontend starting point with live validation, issue filtering, line-aware source navigation, and auto-fix preview.
+- **Main README onboarding link**: linked the root README directly to the new `npm/examples` guide so frontend consumers can find the example without hunting through the repo.
+
+### CI / release workflow
+
+- **Homebrew tap sync**: the release workflow now updates `aleksUIX/homebrew-tap` automatically after tagged releases so the formula version and SHA-256 checks stay aligned with published CLI assets.
+
 ## [0.4.14] - 2026-05-12
 
 ### Release metadata

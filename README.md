@@ -8,6 +8,8 @@ vastlint ships a native **MCP server** - making VAST validation available as a c
 
 Native bindings for realtime ad pipelines: [`vastlint-go`](https://github.com/aleksUIX/vastlint-go) (CGo, prebuilt static libs — no Rust toolchain needed), [`vastlint-erlang`](https://github.com/aleksUIX/vastlint-erlang) (Elixir/Erlang — OTP port mode for production ad delivery, DirtyCpu NIF for non-critical paths), and a WASM npm package for Node.js and browsers. All bindings share the same compiled Rust core — consistent results everywhere, sub-millisecond latency at scale.
 
+Need a copy-paste frontend starting point? See the React drop-in example in [`npm/examples`](npm/examples/README.md).
+
 [![crates.io](https://img.shields.io/crates/v/vastlint-cli.svg?label=crates.io)](https://crates.io/crates/vastlint-cli)
 [![vastlint-core](https://img.shields.io/crates/v/vastlint-core.svg?label=vastlint-core)](https://crates.io/crates/vastlint-core)
 [![npm](https://img.shields.io/npm/v/vastlint.svg?label=npm)](https://www.npmjs.com/package/vastlint)
