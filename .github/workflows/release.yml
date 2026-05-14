@@ -1892,3 +1892,118 @@ jobs:
 
           git commit -S -m "chore: bump vastlint npm dependency to ${TAG}"
           git push origin main
+
+  # ── Sync homebrew-tap ───────────────────────────────────────────────────────
+  # After a successful CLI release, update the Homebrew formula in
+  # aleksUIX/homebrew-tap so the versioned URLs and all four platform SHA-256
+  # values always match the tarballs produced by this workflow run.
+  #
+  # Prerequisites (one-time setup):
+  #   1. Generate an SSH deploy key for homebrew-tap:
+  #        ssh-keygen -t ed25519 -f ~/VASTLINT_HOMEBREW_TAP_DEPLOY_KEY -C "vastlint release bot (homebrew)" -N ""
+  #   2. Add ~/VASTLINT_HOMEBREW_TAP_DEPLOY_KEY.pub as a deploy key in
+  #      aleksUIX/homebrew-tap (Settings → Deploy keys) with write access.
+  #   3. Add ~/VASTLINT_HOMEBREW_TAP_DEPLOY_KEY (private key) as secret
+  #      VASTLINT_HOMEBREW_TAP_DEPLOY_KEY in this repo
+  #      (Settings → Secrets → Actions).
+  #
+  # Set ENABLE_HOMEBREW_TAP_SYNC to "true" in repo variables to activate this
+  # job.
+  sync-homebrew-tap:
+    name: Sync homebrew-tap
+    needs: [build, release]
+    runs-on: ubuntu-latest
+    if: vars.ENABLE_HOMEBREW_TAP_SYNC == 'true'
+
+    steps:
+      - name: Download CLI release artifacts
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c  # v8.0.1
+        with:
+          path: cli-artifacts
+          pattern: vastlint-*.tar.gz
+          merge-multiple: true
+
+      - name: Checkout homebrew-tap via deploy key
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        with:
+          repository: aleksUIX/homebrew-tap
+          ssh-key: ${{ secrets.VASTLINT_HOMEBREW_TAP_DEPLOY_KEY }}
+          path: homebrew-tap
+
+      - name: Update vastlint formula version and checksums
+        env:
+          TAG: ${{ github.ref_name }}
+          FORMULA: homebrew-tap/Formula/vastlint.rb
+        run: |
+          VERSION="${TAG#v}"
+
+          declare -A ARCHIVES=(
+            [SHA_MACOS_ARM64]=vastlint-macos-aarch64.tar.gz
+            [SHA_MACOS_X86_64]=vastlint-macos-x86_64.tar.gz
+            [SHA_LINUX_ARM64]=vastlint-linux-aarch64.tar.gz
+            [SHA_LINUX_X86_64]=vastlint-linux-x86_64.tar.gz
+          )
+
+          for KEY in "${!ARCHIVES[@]}"; do
+            FILE="cli-artifacts/${ARCHIVES[$KEY]}"
+            if [[ ! -f "$FILE" ]]; then
+              echo "Missing expected CLI archive: $FILE"
+              exit 1
+            fi
+            VALUE=$(sha256sum "$FILE" | awk '{print $1}')
+            export "$KEY=$VALUE"
+            echo "${ARCHIVES[$KEY]} => $VALUE"
+          done
+
+          export VERSION
+
+          ruby <<'RUBY'
+          formula_path = ENV.fetch('FORMULA')
+          version = ENV.fetch('VERSION')
+          replacements = {
+            'vastlint-macos-aarch64.tar.gz' => ENV.fetch('SHA_MACOS_ARM64'),
+            'vastlint-macos-x86_64.tar.gz' => ENV.fetch('SHA_MACOS_X86_64'),
+            'vastlint-linux-aarch64.tar.gz' => ENV.fetch('SHA_LINUX_ARM64'),
+            'vastlint-linux-x86_64.tar.gz' => ENV.fetch('SHA_LINUX_X86_64'),
+          }
+
+          content = File.read(formula_path)
+          content = content.sub(/version\s+"[^"]+"/, "version \"#{version}\"")
+
+          replacements.each do |archive, checksum|
+            pattern = %r{(url "https://github\.com/aleksUIX/vastlint/releases/download/)v[^/]+(/#{Regexp.escape(archive)}"\n\s+sha256 ")([0-9a-f]{64})(")}
+            updated = content.sub(pattern) do
+              "#{$1}v#{version}#{$2}#{checksum}#{$4}"
+            end
+            if updated == content
+              raise "failed to update #{archive} in #{formula_path}"
+            end
+            content = updated
+          end
+
+          File.write(formula_path, content)
+          RUBY
+
+      - name: Validate formula syntax
+        run: ruby -c homebrew-tap/Formula/vastlint.rb
+
+      - name: Import bot GPG key
+        run: |
+          echo "${{ secrets.BOT_GPG_KEY }}" | gpg --batch --import
+          echo "AEA67F4C8B714AC26E14ACDB67DF23E270B033DB:6:" | gpg --import-ownertrust
+
+      - name: Commit and push
+        run: |
+          TAG="${{ github.ref_name }}"
+
+          cd homebrew-tap
+          git config user.name  "vastlint release bot"
+          git config user.email "bot@vastlint.org"
+          git config user.signingkey "67DF23E270B033DB"
+          git config commit.gpgsign true
+
+          git add Formula/vastlint.rb
+          git diff --cached --quiet && echo "nothing to commit" && exit 0
+
+          git commit -S -m "chore: update vastlint formula to ${TAG}"
+          git push origin main
