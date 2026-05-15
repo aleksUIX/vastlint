@@ -6,6 +6,17 @@ GitHub Releases: <https://github.com/aleksUIX/vastlint/releases>
 
 ---
 
+## [0.4.16] - 2026-05-14
+
+### Security
+
+- **Browser UI hardening**: removed HTML string rendering paths in the Chrome extension and popup so untrusted VAST content is rendered via DOM nodes instead of `innerHTML` sinks.
+- **Release supply-chain tightening**: pinned mutable GitHub Actions, Docker image inputs, and CLI install versions used by the release workflow and local packaging script.
+
+### Release metadata
+
+- **Channel versions aligned**: bumped the Rust crates, npm package, VS Code extension, and Chrome extension manifests and lockfiles to `0.4.16` so shipped artifacts match the tagged security release.
+
 ## [0.4.15] - 2026-05-13
 
 ### Docs

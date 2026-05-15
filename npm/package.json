@@ -1,6 +1,6 @@
 {
   "name": "vastlint",
-  "version": "0.4.14",
+  "version": "0.4.16",
   "description": "VAST XML linter — validates IAB VAST 2.0–4.3 ad tags against the full spec. 121 rules. Rust/WASM core.",
   "license": "Apache-2.0",
   "author": "Alex Sekowski <alex@vastlint.org>",
