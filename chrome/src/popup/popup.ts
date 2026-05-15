@@ -9,8 +9,92 @@ interface TabData   { errors: number; warnings: number; infos: number; vasts: Va
 const SEV_COLOR: Record<string, string> = { error: '#ef5350', warning: '#ffb74d', info: '#63b3ed' };
 // (kept for potential future use)
 
-function escHtml(s: string): string {
-  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+function createNode<K extends keyof HTMLElementTagNameMap>(tag: K, className?: string): HTMLElementTagNameMap[K] {
+  const el = document.createElement(tag);
+  if (className) el.className = className;
+  return el;
+}
+
+function renderFileAccessMessage(container: HTMLElement) {
+  const strong = createNode('strong');
+  strong.textContent = 'File access needed';
+
+  const xmlCode = createNode('code');
+  xmlCode.textContent = '.xml';
+
+  const bold = createNode('b');
+  bold.textContent = 'Allow access to file URLs';
+
+  const chromeCode = createNode('code');
+  chromeCode.textContent = 'chrome://extensions';
+
+  container.replaceChildren(
+    strong,
+    document.createTextNode(' To validate local '),
+    xmlCode,
+    document.createTextNode(' files, enable '),
+    bold,
+    document.createTextNode(' for this extension:\n\n'),
+    chromeCode,
+    document.createTextNode(' → VAST lint → Details → toggle on'),
+  );
+}
+
+function createVastRow(v: VastEntry): HTMLDivElement {
+  const hasErr  = v.errors > 0;
+  const hasWarn = v.warnings > 0;
+  const dot  = hasErr ? 'dot-err' : hasWarn ? 'dot-warn' : 'dot-ok';
+
+  const row = createNode('div', 'vast-row');
+  row.dataset.label = v.label;
+
+  row.appendChild(createNode('span', `vast-dot ${dot}`));
+
+  const label = createNode('span', 'vast-label');
+  label.textContent = v.label;
+  row.appendChild(label);
+
+  if (v.version) {
+    const ver = createNode('span', 'vast-ver');
+    ver.textContent = `VAST ${v.version}`;
+    row.appendChild(ver);
+  }
+
+  const pills = createNode('span', 'vast-pills');
+  if (v.errors > 0) {
+    const pill = createNode('span', 'pill pill-err');
+    pill.textContent = `${v.errors}E`;
+    pills.appendChild(pill);
+  }
+  if (v.warnings > 0) {
+    const pill = createNode('span', 'pill pill-warn');
+    pill.textContent = `${v.warnings}W`;
+    pills.appendChild(pill);
+  }
+  if (v.infos > 0) {
+    const pill = createNode('span', 'pill pill-info');
+    pill.textContent = `${v.infos}I`;
+    pills.appendChild(pill);
+  }
+  if (!hasErr && !hasWarn) {
+    const pill = createNode('span', 'pill pill-ok');
+    pill.textContent = '✓';
+    pills.appendChild(pill);
+  }
+  row.appendChild(pills);
+
+  const focusBtn = createNode('button', 'focus-btn');
+  focusBtn.dataset.label = v.label;
+  focusBtn.textContent = 'focus';
+  row.appendChild(focusBtn);
+
+  const copyOneBtn = createNode('button', 'copy-one-btn');
+  copyOneBtn.dataset.label = v.label;
+  copyOneBtn.title = 'Copy annotated VAST';
+  copyOneBtn.textContent = 'copy';
+  row.appendChild(copyOneBtn);
+
+  return row;
 }
 
 async function init() {
@@ -105,28 +189,7 @@ async function init() {
       const breakdown = document.getElementById('breakdown')!;
       breakdown.style.display = 'block';
       const list = document.getElementById('vast-list')!;
-      list.innerHTML = data.vasts.map((v) => {
-        const hasErr  = v.errors   > 0;
-        const hasWarn = v.warnings > 0;
-        const dot  = hasErr  ? 'dot-err'
-                   : hasWarn ? 'dot-warn'
-                   :           'dot-ok';
-        const pills = [
-          v.errors   > 0 ? `<span class="pill pill-err">${v.errors}E</span>`   : '',
-          v.warnings > 0 ? `<span class="pill pill-warn">${v.warnings}W</span>` : '',
-          v.infos    > 0 ? `<span class="pill pill-info">${v.infos}I</span>`    : '',
-          !hasErr && !hasWarn ? `<span class="pill pill-ok">✓</span>` : '',
-        ].filter(Boolean).join('');
-        const ver = v.version ? `<span class="vast-ver">VAST ${escHtml(v.version)}</span>` : '';
-        return `<div class="vast-row" data-label="${escHtml(v.label)}">
-          <span class="vast-dot ${dot}"></span>
-          <span class="vast-label">${escHtml(v.label)}</span>
-          ${ver}
-          <span class="vast-pills">${pills}</span>
-          <button class="focus-btn" data-label="${escHtml(v.label)}">focus</button>
-          <button class="copy-one-btn" data-label="${escHtml(v.label)}" title="Copy annotated VAST">copy</button>
-        </div>`;
-      }).join('');
+      list.replaceChildren(...data.vasts.map(createVastRow));
 
       // Focus buttons
       list.querySelectorAll<HTMLButtonElement>('.focus-btn').forEach(btn => {
@@ -170,12 +233,7 @@ async function init() {
     const isFileXml = url.startsWith('file://') && /\.xml(\?|#|$)/i.test(url);
 
     if (isFileXml) {
-      status.innerHTML = `
-        <strong>File access needed</strong>
-        To validate local <code>.xml</code> files, enable
-        <b>Allow access to file URLs</b> for this extension:<br><br>
-        <code>chrome://extensions</code> → VAST lint → Details → toggle on
-      `;
+      renderFileAccessMessage(status);
     }
     // else leave default "No VAST XML detected" message
   }

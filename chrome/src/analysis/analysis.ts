@@ -7,8 +7,143 @@
 import { validateVast } from '../vastlint/validator';
 import type { ValidationResult, Issue } from '../types/vastlint';
 
-function esc(s: string): string {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+function createNode<K extends keyof HTMLElementTagNameMap>(tag: K, className?: string): HTMLElementTagNameMap[K] {
+  const el = document.createElement(tag);
+  if (className) el.className = className;
+  return el;
+}
+
+type DomContainer = DocumentFragment | HTMLElement;
+
+function createStyledSpan(className: string, text: string): HTMLSpanElement {
+  const span = createNode('span', className);
+  span.textContent = text;
+  return span;
+}
+
+function appendPlainText(parent: DomContainer, text: string) {
+  if (!text) return;
+  parent.appendChild(document.createTextNode(text));
+}
+
+function appendStyledText(parent: DomContainer, className: string, text: string) {
+  if (!text) return;
+  parent.appendChild(createStyledSpan(className, text));
+}
+
+function createTooltipRow(iss: Issue): HTMLDivElement {
+  const row = createNode('div', 'tip-row');
+
+  const meta = createNode('div', 'tip-meta');
+  const idLink = createNode('a', 'tip-id');
+  idLink.href = `https://vastlint.org/docs/rules/${encodeURIComponent(iss.id)}`;
+  idLink.target = '_blank';
+  idLink.rel = 'noopener';
+  idLink.textContent = iss.id;
+  meta.appendChild(idLink);
+
+  if (iss.line) {
+    const line = createNode('span', 'tip-line');
+    line.textContent = `line ${iss.line}`;
+    meta.appendChild(line);
+  }
+
+  const msg = createNode('div', 'tip-msg');
+  msg.textContent = iss.message;
+
+  row.appendChild(meta);
+  row.appendChild(msg);
+  return row;
+}
+
+function createTopbarPills(result: ValidationResult): DocumentFragment {
+  const { errors, warnings, infos } = result.summary;
+  const frag = document.createDocumentFragment();
+
+  if (errors > 0) frag.appendChild(createNode('span', 'tpill tpill-err')).textContent = `${errors}E`;
+  if (warnings > 0) frag.appendChild(createNode('span', 'tpill tpill-warn')).textContent = `${warnings}W`;
+  if (infos > 0) frag.appendChild(createNode('span', 'tpill tpill-info')).textContent = `${infos}I`;
+  if (errors + warnings + infos === 0) frag.appendChild(createNode('span', 'tpill tpill-ok')).textContent = '✓ Clean';
+  if (result.version) frag.appendChild(createNode('span', 'ver-pill')).textContent = `VAST ${result.version}`;
+
+  return frag;
+}
+
+function createIssueCard(iss: Issue): HTMLDivElement {
+  const card = createNode('div', `issue-card sev-${iss.severity}`);
+  card.dataset.sev = iss.severity;
+
+  const meta = createNode('div', 'iss-meta');
+  const idLink = createNode('a', 'iss-id');
+  idLink.href = `https://vastlint.org/docs/rules/${encodeURIComponent(iss.id)}`;
+  idLink.target = '_blank';
+  idLink.rel = 'noopener';
+  idLink.textContent = iss.id;
+  meta.appendChild(idLink);
+
+  const pathShort = iss.path ? iss.path.split('/').slice(-2).join('/') : null;
+  if (pathShort) {
+    const pathEl = createNode('span', 'iss-path');
+    pathEl.title = iss.path ?? '';
+    pathEl.textContent = pathShort;
+    meta.appendChild(pathEl);
+  }
+
+  if (iss.line) {
+    const line = createNode('span', 'iss-line');
+    line.textContent = `line ${iss.line}`;
+    meta.appendChild(line);
+  }
+
+  const msg = createNode('div', 'iss-msg');
+  msg.textContent = iss.message;
+
+  card.appendChild(meta);
+  card.appendChild(msg);
+
+  if (iss.spec_ref) {
+    const spec = createNode('div', 'iss-spec');
+    spec.textContent = iss.spec_ref;
+    card.appendChild(spec);
+  }
+
+  return card;
+}
+
+function createIssueGroup(sev: 'error' | 'warning' | 'info', issues: Issue[]): HTMLDivElement {
+  const group = createNode('div', 'issue-group');
+
+  const hdr = createNode('div', 'issue-group-hdr');
+  const badge = createNode('span', `sev-badge sev-badge-${sev}`);
+  badge.textContent = sev.toUpperCase();
+  const count = createNode('span', 'group-count');
+  const label = sev === 'error' ? 'error' : sev === 'warning' ? 'warning' : 'advisory';
+  count.textContent = `${issues.length} ${label}${issues.length !== 1 ? 's' : ''}`;
+  hdr.appendChild(badge);
+  hdr.appendChild(count);
+
+  const items = createNode('div', 'issue-group-items');
+  items.replaceChildren(...issues.map(createIssueCard));
+
+  group.appendChild(hdr);
+  group.appendChild(items);
+  return group;
+}
+
+function showErrorMessage(container: HTMLElement, msg: string) {
+  const box = createNode('div');
+  box.style.padding = '20px';
+  box.style.color = '#ef5350';
+  box.style.fontSize = '13px';
+
+  const strong = createNode('strong');
+  strong.textContent = '⚠ Validation error';
+  box.appendChild(strong);
+  box.appendChild(document.createElement('br'));
+  box.appendChild(document.createElement('br'));
+  box.appendChild(document.createTextNode(msg));
+
+  container.replaceChildren(box);
 }
 
 // ── XML Syntax Highlighter ───────────────────────────────────────────────────
@@ -16,19 +151,21 @@ function countNL(s: string): number {
   let n = 0; for (let i = 0; i < s.length; i++) if (s[i] === '\n') n++; return n;
 }
 
-function highlightXml(raw: string, lineIssues?: Map<number, Issue[]>): string {
-  let out = '';
+function highlightXml(raw: string, lineIssues?: Map<number, Issue[]>): DocumentFragment {
+  const out = document.createDocumentFragment();
   let i = 0;
   let curLine = 1;
   const squiggled = new Set<number>();
 
-  function sq(html: string, startLine: number, chunk: string): string {
-    if (!lineIssues || squiggled.has(startLine) || chunk.includes('\n')) return html;
+  function sq(content: Node, startLine: number, chunk: string): Node {
+    if (!lineIssues || squiggled.has(startLine) || chunk.includes('\n')) return content;
     const issues = lineIssues.get(startLine);
-    if (!issues) return html;
+    if (!issues) return content;
     squiggled.add(startLine);
     const sev = issues[0].severity;
-    return `<span class="sq sq-${sev}">${html}</span>`;
+    const wrapper = createNode('span', `sq sq-${sev}`);
+    wrapper.appendChild(content);
+    return wrapper;
   }
 
   while (i < raw.length) {
@@ -36,21 +173,21 @@ function highlightXml(raw: string, lineIssues?: Map<number, Issue[]>): string {
       const end = raw.indexOf('-->', i + 4);
       const chunk = end === -1 ? raw.slice(i) : raw.slice(i, end + 3);
       const sl = curLine; curLine += countNL(chunk);
-      out += sq(`<span class="xt-comment">${esc(chunk)}</span>`, sl, chunk);
+      out.appendChild(sq(createStyledSpan('xt-comment', chunk), sl, chunk));
       i += chunk.length; continue;
     }
     if (raw.startsWith('<![CDATA[', i)) {
       const end = raw.indexOf(']]>', i + 9);
       const chunk = end === -1 ? raw.slice(i) : raw.slice(i, end + 3);
       const sl = curLine; curLine += countNL(chunk);
-      out += sq(`<span class="xt-cdata">${esc(chunk)}</span>`, sl, chunk);
+      out.appendChild(sq(createStyledSpan('xt-cdata', chunk), sl, chunk));
       i += chunk.length; continue;
     }
     if (raw.startsWith('<?', i)) {
       const end = raw.indexOf('?>', i + 2);
       const chunk = end === -1 ? raw.slice(i) : raw.slice(i, end + 2);
       const sl = curLine; curLine += countNL(chunk);
-      out += sq(`<span class="xt-pi">${esc(chunk)}</span>`, sl, chunk);
+      out.appendChild(sq(createStyledSpan('xt-pi', chunk), sl, chunk));
       i += chunk.length; continue;
     }
     if (raw[i] === '<') {
@@ -64,13 +201,13 @@ function highlightXml(raw: string, lineIssues?: Map<number, Issue[]>): string {
       }
       const chunk = raw.slice(i, j);
       const sl = curLine; curLine += countNL(chunk);
-      out += sq(colorizeTag(chunk), sl, chunk);
+      out.appendChild(sq(colorizeTag(chunk), sl, chunk));
       i = j; continue;
     }
     if (raw[i] === '&') {
       const end = raw.indexOf(';', i);
       if (end !== -1 && end - i < 16) {
-        out += `<span class="xt-entity">${esc(raw.slice(i, end + 1))}</span>`;
+        out.appendChild(createStyledSpan('xt-entity', raw.slice(i, end + 1)));
         i = end + 1; continue;
       }
     }
@@ -78,45 +215,70 @@ function highlightXml(raw: string, lineIssues?: Map<number, Issue[]>): string {
     while (j < raw.length && raw[j] !== '<' && raw[j] !== '&') j++;
     const text = raw.slice(i, j);
     curLine += countNL(text);
-    out += esc(text);
+    appendPlainText(out, text);
     i = j;
   }
   return out;
 }
 
-function p(s: string) { return s ? `<span class="xt-punct">${esc(s)}</span>` : ''; }
-function t(s: string) { return s ? `<span class="xt-tag">${esc(s)}</span>` : ''; }
+function colorizeAttrs(chunk: string): DocumentFragment {
+  const frag = document.createDocumentFragment();
+  const attrPattern = /([\w:\-\.]+)(\s*=\s*)(["'])((?:[^"'\\]|\\.)*)(\3)|([\w:\-\.]+)|(\s+)/g;
+  let match: RegExpExecArray | null;
 
-function colorizeAttrs(chunk: string): string {
-  return chunk.replace(
-    /([\w:\-\.]+)(\s*=\s*)(["'])((?:[^"'\\]|\\.)*)(\3)|([\w:\-\.]+)|(\s+)/g,
-    (_, aName, eq, q, val, _q2, bare, ws) => {
-      if (ws)   return esc(ws);
-      if (bare) return `<span class="xt-attr">${esc(bare)}</span>`;
-      if (aName) return `<span class="xt-attr">${esc(aName)}</span>`
-               + p(eq ?? '')
-               + p(q)
-               + `<span class="xt-val">${esc(val ?? '')}</span>`
-               + p(q);
-      return '';
+  while ((match = attrPattern.exec(chunk)) !== null) {
+    const aName = match[1];
+    const eq = match[2];
+    const q = match[3];
+    const val = match[4];
+    const bare = match[6];
+    const ws = match[7];
+
+    if (ws) {
+      appendPlainText(frag, ws);
+      continue;
     }
-  );
+    if (bare) {
+      appendStyledText(frag, 'xt-attr', bare);
+      continue;
+    }
+    if (aName) {
+      appendStyledText(frag, 'xt-attr', aName);
+      appendStyledText(frag, 'xt-punct', eq ?? '');
+      appendStyledText(frag, 'xt-punct', q ?? '');
+      appendStyledText(frag, 'xt-val', val ?? '');
+      appendStyledText(frag, 'xt-punct', q ?? '');
+    }
+  }
+
+  return frag;
 }
 
-function colorizeTag(tag: string): string {
+function colorizeTag(tag: string): DocumentFragment {
+  const frag = document.createDocumentFragment();
   const closeM = tag.match(/^(<\/)([\w:\-\.]+)(>)$/);
-  if (closeM) return p(closeM[1]) + t(closeM[2]) + p(closeM[3]);
-  let i = 1; let out = p('<');
-  if (tag[i] === '/') { out += p('/'); i++; }
+  if (closeM) {
+    appendStyledText(frag, 'xt-punct', closeM[1]);
+    appendStyledText(frag, 'xt-tag', closeM[2]);
+    appendStyledText(frag, 'xt-punct', closeM[3]);
+    return frag;
+  }
+
+  let i = 1;
+  appendStyledText(frag, 'xt-punct', '<');
+  if (tag[i] === '/') {
+    appendStyledText(frag, 'xt-punct', '/');
+    i++;
+  }
   const nameStart = i;
   while (i < tag.length && !/[ \/>\n\t]/.test(tag[i])) i++;
-  out += t(tag.slice(nameStart, i));
+  appendStyledText(frag, 'xt-tag', tag.slice(nameStart, i));
   const tail = tag.slice(i);
   const isSelfClose = tail.trimEnd().endsWith('/>');
   const inner = tail.slice(0, tail.lastIndexOf(isSelfClose ? '/>' : '>'));
-  out += colorizeAttrs(inner);
-  out += p(isSelfClose ? '/>' : '>');
-  return out;
+  frag.appendChild(colorizeAttrs(inner));
+  appendStyledText(frag, 'xt-punct', isSelfClose ? '/>' : '>');
+  return frag;
 }
 
 // ── DOM refs ─────────────────────────────────────────────────────────────────
@@ -150,15 +312,7 @@ const SEV_COLOR: Record<string, string> = {
 function showTooltip(clientX: number, clientY: number, issues: Issue[]) {
   const topSev = issues[0].severity;
   const color  = SEV_COLOR[topSev] ?? '#8aa7c8';
-  xmlTooltip.innerHTML = issues.map(iss => `
-    <div class="tip-row">
-      <div class="tip-meta">
-        <a class="tip-id" href="https://vastlint.org/docs/rules/${encodeURIComponent(iss.id)}"
-           target="_blank" rel="noopener">${esc(iss.id)}</a>
-        ${iss.line ? `<span class="tip-line">line ${iss.line}</span>` : ''}
-      </div>
-      <div class="tip-msg">${esc(iss.message)}</div>
-    </div>`).join('');
+  xmlTooltip.replaceChildren(...issues.map(createTooltipRow));
   xmlTooltip.style.borderColor = color;
   xmlTooltip.style.display = 'block';
   // Position: prefer above cursor, flip below if too close to top
@@ -179,7 +333,10 @@ function hideTooltip() {
 
 // ── Highlight + scroll sync ───────────────────────────────────────────────────
 function updateHighlight() {
-  xmlHlCode.innerHTML = highlightXml(xmlInput.value, currentLineIssueMap.size ? currentLineIssueMap : undefined) + '\n';
+  xmlHlCode.replaceChildren(
+    highlightXml(xmlInput.value, currentLineIssueMap.size ? currentLineIssueMap : undefined),
+    document.createTextNode('\n'),
+  );
 }
 
 xmlInput.addEventListener('input', () => {
@@ -230,7 +387,7 @@ const LINE_H  = 12.5 * 1.65; // matches CSS font/line-height
 const PAD_TOP = 16;           // matches editor padding
 
 function applyLineHighlights(lineMap: Map<number, string>) {
-  xmlLineHlInner.innerHTML = '';
+  xmlLineHlInner.replaceChildren();
   const totalLines = xmlInput.value.split('\n').length;
   xmlLineHlInner.style.height = `${PAD_TOP + totalLines * LINE_H + PAD_TOP}px`;
   for (const [line, sev] of lineMap) {
@@ -277,7 +434,7 @@ async function runAnalysis() {
   emptyState.style.display   = 'none';
   issueList.style.display    = 'none';
   cleanState.style.display   = 'none';
-  topbarPills.innerHTML      = '';
+  topbarPills.replaceChildren();
   resultsHdr.style.display   = 'none';
   filterBar.classList.remove('visible');
   currentLineIssueMap = new Map();
@@ -291,7 +448,7 @@ async function runAnalysis() {
     const msg = e instanceof Error ? e.message : String(e);
     loadingState.style.display = 'none';
     issueList.style.display    = 'block';
-    issueList.innerHTML = `<div style="padding:20px;color:#ef5350;font-size:13px;"><strong>⚠ Validation error</strong><br><br>${esc(msg)}</div>`;
+    showErrorMessage(issueList, msg);
     analyzeBtn.disabled        = false;
     analyzingInd.style.display = 'none';
     return;
@@ -306,17 +463,19 @@ function renderResults(result: ValidationResult) {
   const { errors, warnings, infos } = result.summary;
   const total = errors + warnings + infos;
 
-  topbarPills.innerHTML = [
-    errors   > 0 ? `<span class="tpill tpill-err">${errors}E</span>`    : '',
-    warnings > 0 ? `<span class="tpill tpill-warn">${warnings}W</span>` : '',
-    infos    > 0 ? `<span class="tpill tpill-info">${infos}I</span>`     : '',
-    total === 0  ? `<span class="tpill tpill-ok">✓ Clean</span>`        : '',
-    result.version ? `<span class="ver-pill">VAST ${esc(result.version)}</span>` : '',
-  ].filter(Boolean).join('');
+  topbarPills.replaceChildren(createTopbarPills(result));
 
-  topbarTitle.innerHTML = total > 0
-    ? `Found <strong>${total} issue${total !== 1 ? 's' : ''}</strong>`
-    : '<strong>No issues found</strong>';
+  topbarTitle.replaceChildren();
+  if (total > 0) {
+    topbarTitle.appendChild(document.createTextNode('Found '));
+    const strong = createNode('strong');
+    strong.textContent = `${total} issue${total !== 1 ? 's' : ''}`;
+    topbarTitle.appendChild(strong);
+  } else {
+    const strong = createNode('strong');
+    strong.textContent = 'No issues found';
+    topbarTitle.appendChild(strong);
+  }
 
   resultsHdr.style.display  = 'flex';
   resultsHdrLbl.textContent = total > 0 ? `${total} issue${total !== 1 ? 's' : ''}` : 'Results';
@@ -333,35 +492,9 @@ function renderResults(result: ValidationResult) {
   filterBar.classList.add('visible');
   const grouped: Record<string, typeof result.issues> = { error: [], warning: [], info: [] };
   for (const iss of result.issues) (grouped[iss.severity] ?? grouped['info']).push(iss);
-  const groupCount: Record<string, string> = {
-    error: 'error', warning: 'warning', info: 'advisory',
-  };
-
-  issueList.innerHTML = (['error', 'warning', 'info'] as const)
+  issueList.replaceChildren(...(['error', 'warning', 'info'] as const)
     .filter(sev => grouped[sev].length > 0)
-    .map(sev => {
-      const n = grouped[sev].length;
-      const items = grouped[sev].map(iss => {
-        const pathShort = iss.path ? iss.path.split('/').slice(-2).join('/') : null;
-        const meta = [
-          `<a class="iss-id" href="https://vastlint.org/docs/rules/${encodeURIComponent(iss.id)}" target="_blank" rel="noopener">${esc(iss.id)}</a>`,
-          pathShort ? `<span class="iss-path" title="${esc(iss.path ?? '')}">${esc(pathShort)}</span>` : '',
-          iss.line  ? `<span class="iss-line">line ${iss.line}</span>` : '',
-        ].filter(Boolean).join('');
-        return `<div class="issue-card sev-${iss.severity}" data-sev="${iss.severity}">
-          <div class="iss-meta">${meta}</div>
-          <div class="iss-msg">${esc(iss.message)}</div>
-          ${iss.spec_ref ? `<div class="iss-spec">${esc(iss.spec_ref)}</div>` : ''}
-        </div>`;
-      }).join('');
-      return `<div class="issue-group">
-        <div class="issue-group-hdr">
-          <span class="sev-badge sev-badge-${sev}">${sev.toUpperCase()}</span>
-          <span class="group-count">${n} ${groupCount[sev]}${n !== 1 ? 's' : ''}</span>
-        </div>
-        <div class="issue-group-items">${items}</div>
-      </div>`;
-    }).join('');
+    .map(sev => createIssueGroup(sev, grouped[sev])));
 
   issueList.style.display  = 'block';
   cleanState.style.display = 'none';

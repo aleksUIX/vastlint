@@ -42,13 +42,13 @@ JS
 
 echo "=== 4/5  Bundle extension ==="
 cd vscode
-npm install
+npm ci
 node build.js
 
 echo "=== 5/5  Package VSIX ==="
 # Remove the old 0.4.0 VSIX if present so vsce creates a fresh one
 rm -f vastlint-0.4.0.vsix
-npx vsce package --no-dependencies
+npx --yes @vscode/vsce@3.9.1 package --no-dependencies
 
 VSIX=$(ls vastlint-*.vsix | tail -1)
 echo ""

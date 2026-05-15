@@ -1185,7 +1185,7 @@ jobs:
           merge-multiple: true
 
       - name: Generate SLSA provenance attestation
-        uses: actions/attest-build-provenance@v4
+        uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32  # v4
         with:
           subject-path: artifacts/*
 
@@ -1395,11 +1395,11 @@ jobs:
         working-directory: vscode
 
       - name: Install vscode extension dependencies
-        run: npm install
+        run: npm ci
         working-directory: vscode
 
       - name: Install vsce
-        run: npm install -g @vscode/vsce
+        run: npm install -g @vscode/vsce@3.9.1
 
       # Package the extension into a .vsix regardless of whether we publish.
       # This gives VS Code fork users (Cursor, VSCodium, Windsurf, etc.) a
@@ -1422,7 +1422,7 @@ jobs:
           VSCE_PAT: ${{ secrets.VSCE_PAT }}
 
       - name: Install ovsx
-        run: npm install -g ovsx
+        run: npm install -g ovsx@0.10.12
 
       - name: Publish to Open VSX Registry
         run: ovsx publish vastlint-${{ steps.ext_version.outputs.version }}.vsix --pat "$OVSX_TOKEN" || echo "Open VSX version already published, skipping"

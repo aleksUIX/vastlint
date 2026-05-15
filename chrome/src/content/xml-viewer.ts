@@ -60,24 +60,6 @@ function formatTag(tag: string, attrsRaw: string, self: boolean): string {
   return `<${tag} ${attrsRaw}${self ? '/>' : '>'}`;
 }
 
-function wrapCdata(inner: string, ind: string): string {
-  const out: string[] = [];
-  for (const line of inner.split('\n')) {
-    const t = line.trim();
-    if (!t) continue;
-    if (t.length > 100) {
-      const parts = t.split(/(?=&(?!amp;|lt;|gt;|quot;|apos;))/);
-      if (parts.length > 1) {
-        out.push(parts[0]);
-        for (let i = 1; i < parts.length; i++) out.push(ind + '    ' + parts[i]);
-        continue;
-      }
-    }
-    out.push(t);
-  }
-  return out.join('\n' + ind + '  ');
-}
-
 function prettyPrint(xml: string): {
   text: string;
   origToFmt: Map<number, number>;
@@ -210,6 +192,13 @@ function highlightLine(line: string): string {
   return e;
 }
 
+function htmlToFragment(html: string): DocumentFragment {
+  const parsed = new DOMParser().parseFromString(`<body>${html}</body>`, 'text/html');
+  const frag = document.createDocumentFragment();
+  frag.append(...Array.from(parsed.body.childNodes).map((node) => document.importNode(node, true)));
+  return frag;
+}
+
 // ─── Main export ─────────────────────────────────────────────────────────────
 
 export function injectXmlViewer(src: string): { pre: HTMLPreElement; origToFmt: Map<number, number>; pathToFmt: Map<string, number> } {
@@ -291,7 +280,7 @@ html,body{background:#0d0d17;color:#cdd6f4;height:100%;overflow:hidden}
     if (fmtToOrig.has(i)) ln.dataset['orig'] = String(fmtToOrig.get(i));
     if (fmtToPath.has(i)) ln.dataset['path'] = fmtToPath.get(i)!;
     const span = iDoc.createElement('span');
-    span.innerHTML = highlightLine(lines[i]);
+    span.replaceChildren(htmlToFragment(highlightLine(lines[i])));
     ln.appendChild(span);
     code.appendChild(ln);
   }

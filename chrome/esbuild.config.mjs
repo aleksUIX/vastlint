@@ -5,7 +5,7 @@
 
 import * as esbuild from 'esbuild';
 import { copy } from 'esbuild-plugin-copy';
-import { resolve, dirname } from 'path';
+import { dirname } from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));

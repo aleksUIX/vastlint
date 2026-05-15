@@ -86,20 +86,60 @@ function issueListHTML(issues: Issue[]) {
   return issues.map(iss => {
     const color = SEV_COLOR[iss.severity];
     const icon  = SEV_ICON[iss.severity];
-    const meta  = [
-      iss.path     ? `<code>${escHtml(iss.path)}</code>` : '',
-      iss.line     ? `line ${iss.line}` : '',
-      iss.spec_ref ? `<em>${escHtml(iss.spec_ref)}</em>` : '',
-    ].filter(Boolean).join(' · ');
-    const idLink = `<a class="issue-id-link" href="https://vastlint.org/docs/rules/${encodeURIComponent(iss.id)}" target="_blank" rel="noopener">[${escHtml(iss.id)}]</a>`;
-    return `<div class="issue" data-sev="${escHtml(iss.severity)}">
-      <span class="issue-icon" style="color:${color}">${icon}</span>
-      <div>
-        <div>${idLink} <span class="issue-msg">${escHtml(iss.message)}</span></div>
-        ${meta ? `<div class="issue-meta">${meta}</div>` : ''}
-      </div>
-    </div>`;
-  }).join('');
+
+    const row = htmlEl('div');
+    row.className = 'issue';
+    row.dataset.sev = iss.severity;
+
+    const iconEl = htmlEl('span');
+    iconEl.className = 'issue-icon';
+    iconEl.style.color = color;
+    iconEl.textContent = icon;
+
+    const body = htmlEl('div');
+    const head = htmlEl('div');
+
+    const idLink = htmlEl('a');
+    idLink.className = 'issue-id-link';
+    idLink.href = `https://vastlint.org/docs/rules/${encodeURIComponent(iss.id)}`;
+    idLink.target = '_blank';
+    idLink.rel = 'noopener';
+    idLink.textContent = `[${iss.id}]`;
+
+    const msg = htmlEl('span');
+    msg.className = 'issue-msg';
+    msg.textContent = iss.message;
+
+    head.appendChild(idLink);
+    head.appendChild(document.createTextNode(' '));
+    head.appendChild(msg);
+    body.appendChild(head);
+
+    if (iss.path || iss.line || iss.spec_ref) {
+      const meta = htmlEl('div');
+      meta.className = 'issue-meta';
+      if (iss.path) {
+        const code = htmlEl('code');
+        code.textContent = iss.path;
+        meta.appendChild(code);
+        if (iss.line || iss.spec_ref) meta.appendChild(document.createTextNode(' · '));
+      }
+      if (iss.line) {
+        meta.appendChild(document.createTextNode(`line ${iss.line}`));
+        if (iss.spec_ref) meta.appendChild(document.createTextNode(' · '));
+      }
+      if (iss.spec_ref) {
+        const em = htmlEl('em');
+        em.textContent = iss.spec_ref;
+        meta.appendChild(em);
+      }
+      body.appendChild(meta);
+    }
+
+    row.appendChild(iconEl);
+    row.appendChild(body);
+    return row;
+  });
 }
 
 // ─── Main overlay (code mode) ─────────────────────────────────────────────────
@@ -276,8 +316,7 @@ function renderOverlay(result: ValidationResult, anchor: HTMLElement, origToFmt?
     <div id="bar">
       <span id="bar-drag" title="Drag to move">⠿</span>
       <span class="sep">·</span>
-      ${summaryHTML(result)}
-      ${result.version ? `<span class="ver-badge">VAST ${escHtml(result.version)}</span>` : ''}
+      <span class="ver-badge" id="ver-badge" style="display:none"></span>
       <span class="sep">·</span>
       <button class="sev-btn active" id="flt-e" data-sev="error"   title="Toggle errors">E</button>
       <button class="sev-btn active" id="flt-w" data-sev="warning" title="Toggle warnings">W</button>
@@ -319,6 +358,12 @@ function renderOverlay(result: ValidationResult, anchor: HTMLElement, origToFmt?
   const floatClose = shadow.getElementById('float-close')!;
   const floatBody  = shadow.getElementById('float-body') as HTMLElement;
   const tip        = shadow.getElementById('tip')        as HTMLElement;
+  const verBadge   = shadow.getElementById('ver-badge')  as HTMLElement | null;
+
+  if (verBadge && result.version) {
+    verBadge.textContent = `VAST ${result.version}`;
+    verBadge.style.display = '';
+  }
 
   // ── Build inline annotations ───────────────────────────────────────────────
   const inlineLabels: HTMLElement[] = [];
@@ -369,23 +414,61 @@ function renderOverlay(result: ValidationResult, anchor: HTMLElement, origToFmt?
     const tipRows = issues.map(iss => {
       const color = SEV_COLOR[iss.severity];
       const icon  = SEV_ICON[iss.severity];
-      const meta  = [
-        iss.path     ? `<code>${escHtml(iss.path)}</code>` : '',
-        iss.line     ? `line ${iss.line}` : '',
-        iss.spec_ref ? `<em>${escHtml(iss.spec_ref)}</em>` : '',
-      ].filter(Boolean).join(' · ');
-      const idLink = `<a class="tip-id-link" href="https://vastlint.org/docs/rules/${encodeURIComponent(iss.id)}" target="_blank" rel="noopener">[${escHtml(iss.id)}]</a>`;
-      return `<div class="tip-issue">
-        <span class="tip-icon" style="color:${color}">${icon}</span>
-        <div>
-          <div>${idLink} <span class="tip-msg">${escHtml(iss.message)}</span></div>
-          ${meta ? `<div class="tip-meta">${meta}</div>` : ''}
-        </div>
-      </div>`;
-    }).join('');
+      const issue = htmlEl('div');
+      issue.className = 'tip-issue';
+
+      const iconEl = htmlEl('span');
+      iconEl.className = 'tip-icon';
+      iconEl.style.color = color;
+      iconEl.textContent = icon;
+
+      const body = htmlEl('div');
+      const head = htmlEl('div');
+
+      const idLink = htmlEl('a');
+      idLink.className = 'tip-id-link';
+      idLink.href = `https://vastlint.org/docs/rules/${encodeURIComponent(iss.id)}`;
+      idLink.target = '_blank';
+      idLink.rel = 'noopener';
+      idLink.textContent = `[${iss.id}]`;
+
+      const msg = htmlEl('span');
+      msg.className = 'tip-msg';
+      msg.textContent = iss.message;
+
+      head.appendChild(idLink);
+      head.appendChild(document.createTextNode(' '));
+      head.appendChild(msg);
+      body.appendChild(head);
+
+      if (iss.path || iss.line || iss.spec_ref) {
+        const meta = htmlEl('div');
+        meta.className = 'tip-meta';
+        if (iss.path) {
+          const code = htmlEl('code');
+          code.textContent = iss.path;
+          meta.appendChild(code);
+          if (iss.line || iss.spec_ref) meta.appendChild(document.createTextNode(' · '));
+        }
+        if (iss.line) {
+          meta.appendChild(document.createTextNode(`line ${iss.line}`));
+          if (iss.spec_ref) meta.appendChild(document.createTextNode(' · '));
+        }
+        if (iss.spec_ref) {
+          const em = htmlEl('em');
+          em.textContent = iss.spec_ref;
+          meta.appendChild(em);
+        }
+        body.appendChild(meta);
+      }
+
+      issue.appendChild(iconEl);
+      issue.appendChild(body);
+      return issue;
+    });
 
     function showTip(anchorRect: DOMRect) {
-      tip.innerHTML = tipRows;
+      tip.replaceChildren(...tipRows);
       tip.style.display = 'block';
 
       const MARGIN = 8;
@@ -575,6 +658,17 @@ function renderOverlay(result: ValidationResult, anchor: HTMLElement, origToFmt?
       }
     }
 
+    function normalisePath(p: string): string {
+      return p.replace(/\/([A-Za-z][\w:.-]*)(?!\[)/g, '/$1[0]');
+    }
+
+    function findLineSpanByPath(path: string): HTMLElement | null {
+      for (const candidate of anchor.querySelectorAll<HTMLElement>('.ln[data-path]')) {
+        if (candidate.dataset.path === path) return candidate;
+      }
+      return null;
+    }
+
     if (!barPinned) {
       bar.style.top  = `${Math.max(0, contentRect.top - 28)}px`;
       bar.style.left = `${contentRect.left + 16}px`;
@@ -601,10 +695,6 @@ function renderOverlay(result: ValidationResult, anchor: HTMLElement, origToFmt?
       // Priority 3: origToFmt fuzzy ±5.
       // Priority 4: treat ln as 1-based index directly.
 
-      function normalisePath(p: string): string {
-        return p.replace(/\/([A-Za-z][\w:.-]*)(?!\[)/g, '/$1[0]');
-      }
-
       let lineSpan: HTMLElement | null = null;
 
       // Priority 0: HTML-rendered (Publica-style) container — each child <div>
@@ -618,87 +708,85 @@ function renderOverlay(result: ValidationResult, anchor: HTMLElement, origToFmt?
           // Line number beyond mapped rows — skip
           lineY = -9999;
         }
-        // Skip all .ln-span lookup logic below
-      } else if (issuePath && pathToFmt) {
-        const norm = normalisePath(issuePath);
-        const fmtIdx = pathToFmt.get(norm);
-        if (fmtIdx !== undefined) {
-          lineSpan = anchor.querySelector(`.ln[data-ln="${fmtIdx}"]`) as HTMLElement | null;
-        }
-        // Fallback: also try the DOM attribute (handles path → span directly)
-        if (!lineSpan) {
-          lineSpan = anchor.querySelector(`.ln[data-path="${norm.replace(/"/g, '\\"')}"]`) as HTMLElement | null;
-        }
-      }
-
-      if (!isHtmlRendered && !lineSpan) {
-        lineSpan = anchor.querySelector(`.ln[data-orig="${ln}"]`) as HTMLElement | null;
-      }
-
-      // For XML viewer: if we have origToFmt but NO path resolved the line,
-      // only use the raw line number if the source is NOT minified.
-      // "Minified" = origToFmt has very few distinct keys relative to total lines
-      // (i.e., nearly everything is on line 1). Heuristic: if origToFmt exists but
-      // the max raw line across all entries is <= 5, the source is minified and
-      // raw line numbers are useless — pin the issue to the document root instead.
-      const isMiniXml = origToFmt && (() => {
-        let maxLine = 0;
-        for (const k of origToFmt.keys()) if (k > maxLine) maxLine = k;
-        return maxLine <= 5;
-      })();
-
-      if (!isHtmlRendered && !lineSpan && origToFmt && !isMiniXml) {
-        let fmtIdx = origToFmt.get(ln);
-        if (fmtIdx === undefined) {
-          for (let d = 1; d <= 5 && fmtIdx === undefined; d++) {
-            fmtIdx = origToFmt.get(ln - d) ?? origToFmt.get(ln + d);
-          }
-        }
-        if (fmtIdx !== undefined) {
-          lineSpan = anchor.querySelector(`.ln[data-ln="${fmtIdx}"]`) as HTMLElement | null;
-        }
-      }
-
-      // Last resort for non-XML pages: treat ln as 1-based line index directly
-      if (!isHtmlRendered && !lineSpan && !origToFmt) {
-        lineSpan = anchor.querySelector(`.ln[data-ln="${ln - 1}"]`) as HTMLElement | null;
-      }
-
-      // If still no span (minified XML, no path), pin to the document root line (ln=0)
-      if (!isHtmlRendered && !lineSpan && origToFmt) {
-        lineSpan = anchor.querySelector('.ln[data-ln="0"]') as HTMLElement | null;
-      }
-
-      if (lineSpan) {
-        const sr = lineSpan.getBoundingClientRect();
-        if (sr.height > 0) {
-          lineY = sr.top;
-          // Extend height to cover attr-continuation lines (spans with no data-orig)
-          let bottomY = sr.bottom;
-          let next = parseInt(lineSpan.dataset.ln!, 10) + 1;
-          while (true) {
-            const ns = anchor.querySelector(`.ln[data-ln="${next}"]`) as HTMLElement | null;
-            if (!ns || ns.dataset.orig) break;
-            const nr = ns.getBoundingClientRect();
-            if (nr.height === 0) break;
-            bottomY = nr.bottom;
-            next++;
-          }
-          lh = bottomY - sr.top;
-        } else {
-          lineY = contentRect.top + pt + (ln - 1) * defaultLh;
-        }
-      } else if (isXmlDoc && issuePath) {
-        const el = elementForPath(issuePath);
-        const er = el?.getBoundingClientRect();
-        if (er && er.height > 2) {
-          lineY = er.top;
-          lh    = er.height;
-        } else {
-          lineY = contentRect.top + pt + (ln - 1) * defaultLh;
-        }
       } else {
-        lineY = contentRect.top + pt + (ln - 1) * lh;
+        if (issuePath && pathToFmt) {
+          const norm = normalisePath(issuePath);
+          const fmtIdx = pathToFmt.get(norm);
+          if (fmtIdx !== undefined) {
+            lineSpan = anchor.querySelector(`.ln[data-ln="${fmtIdx}"]`) as HTMLElement | null;
+          }
+          if (!lineSpan) lineSpan = findLineSpanByPath(norm);
+        }
+
+        if (!lineSpan) {
+          lineSpan = anchor.querySelector(`.ln[data-orig="${ln}"]`) as HTMLElement | null;
+        }
+
+        // For XML viewer: if we have origToFmt but NO path resolved the line,
+        // only use the raw line number if the source is NOT minified.
+        // "Minified" = origToFmt has very few distinct keys relative to total lines
+        // (i.e., nearly everything is on line 1). Heuristic: if origToFmt exists but
+        // the max raw line across all entries is <= 5, the source is minified and
+        // raw line numbers are useless — pin the issue to the document root instead.
+        const isMiniXml = origToFmt && (() => {
+          let maxLine = 0;
+          for (const k of origToFmt.keys()) if (k > maxLine) maxLine = k;
+          return maxLine <= 5;
+        })();
+
+        if (!lineSpan && origToFmt && !isMiniXml) {
+          let fmtIdx = origToFmt.get(ln);
+          if (fmtIdx === undefined) {
+            for (let d = 1; d <= 5 && fmtIdx === undefined; d++) {
+              fmtIdx = origToFmt.get(ln - d) ?? origToFmt.get(ln + d);
+            }
+          }
+          if (fmtIdx !== undefined) {
+            lineSpan = anchor.querySelector(`.ln[data-ln="${fmtIdx}"]`) as HTMLElement | null;
+          }
+        }
+
+        // Last resort for non-XML pages: treat ln as 1-based line index directly
+        if (!lineSpan && !origToFmt) {
+          lineSpan = anchor.querySelector(`.ln[data-ln="${ln - 1}"]`) as HTMLElement | null;
+        }
+
+        // If still no span (minified XML, no path), pin to the document root line (ln=0)
+        if (!lineSpan && origToFmt) {
+          lineSpan = anchor.querySelector('.ln[data-ln="0"]') as HTMLElement | null;
+        }
+
+        if (lineSpan) {
+          const sr = lineSpan.getBoundingClientRect();
+          if (sr.height > 0) {
+            lineY = sr.top;
+            // Extend height to cover attr-continuation lines (spans with no data-orig)
+            let bottomY = sr.bottom;
+            let next = parseInt(lineSpan.dataset.ln!, 10) + 1;
+            while (true) {
+              const ns = anchor.querySelector(`.ln[data-ln="${next}"]`) as HTMLElement | null;
+              if (!ns || ns.dataset.orig) break;
+              const nr = ns.getBoundingClientRect();
+              if (nr.height === 0) break;
+              bottomY = nr.bottom;
+              next++;
+            }
+            lh = bottomY - sr.top;
+          } else {
+            lineY = contentRect.top + pt + (ln - 1) * defaultLh;
+          }
+        } else if (isXmlDoc && issuePath) {
+          const el = elementForPath(issuePath);
+          const er = el?.getBoundingClientRect();
+          if (er && er.height > 2) {
+            lineY = er.top;
+            lh    = er.height;
+          } else {
+            lineY = contentRect.top + pt + (ln - 1) * defaultLh;
+          }
+        } else {
+          lineY = contentRect.top + pt + (ln - 1) * lh;
+        }
       }
 
       const inView = lineY + lh > 0 && lineY < ownerWin.innerHeight;
@@ -754,9 +842,6 @@ function renderFloatingPanel(result: ValidationResult, anchor: Element | null) {
   (document.body ?? document.documentElement).appendChild(host);
 
   const shadow = host.attachShadow({ mode: 'open' });
-  const { errors, warnings } = result.summary;
-  const badgeColor = errors > 0 ? SEV_COLOR.error : warnings > 0 ? SEV_COLOR.warning : '#43a047';
-
   shadow.innerHTML = `
     <style>
       * { box-sizing:border-box; }
@@ -790,18 +875,32 @@ function renderFloatingPanel(result: ValidationResult, anchor: Element | null) {
     <div id="float">
       <div id="hdr">
         ${summaryHTML(result)}
-        ${result.version ? `<span style="opacity:.5;font-size:10px;font-weight:400">VAST ${result.version}</span>` : ''}
+        <span id="float-ver-badge" style="opacity:.5;font-size:10px;font-weight:400;display:none"></span>
         <span class="logo">vastlint</span>
       </div>
       <div id="body">
-        ${result.issues.length === 0
-          ? '<div style="padding:10px;color:#55efc4">✓ No issues found</div>'
-          : issueListHTML(result.issues)}
       </div>
     </div>`;
 
   const floatEl = shadow.getElementById('float')   as HTMLElement;
   const hdr     = shadow.getElementById('hdr')!;
+  const body    = shadow.getElementById('body')!;
+  const verBadge = shadow.getElementById('float-ver-badge') as HTMLElement | null;
+
+  if (verBadge && result.version) {
+    verBadge.textContent = `VAST ${result.version}`;
+    verBadge.style.display = '';
+  }
+
+  if (result.issues.length === 0) {
+    const empty = htmlEl('div');
+    empty.style.padding = '10px';
+    empty.style.color = '#55efc4';
+    empty.textContent = '✓ No issues found';
+    body.replaceChildren(empty);
+  } else {
+    body.replaceChildren(...issueListHTML(result.issues));
+  }
   let dragOffX = 0, dragOffY = 0, dragging = false;
   hdr.addEventListener('mousedown', e => {
     dragging = true;
