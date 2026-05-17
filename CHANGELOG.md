@@ -6,6 +6,22 @@ GitHub Releases: <https://github.com/aleksUIX/vastlint/releases>
 
 ---
 
+## [0.4.17] - 2026-05-16
+
+### Core validator
+
+- **Version floor consistency fixed**: declared newer VAST versions no longer raise false `VAST-2.0-version-mismatch` warnings when the XML only uses older structural features.
+- **Malformed XML short-circuits cleanly**: parse failures now emit `VAST-2.0-parse-error` without cascading required-field noise.
+
+### Packaging / release
+
+- **Channel versions aligned**: bumped the Rust crates, npm package, VS Code extension, Chrome extension, lockfiles, and tracked generated package metadata to `0.4.17`.
+- **Packaged runtime sanity-covered**: the npm runtime smoke path now validates the built package against the shared fixture corpus before release tagging.
+
+### Tests
+
+- **Corpus expanded**: added malformed XML, wrapper-heavy, and mixed vendor pod fixtures plus directory-wide fixture sweeps to reduce regression gaps before release.
+
 ## [0.4.16] - 2026-05-14
 
 ### Security
