@@ -286,7 +286,21 @@ pub fn parse(input: &str) -> VastDocument {
                 }
             }
 
-            Ok(Event::Eof) => break,
+            Ok(Event::Eof) => {
+                if stack.len() > 1 {
+                    let unclosed = stack
+                        .iter()
+                        .skip(1)
+                        .map(|node| node.name.as_str())
+                        .collect::<Vec<_>>()
+                        .join(" > ");
+                    parse_error = Some(format!(
+                        "XML parse error at end of document: unexpected EOF with unclosed element(s): {}",
+                        unclosed
+                    ));
+                }
+                break;
+            }
 
             Err(e) => {
                 parse_error = Some(format!(
@@ -368,6 +382,25 @@ mod tests {
             .unwrap();
         assert_eq!(imp.text, "https://example.com/imp?a=1&b=2");
         assert!(imp.text_has_cdata);
+    }
+
+    #[test]
+    fn unexpected_eof_sets_parse_error() {
+        let doc = parse(r#"<VAST version="4.0"><Ad><InLine><AdSystem>Broken"#);
+        assert!(doc.parse_error.is_some());
+    }
+
+    #[test]
+    fn malformed_inputs_set_parse_error_across_multiple_shapes() {
+        for xml in [
+            r#"<VAST version="4.0"><Ad><InLine><AdSystem>Broken"#,
+            r#"<VAST version="4.0"><Ad></VAST>"#,
+            r#"<VAST version="4.0"><Ad><InLine></Ad></InLine></VAST>"#,
+            r#"<VAST version="4.0"><Ad id="broken><InLine /></Ad></VAST>"#,
+        ] {
+            let doc = parse(xml);
+            assert!(doc.parse_error.is_some(), "expected parse error for {xml}");
+        }
     }
 
     #[test]

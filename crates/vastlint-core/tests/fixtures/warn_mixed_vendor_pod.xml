@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<VAST version="4.1">
+  <Ad id="pod-1" sequence="1">
+    <InLine>
+      <AdSystem><![CDATA[Vendor Alpha]]></AdSystem>
+      <AdTitle><![CDATA[CTV Pod Slot 1]]></AdTitle>
+      <AdServingId>POD-SLOT-1</AdServingId>
+      <Impression><![CDATA[https://metrics.alpha.example.com/imp?slot=1]]></Impression>
+      <Impression><![CDATA[https://metrics.alpha.example.com/imp?slot=1]]></Impression>
+      <Creatives>
+        <Creative>
+          <UniversalAdId idRegistry="ad-id.org">ALPHA-1234</UniversalAdId>
+          <Linear>
+            <Duration>00:00:15</Duration>
+            <TrackingEvents>
+              <Tracking event="start"><![CDATA[https://metrics.alpha.example.com/start?slot=1]]></Tracking>
+              <Tracking event="complete"><![CDATA[https://metrics.alpha.example.com/complete?slot=1]]></Tracking>
+            </TrackingEvents>
+            <MediaFiles>
+              <MediaFile delivery="progressive" type="video/mp4" width="1920" height="1080"><![CDATA[https://cdn.alpha.example.com/pod-slot-1.mp4]]></MediaFile>
+            </MediaFiles>
+          </Linear>
+        </Creative>
+      </Creatives>
+    </InLine>
+  </Ad>
+  <Ad id="pod-2" sequence="2">
+    <InLine>
+      <AdSystem><![CDATA[Vendor Beta]]></AdSystem>
+      <AdTitle><![CDATA[CTV Pod Slot 2]]></AdTitle>
+      <AdServingId>POD-SLOT-2</AdServingId>
+      <Impression><![CDATA[http://metrics.beta.example.com/imp?slot=2]]></Impression>
+      <Creatives>
+        <Creative>
+          <UniversalAdId idRegistry="ad-id.org">BETA-5678</UniversalAdId>
+          <Linear>
+            <Duration>00:00:15</Duration>
+            <TrackingEvents>
+              <Tracking event="start"><![CDATA[http://metrics.beta.example.com/start?slot=2]]></Tracking>
+              <Tracking event="midpoint"><![CDATA[https://metrics.beta.example.com/midpoint?slot=2]]></Tracking>
+              <Tracking event="complete"><![CDATA[http://metrics.beta.example.com/complete?slot=2]]></Tracking>
+            </TrackingEvents>
+            <MediaFiles>
+              <MediaFile delivery="progressive" type="video/mp4" width="1920" height="1080"><![CDATA[https://cdn.beta.example.com/pod-slot-2.mp4]]></MediaFile>
+            </MediaFiles>
+          </Linear>
+        </Creative>
+      </Creatives>
+    </InLine>
+  </Ad>
+</VAST>

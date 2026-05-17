@@ -34,6 +34,11 @@ pub fn run(
     ctx: &ValidationContext,
     issues: &mut Vec<Issue>,
 ) {
+    if doc.parse_error.is_some() {
+        consistency::check(doc, version, ctx, issues);
+        return;
+    }
+
     required::check(doc, version, ctx, issues);
     schema::check(doc, version, ctx, issues);
     structure::check(doc, version, ctx, issues);

@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<VAST version="4.1">
+  <Ad id="springserve-wrapper-1">
+    <Wrapper>
+      <AdSystem version="2.5"><![CDATA[SpringServe]]></AdSystem>
+      <Error><![CDATA[https://events.vendor.example.com/error?[ERRORCODE]&cb=12345]]></Error>
+      <Impression><![CDATA[https://events.vendor.example.com/imp?partner=springserve&slot=ctv-a]]></Impression>
+      <Impression><![CDATA[https://events.vendor.example.com/imp?partner=ssp&slot=ctv-a]]></Impression>
+      <VASTAdTagURI><![CDATA[https://ads.vendor.example.com/vast/downstream.xml?pod=1&cb=12345]]></VASTAdTagURI>
+      <Creatives>
+        <Creative>
+          <Linear>
+            <TrackingEvents>
+              <Tracking event="start"><![CDATA[https://events.vendor.example.com/start?cb=12345]]></Tracking>
+              <Tracking event="midpoint"><![CDATA[https://events.vendor.example.com/midpoint?cb=12345]]></Tracking>
+              <Tracking event="complete"><![CDATA[http://events.vendor.example.com/complete?cb=12345]]></Tracking>
+            </TrackingEvents>
+            <VideoClicks>
+              <ClickThrough><![CDATA[https://brand.example.com/landing?creative=wrapper]]></ClickThrough>
+              <ClickTracking id="ss"><![CDATA[https://events.vendor.example.com/click?cb=12345]]></ClickTracking>
+            </VideoClicks>
+          </Linear>
+        </Creative>
+      </Creatives>
+    </Wrapper>
+  </Ad>
+</VAST>

@@ -60,7 +60,8 @@
     "README.md"
   ],
   "scripts": {
-    "build": "wasm-pack build ../crates/vastlint-wasm --target bundler --out-dir pkg && wasm-pack build ../crates/vastlint-wasm --target nodejs --out-dir pkg-node && node scripts/assemble.js"
+    "build": "wasm-pack build ../crates/vastlint-wasm --target bundler --out-dir ../../npm/pkg && wasm-pack build ../crates/vastlint-wasm --target nodejs --out-dir ../../npm/pkg-node && node scripts/assemble.js",
+    "test:runtime": "npm run build && node --test scripts/runtime-smoke.cjs"
   },
   "engines": {
     "node": ">=18"

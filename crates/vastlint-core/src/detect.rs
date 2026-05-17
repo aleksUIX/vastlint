@@ -17,7 +17,10 @@ pub fn detect_version(doc: &VastDocument) -> DetectedVersion {
 
     match (declared, inferred) {
         (Some(d), Some(i)) => {
-            let consistent = d == i;
+            // Structural inference gives the minimum version required by the
+            // elements actually present. A document declared as a newer
+            // version is still consistent when it only uses older constructs.
+            let consistent = d.at_least(&i);
             DetectedVersion::DeclaredAndInferred {
                 declared: d,
                 inferred: i,
@@ -148,6 +151,24 @@ mod tests {
         let d = detect_version(&doc(xml));
         match d {
             DetectedVersion::DeclaredAndInferred { consistent, .. } => assert!(consistent),
+            _ => panic!("expected DeclaredAndInferred"),
+        }
+    }
+
+    #[test]
+    fn newer_declared_version_is_consistent_with_older_structural_floor() {
+        let xml = r#"<VAST version="3.0"><Ad><InLine><Creatives><Creative><Linear><MediaFiles><MediaFile>https://example.com/ad.mp4</MediaFile></MediaFiles></Linear></Creative></Creatives></InLine></Ad></VAST>"#;
+        let d = detect_version(&doc(xml));
+        match d {
+            DetectedVersion::DeclaredAndInferred {
+                declared,
+                inferred,
+                consistent,
+            } => {
+                assert_eq!(declared, VastVersion::V3_0);
+                assert_eq!(inferred, VastVersion::V2_0);
+                assert!(consistent);
+            }
             _ => panic!("expected DeclaredAndInferred"),
         }
     }

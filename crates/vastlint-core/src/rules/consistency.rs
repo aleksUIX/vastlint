@@ -16,7 +16,11 @@ pub fn check(
     ctx: &ValidationContext,
     issues: &mut Vec<Issue>,
 ) {
-    check_parse_error(doc, ctx, issues);
+    if doc.parse_error.is_some() {
+        check_parse_error(doc, ctx, issues);
+        return;
+    }
+
     check_version_mismatch(version, ctx, issues);
     check_duplicate_impressions(doc, ctx, issues);
 }

@@ -9,6 +9,19 @@ fn load(name: &str) -> String {
     std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("could not read fixture {name}: {e}"))
 }
 
+fn fixture_names() -> Vec<String> {
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures");
+    let mut names = std::fs::read_dir(path)
+        .unwrap_or_else(|e| panic!("could not read fixtures dir: {e}"))
+        .filter_map(|entry| entry.ok())
+        .map(|entry| entry.file_name())
+        .map(|name| name.to_string_lossy().into_owned())
+        .filter(|name| name.ends_with(".xml"))
+        .collect::<Vec<_>>();
+    names.sort();
+    names
+}
+
 fn has_issue(result: &vastlint_core::ValidationResult, id: &str) -> bool {
     result.issues.iter().any(|i| i.id == id)
 }
@@ -22,6 +35,71 @@ fn issues_with_severity(
         .iter()
         .filter(|i| i.severity == severity)
         .collect()
+}
+
+fn minimal_valid_inline_xml(
+    declared_version: &str,
+    inline_extra: &str,
+    creative_extra: &str,
+) -> String {
+    format!(
+        r#"<VAST version="{declared_version}">
+    <Ad id="1">
+        <InLine>
+            <AdSystem>Test AdServer</AdSystem>
+            <AdTitle>Test Ad</AdTitle>
+            {inline_extra}
+            <Impression><![CDATA[https://example.com/impression]]></Impression>
+            <Creatives>
+                <Creative>
+                    {creative_extra}
+                    <Linear>
+                        <Duration>00:00:30</Duration>
+                        <TrackingEvents>
+                            <Tracking event="start"><![CDATA[https://example.com/start]]></Tracking>
+                            <Tracking event="firstQuartile"><![CDATA[https://example.com/q1]]></Tracking>
+                            <Tracking event="midpoint"><![CDATA[https://example.com/mid]]></Tracking>
+                            <Tracking event="thirdQuartile"><![CDATA[https://example.com/q3]]></Tracking>
+                            <Tracking event="complete"><![CDATA[https://example.com/complete]]></Tracking>
+                        </TrackingEvents>
+                        <MediaFiles>
+                            <MediaFile delivery="progressive" type="video/mp4" width="640" height="360"><![CDATA[https://example.com/video.mp4]]></MediaFile>
+                        </MediaFiles>
+                    </Linear>
+                </Creative>
+            </Creatives>
+        </InLine>
+    </Ad>
+</VAST>"#
+    )
+}
+
+fn version_rank(version: &str) -> u8 {
+    match version {
+        "2.0" => 20,
+        "3.0" => 30,
+        "4.0" => 40,
+        "4.1" => 41,
+        "4.2" => 42,
+        "4.3" => 43,
+        _ => panic!("unsupported version {version}"),
+    }
+}
+
+fn assert_parse_error_only(xml: &str) {
+    let result = validate(xml);
+    assert!(
+        has_issue(&result, "VAST-2.0-parse-error"),
+        "malformed XML should fire VAST-2.0-parse-error, got: {:#?}",
+        result.issues
+    );
+    assert_eq!(
+        result.issues.len(),
+        1,
+        "malformed XML should short-circuit to a single parse error, got: {:#?}",
+        result.issues
+    );
+    assert!(!result.summary.is_valid());
 }
 
 fn assert_large_publica_warning_fixture(name: &str) {
@@ -60,6 +138,16 @@ fn assert_large_publica_warning_fixture(name: &str) {
     assert!(result.summary.is_valid());
 }
 
+fn assert_no_errors(name: &str) -> vastlint_core::ValidationResult {
+    let result = validate(&load(name));
+    let errors = issues_with_severity(&result, Severity::Error);
+    assert!(
+        errors.is_empty(),
+        "expected no errors for {name}, got: {errors:#?}"
+    );
+    result
+}
+
 // ── valid fixtures ────────────────────────────────────────────────────────────
 
 #[test]
@@ -82,6 +170,47 @@ fn valid_3_0_produces_no_errors() {
         "expected no errors for valid_3.0.xml, got: {errors:#?}"
     );
     assert!(result.summary.is_valid());
+}
+
+#[test]
+fn minimal_3_0_inline_does_not_fire_version_mismatch() {
+    let result = validate(&minimal_valid_inline_xml("3.0", "", ""));
+    assert!(
+        !has_issue(&result, "VAST-2.0-version-mismatch"),
+        "did not expect VAST-2.0-version-mismatch, got: {:#?}",
+        result.issues
+    );
+    assert!(result.summary.is_valid());
+}
+
+#[test]
+fn newer_declared_versions_do_not_fire_version_mismatch_across_structural_floors() {
+    let floor_cases = [
+        ("2.0", "", ""),
+        ("3.0", r#"<Pricing model="cpm" currency="USD">1.50</Pricing>"#, ""),
+        (
+            "4.0",
+            "",
+            r#"<UniversalAdId idRegistry="ad-id.org">TEST-1234</UniversalAdId>"#,
+        ),
+        ("4.1", r#"<AdServingId>TEST-SERVING-ID-001</AdServingId>"#, ""),
+    ];
+
+    for declared_version in ["3.0", "4.0", "4.1", "4.2", "4.3"] {
+        for (floor_version, inline_extra, creative_extra) in floor_cases {
+            if version_rank(floor_version) > version_rank(declared_version) {
+                continue;
+            }
+
+            let xml = minimal_valid_inline_xml(declared_version, inline_extra, creative_extra);
+            let result = validate(&xml);
+            assert!(
+                !has_issue(&result, "VAST-2.0-version-mismatch"),
+                "did not expect version mismatch for declared {declared_version} with {floor_version} structural floor, got: {:#?}",
+                result.issues
+            );
+        }
+    }
 }
 
 #[test]
@@ -345,6 +474,44 @@ fn summary_counts_match_issues() {
     assert_eq!(result.summary.errors, expected_errors);
     assert_eq!(result.summary.warnings, expected_warnings);
     assert_eq!(result.summary.infos, expected_infos);
+}
+
+#[test]
+fn all_fixture_xml_validates_without_panicking_and_summary_counts_match() {
+    for name in fixture_names() {
+        let result = validate(&load(&name));
+        let expected_errors = result
+            .issues
+            .iter()
+            .filter(|i| i.severity == Severity::Error)
+            .count();
+        let expected_warnings = result
+            .issues
+            .iter()
+            .filter(|i| i.severity == Severity::Warning)
+            .count();
+        let expected_infos = result
+            .issues
+            .iter()
+            .filter(|i| i.severity == Severity::Info)
+            .count();
+
+        assert_eq!(
+            result.summary.errors, expected_errors,
+            "summary error count mismatch for {name}: {:#?}",
+            result.issues
+        );
+        assert_eq!(
+            result.summary.warnings, expected_warnings,
+            "summary warning count mismatch for {name}: {:#?}",
+            result.issues
+        );
+        assert_eq!(
+            result.summary.infos, expected_infos,
+            "summary info count mismatch for {name}: {:#?}",
+            result.issues
+        );
+    }
 }
 
 // ── rule override ─────────────────────────────────────────────────────────────
@@ -803,13 +970,18 @@ fn utf8_bom_is_handled_gracefully() {
 
 #[test]
 fn malformed_xml_produces_parse_error() {
-    let result = validate("<VAST version=\"4.1\"><Ad></VAST>");
-    assert!(
-        has_issue(&result, "VAST-2.0-parse-error"),
-        "malformed XML should fire VAST-2.0-parse-error, got: {:#?}",
-        result.issues
-    );
-    assert!(!result.summary.is_valid());
+    assert_parse_error_only("<VAST version=\"4.1\"><Ad></VAST>");
+}
+
+#[test]
+fn malformed_xml_matrix_short_circuits_to_parse_error_only() {
+    for name in [
+        "err_malformed_mismatched_close.xml",
+        "err_malformed_broken_attr_quote.xml",
+        "err_malformed_unclosed_cdata.xml",
+    ] {
+        assert_parse_error_only(&load(name));
+    }
 }
 
 // ── Extension misuse rules ───────────────────────────────────────────────────
@@ -1666,6 +1838,43 @@ fn large_publica_fixture_stays_warning_only() {
 #[test]
 fn large_publica_pod_fixture_stays_warning_only() {
     assert_large_publica_warning_fixture("warn_publica_large_pod.xml");
+}
+
+#[test]
+fn messy_vendor_wrapper_fixture_stays_warning_and_info_only() {
+    let result = assert_no_errors("warn_wrapper_vendor_messy.xml");
+    assert!(
+        has_issue(&result, "VAST-4.0-wrapper-clickthrough"),
+        "expected VAST-4.0-wrapper-clickthrough, got: {:#?}",
+        result.issues
+    );
+    assert!(
+        has_issue(&result, "VAST-2.0-tracking-https"),
+        "expected VAST-2.0-tracking-https, got: {:#?}",
+        result.issues
+    );
+    assert!(result.summary.is_valid());
+}
+
+#[test]
+fn mixed_vendor_pod_fixture_stays_non_error_and_covers_pod_context_warnings() {
+    let result = assert_no_errors("warn_mixed_vendor_pod.xml");
+    assert!(
+        has_issue(&result, "VAST-2.0-duplicate-impression"),
+        "expected VAST-2.0-duplicate-impression, got: {:#?}",
+        result.issues
+    );
+    assert!(
+        has_issue(&result, "VAST-2.0-tracking-https"),
+        "expected VAST-2.0-tracking-https, got: {:#?}",
+        result.issues
+    );
+    assert!(
+        has_issue(&result, "VAST-4.1-mezzanine-recommended"),
+        "expected VAST-4.1-mezzanine-recommended, got: {:#?}",
+        result.issues
+    );
+    assert!(result.summary.is_valid());
 }
 
 // ── wrapper depth ─────────────────────────────────────────────────────────────
