@@ -187,13 +187,21 @@ fn minimal_3_0_inline_does_not_fire_version_mismatch() {
 fn newer_declared_versions_do_not_fire_version_mismatch_across_structural_floors() {
     let floor_cases = [
         ("2.0", "", ""),
-        ("3.0", r#"<Pricing model="cpm" currency="USD">1.50</Pricing>"#, ""),
+        (
+            "3.0",
+            r#"<Pricing model="cpm" currency="USD">1.50</Pricing>"#,
+            "",
+        ),
         (
             "4.0",
             "",
             r#"<UniversalAdId idRegistry="ad-id.org">TEST-1234</UniversalAdId>"#,
         ),
-        ("4.1", r#"<AdServingId>TEST-SERVING-ID-001</AdServingId>"#, ""),
+        (
+            "4.1",
+            r#"<AdServingId>TEST-SERVING-ID-001</AdServingId>"#,
+            "",
+        ),
     ];
 
     for declared_version in ["3.0", "4.0", "4.1", "4.2", "4.3"] {
