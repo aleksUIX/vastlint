@@ -15,6 +15,7 @@ module.exports = {
   rules: wasm.rules,
   fix: wasm.fix,
   fixWithOptions: wasm.fixWithOptions,
+  inspectDocument: wasm.inspectDocument,
   validateFiltered(xml, minSeverity = 'error') {
     const order = { error: 2, warning: 1, info: 0 };
     const min = order[minSeverity] ?? 0;

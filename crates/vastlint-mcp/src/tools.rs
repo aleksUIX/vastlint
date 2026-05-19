@@ -6,7 +6,9 @@ use rmcp::{
     schemars, tool, tool_handler, tool_router, Json, ServerHandler,
 };
 use serde::{Deserialize, Serialize};
-use vastlint_core::{all_rules, fix_with_context, validate_with_context, ValidationContext};
+use vastlint_core::{
+    all_rules, fix_with_context, inspect_document, validate_with_context, ValidationContext,
+};
 
 // ── Server ────────────────────────────────────────────────────────────────────
 
@@ -238,152 +240,6 @@ pub struct InspectVastOutput {
     pub total_warnings: usize,
     /// Why the chain stopped: `"resolved"` | `"max_depth"` | `"fetch_error: <detail>"` | `"parse_error: <detail>"`
     pub stopped_reason: String,
-}
-
-// ── Hop metadata extractor (quick-xml event parsing) ─────────────────────────
-
-struct HopMeta {
-    ad_type: String,
-    ad_system: String,
-    ad_title: String,
-    duration: String,
-    impression_count: usize,
-    tracking_event_count: usize,
-    media_files: Vec<InspectMediaFile>,
-    companion_count: usize,
-    wrapper_uri: Option<String>,
-}
-
-enum TextTarget {
-    None,
-    AdSystem,
-    AdTitle,
-    Duration,
-    WrapperUri,
-    MediaFileUrl,
-}
-
-fn extract_hop_meta(xml: &str) -> HopMeta {
-    use quick_xml::{events::Event, Reader};
-
-    let mut meta = HopMeta {
-        ad_type: String::new(),
-        ad_system: String::new(),
-        ad_title: String::new(),
-        duration: String::new(),
-        impression_count: 0,
-        tracking_event_count: 0,
-        media_files: Vec::new(),
-        companion_count: 0,
-        wrapper_uri: None,
-    };
-    let mut reader = Reader::from_str(xml);
-    let mut target = TextTarget::None;
-    // (mime_type, delivery, width, height, bitrate)
-    let mut pending_mf: Option<(String, String, String, String, String)> = None;
-
-    loop {
-        match reader.read_event() {
-            Ok(Event::Eof) | Err(_) => break,
-            Ok(Event::Start(e)) => {
-                let name = std::str::from_utf8(e.name().as_ref())
-                    .unwrap_or("")
-                    .to_owned();
-                match name.as_str() {
-                    "InLine" => meta.ad_type = "InLine".into(),
-                    "Wrapper" => meta.ad_type = "Wrapper".into(),
-                    "Impression" => meta.impression_count += 1,
-                    "Tracking" => meta.tracking_event_count += 1,
-                    "Companion" => meta.companion_count += 1,
-                    "AdSystem" => target = TextTarget::AdSystem,
-                    "AdTitle" => target = TextTarget::AdTitle,
-                    "Duration" => target = TextTarget::Duration,
-                    "VASTAdTagURI" => target = TextTarget::WrapperUri,
-                    "MediaFile" => {
-                        let mut mime_type = String::new();
-                        let mut delivery = String::new();
-                        let mut width = String::new();
-                        let mut height = String::new();
-                        let mut bitrate = String::new();
-                        for attr in e.attributes().flatten() {
-                            let k = std::str::from_utf8(attr.key.as_ref())
-                                .unwrap_or("")
-                                .to_owned();
-                            let v = String::from_utf8_lossy(&attr.value).into_owned();
-                            match k.as_str() {
-                                "type" => mime_type = v,
-                                "delivery" => delivery = v,
-                                "width" => width = v,
-                                "height" => height = v,
-                                "bitrate" => bitrate = v,
-                                _ => {}
-                            }
-                        }
-                        pending_mf = Some((mime_type, delivery, width, height, bitrate));
-                        target = TextTarget::MediaFileUrl;
-                    }
-                    _ => {}
-                }
-            }
-            Ok(Event::Text(e)) => {
-                if let Ok(cow) = e.xml10_content() {
-                    apply_text(cow.trim(), &mut meta, &mut target, &mut pending_mf);
-                }
-            }
-            Ok(Event::CData(e)) => {
-                let bytes = e.into_inner();
-                if let Ok(t) = std::str::from_utf8(&bytes) {
-                    apply_text(t.trim(), &mut meta, &mut target, &mut pending_mf);
-                }
-            }
-            _ => {}
-        }
-    }
-
-    meta
-}
-
-fn apply_text(
-    t: &str,
-    meta: &mut HopMeta,
-    target: &mut TextTarget,
-    pending_mf: &mut Option<(String, String, String, String, String)>,
-) {
-    if t.is_empty() {
-        return;
-    }
-    match target {
-        TextTarget::AdSystem => {
-            meta.ad_system = t.to_string();
-            *target = TextTarget::None;
-        }
-        TextTarget::AdTitle => {
-            meta.ad_title = t.to_string();
-            *target = TextTarget::None;
-        }
-        TextTarget::Duration => {
-            meta.duration = t.to_string();
-            *target = TextTarget::None;
-        }
-        TextTarget::WrapperUri => {
-            meta.wrapper_uri = Some(t.to_string());
-            *target = TextTarget::None;
-        }
-        TextTarget::MediaFileUrl => {
-            if let Some((mime_type, delivery, width, height, bitrate)) = pending_mf.take() {
-                meta.media_files.push(InspectMediaFile {
-                    url: t.to_string(),
-                    mime_type,
-                    delivery,
-                    width,
-                    height,
-                    bitrate,
-                });
-            }
-            *target = TextTarget::None;
-        }
-        TextTarget::None => {}
-    }
 }
 
 // ── Tool implementations ──────────────────────────────────────────────────────
@@ -744,7 +600,7 @@ impl VastlintServer {
             };
             let fetch_ms = t0.elapsed().as_millis() as u64;
 
-            let meta = extract_hop_meta(&xml);
+            let meta = inspect_document(&xml);
             let ctx = ValidationContext {
                 wrapper_depth: hop_index as u8,
                 max_wrapper_depth: input.max_depth,
@@ -772,12 +628,20 @@ impl VastlintServer {
                 })
                 .collect::<Vec<_>>();
 
-            let ad_type = if meta.ad_type.is_empty() {
-                "Unknown".to_string()
-            } else {
-                meta.ad_type
-            };
+            let ad_type = meta.ad_type.as_str().to_string();
             let wrapper_uri = meta.wrapper_uri.clone();
+            let media_files = meta
+                .media_files
+                .into_iter()
+                .map(|media_file| InspectMediaFile {
+                    url: media_file.url,
+                    mime_type: media_file.mime_type,
+                    delivery: media_file.delivery,
+                    width: media_file.width,
+                    height: media_file.height,
+                    bitrate: media_file.bitrate,
+                })
+                .collect::<Vec<_>>();
 
             hops.push(InspectHop {
                 index: hop_index,
@@ -788,7 +652,7 @@ impl VastlintServer {
                 duration: meta.duration,
                 impression_count: meta.impression_count,
                 tracking_event_count: meta.tracking_event_count,
-                media_files: meta.media_files,
+                media_files,
                 companion_count: meta.companion_count,
                 wrapper_uri: wrapper_uri.clone(),
                 version,

@@ -51,6 +51,29 @@ export interface ValidateOptions {
   rule_overrides?: Record<string, 'error' | 'warning' | 'info' | 'off'>;
 }
 
+export type InspectAdType = 'Wrapper' | 'InLine' | 'Unknown';
+
+export interface InspectMediaFile {
+  url: string;
+  mimeType: string;
+  delivery: string;
+  width: string;
+  height: string;
+  bitrate: string;
+}
+
+export interface InspectDocumentResult {
+  adType: InspectAdType;
+  adSystem: string;
+  adTitle: string;
+  duration: string;
+  impressionCount: number;
+  trackingEventCount: number;
+  mediaFiles: InspectMediaFile[];
+  companionCount: number;
+  wrapperUri: string | null;
+}
+
 /**
  * Validate a VAST XML string using default settings.
  *
@@ -75,6 +98,11 @@ export declare function validateWithOptions(
   xml: string,
   options: ValidateOptions
 ): ValidationResult;
+
+/**
+ * Extract creative and wrapper metadata from a single VAST XML document.
+ */
+export declare function inspectDocument(xml: string): InspectDocumentResult;
 
 /**
  * Like `validate`, but filters the returned issues to those at or above
