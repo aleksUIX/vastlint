@@ -7,7 +7,13 @@ import { createRoot } from "react-dom/client";
 
 import { createVastSession } from "vastlint-client";
 
-import { useVastPlayback, useVastPlaybackQueue } from "../dist/index.js";
+import {
+  useVastAnnotations,
+  useVastPlayback,
+  useVastPlaybackQueue,
+  useVastSession,
+  useVastTracker,
+} from "../dist/index.js";
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -96,6 +102,30 @@ const podPlaybackFixture = `<?xml version="1.0" encoding="UTF-8"?>
               <MediaFile delivery="progressive" type="video/mp4" width="1920" height="1080"><![CDATA[https://cdn.example.com/beta.mp4]]></MediaFile>
             </MediaFiles>
           </Linear>
+        </Creative>
+      </Creatives>
+    </InLine>
+  </Ad>
+</VAST>`;
+
+const companionFixture = `<?xml version="1.0" encoding="UTF-8"?>
+<VAST version="4.2">
+  <Ad id="companion-ad">
+    <InLine>
+      <AdSystem>Companion Demo</AdSystem>
+      <AdTitle>Companion Fixture</AdTitle>
+      <Creatives>
+        <Creative>
+          <CompanionAds>
+            <Companion id="companion-slot" width="300" height="250" adSlotId="sidebar">
+              <StaticResource creativeType="image/png"><![CDATA[https://cdn.example.com/companion.png]]></StaticResource>
+              <TrackingEvents>
+                <Tracking event="creativeView"><![CDATA[https://track.example.com/companion/view]]></Tracking>
+              </TrackingEvents>
+              <CompanionClickThrough><![CDATA[https://click.example.com/companion]]></CompanionClickThrough>
+              <CompanionClickTracking><![CDATA[https://track.example.com/companion/click]]></CompanionClickTracking>
+            </Companion>
+          </CompanionAds>
         </Creative>
       </Creatives>
     </InLine>
@@ -195,6 +225,94 @@ test("useVastPlayback initializes and updates playback snapshot state", async ()
 
   await mounted.unmount();
   assert.equal(playbackDisposeCalls, 1);
+});
+
+test("useVastSession validates and resolves while exposing session companion helpers", async () => {
+  const mounted = await mountHook(() => useVastSession({
+    source: { kind: "xml", xml: companionFixture },
+    autoLoad: false,
+  }));
+
+  assert.equal(mounted.getLatest().snapshot.status, "idle");
+
+  await act(async () => {
+    await mounted.getLatest().validate();
+  });
+
+  assert.equal(mounted.getLatest().snapshot.status, "ready");
+
+  await act(async () => {
+    await mounted.getLatest().resolve();
+  });
+
+  assert.equal(mounted.getLatest().snapshot.status, "resolved");
+  assert.equal(mounted.getLatest().snapshot.resolvedAd?.companions.length, 1);
+  assert.equal(mounted.getLatest().session.getAdCompanions(0)[0]?.adSlotId, "sidebar");
+
+  await mounted.unmount();
+});
+
+test("useVastAnnotations groups annotations by line and issue id", async () => {
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<VAST version="4.2">\n  <Ad />\n</VAST>`;
+  const validation = {
+    version: "4.2",
+    issues: [
+      {
+        id: "VAST-test-annotation",
+        severity: "warning",
+        message: "Synthetic annotation for hook coverage.",
+        path: "/VAST/Ad[0]",
+        spec_ref: "test",
+        line: 3,
+        col: 3,
+      },
+    ],
+    summary: {
+      errors: 0,
+      warnings: 1,
+      infos: 0,
+      valid: true,
+    },
+  };
+
+  const mounted = await mountHook(() => useVastAnnotations({ xml, validation }));
+
+  assert.equal(mounted.getLatest().annotations.length, 1);
+  assert.equal(mounted.getLatest().byLine.get(3)?.length, 1);
+  assert.equal(mounted.getLatest().byIssueId.get("VAST-test-annotation")?.length, 1);
+
+  await mounted.unmount();
+});
+
+test("useVastTracker exposes companion helpers and dispatches companion tracking", async () => {
+  const trackingCalls = [];
+  const session = createVastSession({
+    source: { kind: "xml", xml: companionFixture },
+    fetch: async (url) => {
+      trackingCalls.push(String(url));
+      return createPixelResponse();
+    },
+  });
+
+  await session.resolve();
+
+  const mounted = await mountHook(() => useVastTracker({ session }));
+
+  assert.equal(mounted.getLatest().companions.length, 1);
+  assert.equal(mounted.getLatest().getAdCompanions({ adId: "companion-ad" })[0]?.id, "companion-slot");
+  assert.equal(mounted.getLatest().hasCompanionTargets(0, { adSlotId: "sidebar" }, "creativeView"), true);
+  assert.deepEqual(
+    mounted.getLatest().getCompanionTargets(0, { companionId: "companion-slot" }, "clickTracking").map((target) => target.url),
+    ["https://track.example.com/companion/click"],
+  );
+
+  await act(async () => {
+    await mounted.getLatest().trackCompanion(0, { companionId: "companion-slot" }, "clickTracking");
+  });
+
+  assert.deepEqual(trackingCalls, ["https://track.example.com/companion/click"]);
+
+  await mounted.unmount();
 });
 
 test("useVastPlaybackQueue initializes and updates pod playback snapshot state", async () => {

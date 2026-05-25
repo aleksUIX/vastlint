@@ -112,6 +112,20 @@ export interface VastAdSequenceSelector {
 
 export type VastAdSelector = number | VastAdIndexSelector | VastAdIdSelector | VastAdSequenceSelector;
 
+export interface VastCompanionIndexSelector {
+  companionIndex: number;
+}
+
+export interface VastCompanionIdSelector {
+  companionId: string;
+}
+
+export interface VastCompanionAdSlotSelector {
+  adSlotId: string;
+}
+
+export type VastCompanionSelector = number | VastCompanionIndexSelector | VastCompanionIdSelector | VastCompanionAdSlotSelector;
+
 export interface VastXmlSource {
   kind: "xml";
   xml: string;
@@ -331,14 +345,26 @@ export interface VastSession {
   fix(): Promise<FixResult>;
   resolve(): Promise<VastSessionSnapshot>;
   getTracking(): VastTrackingState;
+  getAdCompanions(adSelector: VastAdSelector): VastCompanionAd[];
   getAdTrackingTargets(
     adSelector: VastAdSelector,
     event: VastTrackableEvent,
     options?: Pick<VastTrackOptions, "offset">,
   ): VastTrackingTarget[];
+  getCompanionTrackingTargets(
+    adSelector: VastAdSelector,
+    companionSelector: VastCompanionSelector,
+    event: VastTrackableEvent,
+  ): VastTrackingTarget[];
   track(event: VastTrackableEvent, options?: VastTrackOptions): Promise<VastTrackingDispatchResult[]>;
   trackAd(
     adSelector: VastAdSelector,
+    event: VastTrackableEvent,
+    options?: VastTrackOptions,
+  ): Promise<VastTrackingDispatchResult[]>;
+  trackCompanion(
+    adSelector: VastAdSelector,
+    companionSelector: VastCompanionSelector,
     event: VastTrackableEvent,
     options?: VastTrackOptions,
   ): Promise<VastTrackingDispatchResult[]>;

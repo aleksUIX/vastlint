@@ -14,6 +14,7 @@ Current status:
 - Standalone media selection helpers rank and choose media files from `resolvedAd` using MIME, delivery, bitrate, and dimension preferences.
 - Tracker primitives are implemented for impression, error, viewability, click-tracking, and named `<Tracking event="...">` pixels, with click-through URLs exposed in session tracking state.
 - `createVastSession()` now also exposes low-level pod-aware helpers: `getAdTrackingTargets(adSelector, event)` and `trackAd(adSelector, event, options)`, where `adSelector` can be an index, `{ adId }`, or `{ sequence }`.
+- `createVastSession()` also exposes companion-specific helpers: `getAdCompanions(adSelector)`, `getCompanionTrackingTargets(adSelector, companionSelector, event)`, and `trackCompanion(adSelector, companionSelector, event, options)`.
 - A headless playback controller now layers media selection and player-event tracking on top of a resolved session for impression, quartiles, click, viewability, mute, pause/resume, fullscreen, skip, and error dispatch.
 - A headless playback queue controller now consumes `resolvedAds` and advances through ad pods with per-ad tracking dispatch.
 - Build-first Node runtime tests now cover wrapper resolution, resolved metadata extraction, and the playback controller event flow.

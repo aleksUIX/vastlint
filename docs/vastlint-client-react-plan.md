@@ -99,10 +99,11 @@ Status:
 - Viewability URLs from `<ViewableImpression>` are parsed into the tracking plan as `viewable`, `notViewable`, and `viewUndetermined` events.
 - Click-through URLs are exposed in session tracking state for player/navigation layers to use separately from pixel dispatch.
 - `createVastSession()` now exposes ad-scoped helpers so pod-aware consumers can query and dispatch tracking below the playback queue layer.
+- `createVastSession()` now also exposes companion-scoped helpers for resolved inline creatives via `getAdCompanions()`, `getCompanionTrackingTargets()`, and `trackCompanion()`.
 - A first headless playback controller is implemented on top of the session API for media selection plus player-event dispatch across impression, creativeView, quartiles, click, viewability, pause/resume, mute, fullscreen, skip, and error events.
 - A headless playback queue controller is implemented for pod-style playback over `resolvedAds`, with per-ad advancement and per-ad tracking dispatch.
 - Runtime fixture tests now cover wrapper resolution, resolved metadata extraction, and playback-controller event flow.
-- Remaining work: companion-specific helpers, broader React/runtime coverage beyond the current playback hook smoke tests, and deeper wrapper-to-pod merge semantics.
+- Remaining work: deeper wrapper-to-pod merge semantics and broader end-to-end coverage beyond the current runtime and hook smoke tests.
 
 ### Phase 5: React Hooks
 
@@ -119,8 +120,8 @@ Status:
 - `useVastAnnotations` is implemented as a derived annotation model grouped by line and issue ID.
 - `useVastPlayback` is implemented as a thin React wrapper around `createVastPlaybackController()`, exposing playback snapshots and bound lifecycle methods while handling controller disposal and optional auto-initialize behavior.
 - `useVastPlaybackQueue` is implemented as a thin React wrapper around `createVastPlaybackQueueController()`, exposing queue snapshots and bound lifecycle methods while handling controller disposal and optional auto-initialize behavior.
-- Build-first Node smoke tests now cover both playback hooks against built output from `vastlint-react` and `vastlint-client` via a `jsdom` plus `react-dom/client` harness.
-- `useVastTracker` is implemented as a thin hook over session tracking state, available events, click-through helpers, ad-target inspection, and bound dispatch methods.
+- Build-first Node smoke tests now cover `useVastSession`, `useVastAnnotations`, `useVastTracker`, `useVastPlayback`, and `useVastPlaybackQueue` against built output from `vastlint-react` and `vastlint-client` via a `jsdom` plus `react-dom/client` harness.
+- `useVastTracker` is implemented as a thin hook over session tracking state, available events, click-through helpers, ad-target inspection, companion helpers, and bound dispatch methods.
 - `useVastTracker` now exposes both `resolvedAd` and `resolvedAds` so React consumers can detect and render pod-aware playback state.
 
 ## Initial Public API Direction

@@ -5,6 +5,8 @@ import type {
   VastPlaybackQueueController,
   VastPlaybackQueueControllerOptions,
   VastPlaybackQueueSnapshot,
+  VastCompanionAd,
+  VastCompanionSelector,
   VastAdSelector,
   VastResolvedAd,
   VastSession,
@@ -61,9 +63,11 @@ export interface VastTrackerHookResult {
   tracking: VastTrackingState;
   resolvedAd: VastResolvedAd | null;
   resolvedAds: VastResolvedAd[];
+  companions: VastCompanionAd[];
   availableEvents: VastTrackableEvent[];
   clickThroughUrl: string | null;
   clickThroughUrls: string[];
+  getAdCompanions(adSelector: VastAdSelector): VastCompanionAd[];
   track(
     event: VastTrackableEvent,
     options?: VastTrackOptions,
@@ -73,17 +77,33 @@ export interface VastTrackerHookResult {
     event: VastTrackableEvent,
     options?: VastTrackOptions,
   ): Promise<VastTrackingDispatchResult[]>;
+  trackCompanion(
+    adSelector: VastAdSelector,
+    companionSelector: VastCompanionSelector,
+    event: VastTrackableEvent,
+    options?: VastTrackOptions,
+  ): Promise<VastTrackingDispatchResult[]>;
   getTargets(event: VastTrackableEvent, options?: Pick<VastTrackOptions, "offset">): VastTrackingTarget[];
   getAdTargets(
     adSelector: VastAdSelector,
     event: VastTrackableEvent,
     options?: Pick<VastTrackOptions, "offset">,
   ): VastTrackingTarget[];
+  getCompanionTargets(
+    adSelector: VastAdSelector,
+    companionSelector: VastCompanionSelector,
+    event: VastTrackableEvent,
+  ): VastTrackingTarget[];
   hasTargets(event: VastTrackableEvent, options?: Pick<VastTrackOptions, "offset">): boolean;
   hasAdTargets(
     adSelector: VastAdSelector,
     event: VastTrackableEvent,
     options?: Pick<VastTrackOptions, "offset">,
+  ): boolean;
+  hasCompanionTargets(
+    adSelector: VastAdSelector,
+    companionSelector: VastCompanionSelector,
+    event: VastTrackableEvent,
   ): boolean;
 }
 

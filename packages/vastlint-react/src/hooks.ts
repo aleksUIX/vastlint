@@ -551,14 +551,21 @@ export function useVastTracker(options: UseVastTrackerOptions): VastTrackerHookR
     tracking: snapshot.tracking,
     resolvedAd: snapshot.resolvedAd,
     resolvedAds: snapshot.resolvedAds,
+    companions: snapshot.resolvedAd?.companions ?? [],
     availableEvents,
     clickThroughUrl: snapshot.resolvedAd?.clickThroughUrl ?? null,
     clickThroughUrls: snapshot.resolvedAd?.clickThroughUrls ?? [],
+    getAdCompanions(adSelector) {
+      return session.getAdCompanions(adSelector);
+    },
     track(event, trackOptions) {
       return session.track(event, trackOptions);
     },
     trackAd(adSelector, event, trackOptions) {
       return session.trackAd(adSelector, event, trackOptions);
+    },
+    trackCompanion(adSelector, companionSelector, event, trackOptions) {
+      return session.trackCompanion(adSelector, companionSelector, event, trackOptions);
     },
     getTargets(event, trackOptions) {
       return selectTrackingTargets(snapshot.tracking.plan, event, trackOptions?.offset);
@@ -566,11 +573,17 @@ export function useVastTracker(options: UseVastTrackerOptions): VastTrackerHookR
     getAdTargets(adSelector, event, trackOptions) {
       return session.getAdTrackingTargets(adSelector, event, trackOptions);
     },
+    getCompanionTargets(adSelector, companionSelector, event) {
+      return session.getCompanionTrackingTargets(adSelector, companionSelector, event);
+    },
     hasTargets(event, trackOptions) {
       return selectTrackingTargets(snapshot.tracking.plan, event, trackOptions?.offset).length > 0;
     },
     hasAdTargets(adSelector, event, trackOptions) {
       return session.getAdTrackingTargets(adSelector, event, trackOptions).length > 0;
+    },
+    hasCompanionTargets(adSelector, companionSelector, event) {
+      return session.getCompanionTrackingTargets(adSelector, companionSelector, event).length > 0;
     },
   };
 }

@@ -5,6 +5,8 @@ import { buildTrackingPlan, createEmptyTrackingPlan, expandTrackingUrl, selectTr
 
 import type {
   VastAdSelector,
+  VastCompanionAd,
+  VastCompanionSelector,
   VastSession,
   VastSessionEvent,
   VastTrackOptions,
@@ -96,6 +98,21 @@ function cloneTrackingPlan(plan: VastTrackingPlan): VastTrackingPlan {
   };
 }
 
+function cloneCompanionAd(companion: VastCompanionAd): VastCompanionAd {
+  return {
+    ...companion,
+    resources: companion.resources.map((resource) => ({ ...resource })),
+    clickTrackingUrls: [...companion.clickTrackingUrls],
+    trackingEvents: Object.fromEntries(
+      Object.entries(companion.trackingEvents).map(([event, urls]) => [event, [...urls]]),
+    ),
+  };
+}
+
+function cloneCompanions(companions: readonly VastCompanionAd[]): VastCompanionAd[] {
+  return companions.map((companion) => cloneCompanionAd(companion));
+}
+
 function cloneResolvedAd(resolvedAd: VastResolvedAd | null): VastResolvedAd | null {
   if (!resolvedAd) {
     return null;
@@ -104,14 +121,7 @@ function cloneResolvedAd(resolvedAd: VastResolvedAd | null): VastResolvedAd | nu
   return {
     ...resolvedAd,
     mediaFiles: resolvedAd.mediaFiles.map((mediaFile) => ({ ...mediaFile })),
-    companions: resolvedAd.companions.map((companion) => ({
-      ...companion,
-      resources: companion.resources.map((resource) => ({ ...resource })),
-      clickTrackingUrls: [...companion.clickTrackingUrls],
-      trackingEvents: Object.fromEntries(
-        Object.entries(companion.trackingEvents).map(([event, urls]) => [event, [...urls]]),
-      ),
-    })),
+    companions: cloneCompanions(resolvedAd.companions),
     icons: resolvedAd.icons.map((icon) => ({
       ...icon,
       resources: icon.resources.map((resource) => ({ ...resource })),
@@ -476,6 +486,137 @@ export function createVastSession(options: VastSessionOptions): VastSession {
     return findResolvedAd((resolvedAd) => resolvedAd.adPod.sequence === sequence, describeAdSelector({ sequence }));
   };
 
+  const getCompanionAtIndex = (
+    resolvedAd: VastResolvedAd,
+    companionIndex: number,
+  ): { companionIndex: number; companion: VastCompanionAd } => {
+    if (!Number.isInteger(companionIndex) || companionIndex < 0) {
+      throw new Error(`Companion index must be a non-negative integer, got ${String(companionIndex)}.`);
+    }
+
+    const companion = resolvedAd.companions[companionIndex] ?? null;
+    if (!companion) {
+      throw new Error(`Companion at index ${String(companionIndex)} is unavailable for the selected VAST ad.`);
+    }
+
+    return {
+      companionIndex,
+      companion,
+    };
+  };
+
+  const findCompanion = (
+    resolvedAd: VastResolvedAd,
+    predicate: (companion: VastCompanionAd) => boolean,
+    description: string,
+  ): { companionIndex: number; companion: VastCompanionAd } => {
+    let match: { companionIndex: number; companion: VastCompanionAd } | null = null;
+
+    for (const [companionIndex, companion] of resolvedAd.companions.entries()) {
+      if (!predicate(companion)) {
+        continue;
+      }
+
+      if (match) {
+        throw new Error(`Companion selector ${description} matched multiple companions. Use companionIndex to disambiguate.`);
+      }
+
+      match = {
+        companionIndex,
+        companion,
+      };
+    }
+
+    if (!match) {
+      throw new Error(`Companion for ${description} is unavailable on the selected VAST ad.`);
+    }
+
+    return match;
+  };
+
+  const describeCompanionSelector = (companionSelector: VastCompanionSelector): string => {
+    if (typeof companionSelector === "number") {
+      return `companionIndex ${String(companionSelector)}`;
+    }
+
+    if ("companionIndex" in companionSelector) {
+      return `companionIndex ${String(companionSelector.companionIndex)}`;
+    }
+
+    if ("companionId" in companionSelector) {
+      return `companionId '${companionSelector.companionId}'`;
+    }
+
+    return `adSlotId '${companionSelector.adSlotId}'`;
+  };
+
+  const getCompanionSelection = (
+    resolvedAd: VastResolvedAd,
+    companionSelector: VastCompanionSelector,
+  ): { companionIndex: number; companion: VastCompanionAd } => {
+    if (typeof companionSelector === "number") {
+      return getCompanionAtIndex(resolvedAd, companionSelector);
+    }
+
+    if ("companionIndex" in companionSelector) {
+      return getCompanionAtIndex(resolvedAd, companionSelector.companionIndex);
+    }
+
+    if ("companionId" in companionSelector) {
+      const companionId = companionSelector.companionId.trim();
+      if (!companionId) {
+        throw new Error("Companion selector companionId must be a non-empty string.");
+      }
+
+      return findCompanion(resolvedAd, (companion) => companion.id === companionId, describeCompanionSelector({ companionId }));
+    }
+
+    const adSlotId = companionSelector.adSlotId.trim();
+    if (!adSlotId) {
+      throw new Error("Companion selector adSlotId must be a non-empty string.");
+    }
+
+    return findCompanion(resolvedAd, (companion) => companion.adSlotId === adSlotId, describeCompanionSelector({ adSlotId }));
+  };
+
+  const buildTrackCompanionStartedDetail = (
+    adSelector: VastAdSelector,
+    companionSelector: VastCompanionSelector,
+    event: VastTrackableEvent,
+  ): Record<string, unknown> => ({
+    ...buildTrackAdStartedDetail(adSelector, event, null),
+    companion: describeCompanionSelector(companionSelector),
+  });
+
+  const buildCompanionTrackingTargets = (
+    resolvedAd: VastResolvedAd,
+    companion: VastCompanionAd,
+    event: VastTrackableEvent,
+  ): VastTrackingTarget[] => {
+    const hopIndex = resolvedAd.finalHopIndex ?? 0;
+    const sourceUrl = resolvedAd.finalUrl;
+
+    if (event === "clickTracking") {
+      return companion.clickTrackingUrls.map((url) => ({
+        kind: "clickTracking",
+        event,
+        url,
+        hopIndex,
+        sourceUrl,
+        offset: null,
+      }));
+    }
+
+    return (companion.trackingEvents[event] ?? []).map((url) => ({
+      kind: "event",
+      event,
+      url,
+      hopIndex,
+      sourceUrl,
+      offset: null,
+    }));
+  };
+
   const buildHop = (
     xml: string,
     index: number,
@@ -824,9 +965,20 @@ export function createVastSession(options: VastSessionOptions): VastSession {
       return cloneTrackingState(snapshot.tracking);
     },
 
+    getAdCompanions(adSelector) {
+      const { resolvedAd } = getResolvedAdSelection(adSelector);
+      return cloneCompanions(resolvedAd.companions);
+    },
+
     getAdTrackingTargets(adSelector, event, trackOptions) {
       const { resolvedAd } = getResolvedAdSelection(adSelector);
       return selectTrackingTargets(resolvedAd.trackingPlan, event, trackOptions?.offset);
+    },
+
+    getCompanionTrackingTargets(adSelector, companionSelector, event) {
+      const { resolvedAd } = getResolvedAdSelection(adSelector);
+      const { companion } = getCompanionSelection(resolvedAd, companionSelector);
+      return buildCompanionTrackingTargets(resolvedAd, companion, event);
     },
 
     async track(event, trackOptions: VastTrackOptions = {}) {
@@ -857,6 +1009,24 @@ export function createVastSession(options: VastSessionOptions): VastSession {
         const { adIndex, resolvedAd } = getResolvedAdSelection(adSelector);
         const availableTargets = selectTrackingTargets(resolvedAd.trackingPlan, event, trackOptions.offset);
         return dispatchTrackingTargets(event, availableTargets, trackOptions, `ad:${String(adIndex)}`);
+      } catch (error) {
+        setError(error);
+        throw toError(error);
+      }
+    },
+
+    async trackCompanion(adSelector, companionSelector, event, trackOptions: VastTrackOptions = {}) {
+      emit("track:started", buildTrackCompanionStartedDetail(adSelector, companionSelector, event));
+
+      try {
+        if (snapshot.resolvedAds.length === 0) {
+          await resolveSession();
+        }
+
+        const { adIndex, resolvedAd } = getResolvedAdSelection(adSelector);
+        const { companionIndex, companion } = getCompanionSelection(resolvedAd, companionSelector);
+        const availableTargets = buildCompanionTrackingTargets(resolvedAd, companion, event);
+        return dispatchTrackingTargets(event, availableTargets, trackOptions, `ad:${String(adIndex)}:companion:${String(companionIndex)}`);
       } catch (error) {
         setError(error);
         throw toError(error);

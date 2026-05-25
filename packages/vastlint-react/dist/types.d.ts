@@ -1,4 +1,4 @@
-import type { VastPlaybackController, VastPlaybackControllerOptions, VastPlaybackSnapshot, VastPlaybackQueueController, VastPlaybackQueueControllerOptions, VastPlaybackQueueSnapshot, VastAdSelector, VastResolvedAd, VastSession, VastSessionOptions, VastSessionSnapshot, VastTrackOptions, VastTrackableEvent, VastTrackingDispatchResult, VastTrackingState, VastTrackingTarget } from "vastlint-client";
+import type { VastPlaybackController, VastPlaybackControllerOptions, VastPlaybackSnapshot, VastPlaybackQueueController, VastPlaybackQueueControllerOptions, VastPlaybackQueueSnapshot, VastCompanionAd, VastCompanionSelector, VastAdSelector, VastResolvedAd, VastSession, VastSessionOptions, VastSessionSnapshot, VastTrackOptions, VastTrackableEvent, VastTrackingDispatchResult, VastTrackingState, VastTrackingTarget } from "vastlint-client";
 import type { FixResult, ValidationResult } from "vastlint";
 export interface UseVastSessionOptions extends VastSessionOptions {
     autoLoad?: boolean;
@@ -36,15 +36,20 @@ export interface VastTrackerHookResult {
     tracking: VastTrackingState;
     resolvedAd: VastResolvedAd | null;
     resolvedAds: VastResolvedAd[];
+    companions: VastCompanionAd[];
     availableEvents: VastTrackableEvent[];
     clickThroughUrl: string | null;
     clickThroughUrls: string[];
+    getAdCompanions(adSelector: VastAdSelector): VastCompanionAd[];
     track(event: VastTrackableEvent, options?: VastTrackOptions): Promise<VastTrackingDispatchResult[]>;
     trackAd(adSelector: VastAdSelector, event: VastTrackableEvent, options?: VastTrackOptions): Promise<VastTrackingDispatchResult[]>;
+    trackCompanion(adSelector: VastAdSelector, companionSelector: VastCompanionSelector, event: VastTrackableEvent, options?: VastTrackOptions): Promise<VastTrackingDispatchResult[]>;
     getTargets(event: VastTrackableEvent, options?: Pick<VastTrackOptions, "offset">): VastTrackingTarget[];
     getAdTargets(adSelector: VastAdSelector, event: VastTrackableEvent, options?: Pick<VastTrackOptions, "offset">): VastTrackingTarget[];
+    getCompanionTargets(adSelector: VastAdSelector, companionSelector: VastCompanionSelector, event: VastTrackableEvent): VastTrackingTarget[];
     hasTargets(event: VastTrackableEvent, options?: Pick<VastTrackOptions, "offset">): boolean;
     hasAdTargets(adSelector: VastAdSelector, event: VastTrackableEvent, options?: Pick<VastTrackOptions, "offset">): boolean;
+    hasCompanionTargets(adSelector: VastAdSelector, companionSelector: VastCompanionSelector, event: VastTrackableEvent): boolean;
 }
 export interface VastSessionHookResult {
     session: VastSession;

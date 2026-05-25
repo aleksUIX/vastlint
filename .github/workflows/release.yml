@@ -1398,15 +1398,12 @@ jobs:
         run: npm ci
         working-directory: vscode
 
-      - name: Install vsce
-        run: npm install -g @vscode/vsce@3.9.1
-
       # Package the extension into a .vsix regardless of whether we publish.
       # This gives VS Code fork users (Cursor, VSCodium, Windsurf, etc.) a
       # verified artefact built by CI and attached to the GitHub Release —
       # rather than relying on a binary committed to the repo.
       - name: Package VSIX
-        run: vsce package --no-update-package-json --out vastlint-${{ steps.ext_version.outputs.version }}.vsix
+        run: npx --no-install vsce package --no-update-package-json --out vastlint-${{ steps.ext_version.outputs.version }}.vsix
         working-directory: vscode
 
       - name: Upload VSIX as workflow artifact
@@ -1416,16 +1413,13 @@ jobs:
           path: vscode/vastlint-${{ steps.ext_version.outputs.version }}.vsix
 
       - name: Publish to VS Code Marketplace
-        run: vsce publish --no-update-package-json || echo "VS Code version already published, skipping"
+        run: npx --no-install vsce publish --no-update-package-json || echo "VS Code version already published, skipping"
         working-directory: vscode
         env:
           VSCE_PAT: ${{ secrets.VSCE_PAT }}
 
-      - name: Install ovsx
-        run: npm install -g ovsx@0.10.12
-
       - name: Publish to Open VSX Registry
-        run: ovsx publish vastlint-${{ steps.ext_version.outputs.version }}.vsix --pat "$OVSX_TOKEN" || echo "Open VSX version already published, skipping"
+        run: npx --no-install ovsx publish vastlint-${{ steps.ext_version.outputs.version }}.vsix --pat "$OVSX_TOKEN" || echo "Open VSX version already published, skipping"
         working-directory: vscode
         env:
           OVSX_TOKEN: ${{ secrets.OVSX_TOKEN }}

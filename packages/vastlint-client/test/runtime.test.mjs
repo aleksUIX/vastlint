@@ -152,6 +152,30 @@ const podPlaybackFixture = `<?xml version="1.0" encoding="UTF-8"?>
   </Ad>
 </VAST>`;
 
+const companionFixture = `<?xml version="1.0" encoding="UTF-8"?>
+<VAST version="4.2">
+  <Ad id="companion-ad">
+    <InLine>
+      <AdSystem>Companion Demo</AdSystem>
+      <AdTitle>Companion Fixture</AdTitle>
+      <Creatives>
+        <Creative>
+          <CompanionAds>
+            <Companion id="companion-slot" width="300" height="250" adSlotId="sidebar">
+              <StaticResource creativeType="image/png"><![CDATA[https://cdn.example.com/companion.png]]></StaticResource>
+              <TrackingEvents>
+                <Tracking event="creativeView"><![CDATA[https://track.example.com/companion/view]]></Tracking>
+              </TrackingEvents>
+              <CompanionClickThrough><![CDATA[https://click.example.com/companion]]></CompanionClickThrough>
+              <CompanionClickTracking><![CDATA[https://track.example.com/companion/click]]></CompanionClickTracking>
+            </Companion>
+          </CompanionAds>
+        </Creative>
+      </Creatives>
+    </InLine>
+  </Ad>
+</VAST>`;
+
 function readFixture(name) {
   return fs.readFileSync(path.join(fixturesDir, name), "utf8");
 }
@@ -386,6 +410,47 @@ test("session exposes selector-scoped tracking targets and dispatch", async () =
     "https://track.example.com/beta-start",
     "https://track.example.com/beta-error?code=901",
   ]);
+});
+
+test("session exposes companion helpers and companion-scoped tracking dispatch", async () => {
+  const trackingCalls = [];
+
+  const session = createVastSession({
+    source: { kind: "xml", xml: companionFixture },
+    fetch: async (url) => {
+      trackingCalls.push(String(url));
+      return createPixelResponse();
+    },
+  });
+
+  const snapshot = await session.resolve();
+  assert.equal(snapshot.resolvedAd?.companions.length, 1);
+  assert.equal(snapshot.resolvedAd?.companions[0]?.clickThroughUrl, "https://click.example.com/companion");
+
+  const companions = session.getAdCompanions({ adId: "companion-ad" });
+  assert.equal(companions.length, 1);
+  assert.equal(companions[0]?.adSlotId, "sidebar");
+
+  const targets = session.getCompanionTrackingTargets(
+    { adId: "companion-ad" },
+    { companionId: "companion-slot" },
+    "creativeView",
+  );
+  assert.deepEqual(targets, [
+    {
+      kind: "event",
+      event: "creativeView",
+      url: "https://track.example.com/companion/view",
+      hopIndex: 0,
+      sourceUrl: null,
+      offset: null,
+    },
+  ]);
+
+  const tracking = await session.trackCompanion(0, { adSlotId: "sidebar" }, "clickTracking");
+  assert.equal(tracking.length, 1);
+  assert.equal(tracking[0]?.url, "https://track.example.com/companion/click");
+  assert.deepEqual(trackingCalls, ["https://track.example.com/companion/click"]);
 });
 
 test("playback controller selects media and dispatches lifecycle tracking", async () => {
