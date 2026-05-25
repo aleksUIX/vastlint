@@ -1350,6 +1350,23 @@ jobs:
           VERSION="${TAG#v}"
           STAGE="$GITHUB_WORKSPACE/.release/js-packages"
 
+          if [ -z "${NODE_AUTH_TOKEN:-}" ]; then
+            echo "NPM_TOKEN secret is empty or unavailable"
+            exit 1
+          fi
+
+          # Write auth config directly in the staged parent directory so every
+          # package publish runs with an explicit registry token.
+          cat > "$STAGE/.npmrc" <<EOF
+          //registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}
+          always-auth=true
+          EOF
+
+          pushd "$STAGE" >/dev/null
+          npm whoami >/dev/null
+          echo "Authenticated to npm as $(npm whoami)"
+          popd >/dev/null
+
           publish_if_needed() {
             local package_name="$1"
             local package_dir="$2"
