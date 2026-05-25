@@ -58,10 +58,6 @@ function htmlEl<K extends keyof HTMLElementTagNameMap>(tag: K): HTMLElementTagNa
   return document.createElementNS('http://www.w3.org/1999/xhtml', tag) as HTMLElementTagNameMap[K];
 }
 
-function escHtml(s: string): string {
-  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
-
 function buildLineIssues(result: ValidationResult) {
   const map = new Map<number, Issue[]>();
   for (const iss of result.issues) {

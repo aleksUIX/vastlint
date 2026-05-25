@@ -1,6 +1,7 @@
 //! # vastlint-wasm
 //!
-//! WASM bindings for `vastlint-core`. Exposes [`validate`] and [`rules`] to
+//! WASM bindings for `vastlint-core`. Exposes validation, fix, rule catalog,
+//! and document inspection helpers to
 //! JavaScript/TypeScript via `wasm-bindgen`.
 //!
 //! Build with:
@@ -69,6 +70,31 @@ struct JsFixResult {
     xml: String,
     applied: Vec<JsAppliedFix>,
     remaining: Vec<JsIssue>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct JsInspectMediaFile {
+    url: String,
+    mime_type: String,
+    delivery: String,
+    width: String,
+    height: String,
+    bitrate: String,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct JsInspectDocumentResult {
+    ad_type: String,
+    ad_system: String,
+    ad_title: String,
+    duration: String,
+    impression_count: usize,
+    tracking_event_count: usize,
+    media_files: Vec<JsInspectMediaFile>,
+    companion_count: usize,
+    wrapper_uri: Option<String>,
 }
 
 // ── Public API ────────────────────────────────────────────────────────────────
@@ -258,7 +284,41 @@ pub fn fix_with_options(xml: &str, options: JsValue) -> Result<JsValue, JsValue>
     fix_to_js(result)
 }
 
+/// Extract creative and wrapper metadata from a single VAST XML document.
+#[wasm_bindgen(js_name = inspectDocument)]
+pub fn inspect_document(xml: &str) -> Result<JsValue, JsValue> {
+    let result = vastlint_core::inspect_document(xml);
+    inspect_to_js(result)
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
+
+fn inspect_to_js(result: vastlint_core::InspectDocumentMeta) -> Result<JsValue, JsValue> {
+    let js_result = JsInspectDocumentResult {
+        ad_type: result.ad_type.as_str().to_owned(),
+        ad_system: result.ad_system,
+        ad_title: result.ad_title,
+        duration: result.duration,
+        impression_count: result.impression_count,
+        tracking_event_count: result.tracking_event_count,
+        media_files: result
+            .media_files
+            .into_iter()
+            .map(|media_file| JsInspectMediaFile {
+                url: media_file.url,
+                mime_type: media_file.mime_type,
+                delivery: media_file.delivery,
+                width: media_file.width,
+                height: media_file.height,
+                bitrate: media_file.bitrate,
+            })
+            .collect(),
+        companion_count: result.companion_count,
+        wrapper_uri: result.wrapper_uri,
+    };
+
+    serde_wasm_bindgen::to_value(&js_result).map_err(|e| JsValue::from_str(&e.to_string()))
+}
 
 fn to_js(result: vastlint_core::ValidationResult) -> Result<JsValue, JsValue> {
     let version = result.version.best().map(|v| v.as_str().to_owned());

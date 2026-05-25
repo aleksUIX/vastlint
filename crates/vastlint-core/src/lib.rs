@@ -10,6 +10,7 @@
 //! - [`validate_with_context`] -- validate with rule overrides or wrapper depth
 //! - [`fix`] -- fix deterministic issues and return repaired XML
 //! - [`fix_with_context`] -- fix with rule overrides or wrapper depth
+//! - [`inspect_document`] -- extract creative and wrapper metadata from one VAST XML document
 //! - [`all_rules`] -- list the full 121-rule catalog
 //!
 //! # Performance — allocator recommendation
@@ -88,11 +89,13 @@
 
 mod detect;
 mod fix;
+mod inspect;
 mod parse;
 mod rules;
 mod summarize;
 
 pub use fix::{fix, fix_with_context, AppliedFix, FixResult};
+pub use inspect::{inspect_document, InspectAdType, InspectDocumentMeta, InspectMediaFile};
 
 use std::collections::HashMap;
 

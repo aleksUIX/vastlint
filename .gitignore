@@ -34,6 +34,7 @@ npm/vastlint_wasm_bg.wasm.d.ts
 npm/vastlint_wasm_cjs.js
 npm/pkg/
 npm/pkg-node/
+node_modules/
 
 # GCP service-account credential files — must never be committed
 gen-lang-client-*.json
