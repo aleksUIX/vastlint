@@ -1320,6 +1320,8 @@ jobs:
       id-token: write  # required for --provenance (links package to this CI run)
 
     steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+
       - name: Download assembled npm package
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c  # v8.0.1
         with:
@@ -1332,24 +1334,43 @@ jobs:
           node-version: '20'
           registry-url: 'https://registry.npmjs.org'
 
-      # Sync npm package version to match the git tag (strips leading "v")
-      - name: Set npm version from tag
+      - name: Prepare JS release packages
         run: |
           TAG="${{ github.ref_name }}"
           VERSION="${TAG#v}"
-          CURRENT=$(node -p "require('./package.json').version")
-          if [ "$CURRENT" != "$VERSION" ]; then
-            npm version "$VERSION" --no-git-tag-version
-          else
-            echo "npm package already at $VERSION — skipping version bump"
-          fi
-        working-directory: npm
+          node scripts/prepare-js-release-packages.mjs "$VERSION" "$RUNNER_TEMP/js-release"
 
-      - name: Publish to npm
+      - name: Publish JS packages to npm
         # --provenance links the published package to this exact CI run via
         # GitHub's OIDC token — consumers can verify with `npm audit signatures`
-        run: npm publish --provenance || echo "npm version already published, skipping"
-        working-directory: npm
+        run: |
+          TAG="${{ github.ref_name }}"
+          VERSION="${TAG#v}"
+
+          publish_if_needed() {
+            local package_name="$1"
+            local package_dir="$2"
+
+            if npm view "${package_name}@${VERSION}" version >/dev/null 2>&1; then
+              echo "${package_name}@${VERSION} already published — skipping"
+              return 0
+            fi
+
+            echo "Publishing ${package_name}@${VERSION} from ${package_dir}"
+            npm publish --provenance
+          }
+
+          pushd "$RUNNER_TEMP/js-release/vastlint" >/dev/null
+          publish_if_needed "vastlint" "$PWD"
+          popd >/dev/null
+
+          pushd "$RUNNER_TEMP/js-release/vastlint-client" >/dev/null
+          publish_if_needed "vastlint-client" "$PWD"
+          popd >/dev/null
+
+          pushd "$RUNNER_TEMP/js-release/vastlint-react" >/dev/null
+          publish_if_needed "vastlint-react" "$PWD"
+          popd >/dev/null
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 

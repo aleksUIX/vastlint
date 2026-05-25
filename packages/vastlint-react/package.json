@@ -4,6 +4,27 @@
   "private": true,
   "description": "Headless React hooks for vastlint-client.",
   "license": "Apache-2.0",
+  "author": "Alex Sekowski <alex@vastlint.org>",
+  "homepage": "https://vastlint.org",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/aleksUIX/vastlint.git",
+    "directory": "packages/vastlint-react"
+  },
+  "bugs": {
+    "url": "https://github.com/aleksUIX/vastlint/issues"
+  },
+  "keywords": [
+    "vast",
+    "vast-client",
+    "react",
+    "react-hooks",
+    "adtech",
+    "ctv",
+    "video",
+    "advertising",
+    "programmatic"
+  ],
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -21,6 +42,12 @@
     "build": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\" && tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "npm --prefix ../vastlint-client run build && npm run build && node --test test/**/*.test.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "dependencies": {
     "vastlint-client": "file:../vastlint-client"
