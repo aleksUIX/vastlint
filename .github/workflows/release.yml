@@ -1338,7 +1338,9 @@ jobs:
         run: |
           TAG="${{ github.ref_name }}"
           VERSION="${TAG#v}"
-          node scripts/prepare-js-release-packages.mjs "$VERSION" "$RUNNER_TEMP/js-release"
+          # Stage inside GITHUB_WORKSPACE so that npm's directory-tree lookup
+          # finds the .npmrc written by setup-node (containing NODE_AUTH_TOKEN).
+          node scripts/prepare-js-release-packages.mjs "$VERSION" "$GITHUB_WORKSPACE/.release/js-packages"
 
       - name: Publish JS packages to npm
         # --provenance links the published package to this exact CI run via
@@ -1346,6 +1348,7 @@ jobs:
         run: |
           TAG="${{ github.ref_name }}"
           VERSION="${TAG#v}"
+          STAGE="$GITHUB_WORKSPACE/.release/js-packages"
 
           publish_if_needed() {
             local package_name="$1"
@@ -1360,15 +1363,15 @@ jobs:
             npm publish --provenance
           }
 
-          pushd "$RUNNER_TEMP/js-release/vastlint" >/dev/null
+          pushd "$STAGE/vastlint" >/dev/null
           publish_if_needed "vastlint" "$PWD"
           popd >/dev/null
 
-          pushd "$RUNNER_TEMP/js-release/vastlint-client" >/dev/null
+          pushd "$STAGE/vastlint-client" >/dev/null
           publish_if_needed "vastlint-client" "$PWD"
           popd >/dev/null
 
-          pushd "$RUNNER_TEMP/js-release/vastlint-react" >/dev/null
+          pushd "$STAGE/vastlint-react" >/dev/null
           publish_if_needed "vastlint-react" "$PWD"
           popd >/dev/null
         env:

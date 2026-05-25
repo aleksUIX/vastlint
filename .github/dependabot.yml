@@ -50,3 +50,7 @@ updates:
     labels:
       - dependencies
       - javascript
+    ignore:
+      # engines.vscode is pinned at ^1.85.0; @types/vscode must never exceed that.
+      - dependency-name: "@types/vscode"
+        update-types: ["version-update:semver-minor", "version-update:semver-major", "version-update:semver-patch"]
