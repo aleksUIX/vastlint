@@ -1,16 +1,35 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import React from "react";
-import TestRenderer from "react-test-renderer";
+import React, { act } from "react";
+import { JSDOM } from "jsdom";
+import { createRoot } from "react-dom/client";
 
 import { createVastSession } from "vastlint-client";
 
 import { useVastPlayback, useVastPlaybackQueue } from "../dist/index.js";
 
-const { act } = TestRenderer;
-
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+
+function defineGlobal(name, value) {
+  Object.defineProperty(globalThis, name, {
+    configurable: true,
+    writable: true,
+    value,
+  });
+}
+
+function installDomGlobals(window) {
+  defineGlobal("window", window);
+  defineGlobal("document", window.document);
+  defineGlobal("navigator", window.navigator);
+  defineGlobal("HTMLElement", window.HTMLElement);
+  defineGlobal("Node", window.Node);
+  defineGlobal("Event", window.Event);
+  defineGlobal("CustomEvent", window.CustomEvent);
+  defineGlobal("requestAnimationFrame", (callback) => setTimeout(() => callback(Date.now()), 0));
+  defineGlobal("cancelAnimationFrame", (id) => clearTimeout(id));
+}
 
 const playbackFixture = `<?xml version="1.0" encoding="UTF-8"?>
 <VAST version="4.2">
@@ -96,7 +115,12 @@ function createPixelResponse() {
 
 async function mountHook(useHook) {
   let latestResult = null;
-  let renderer = null;
+  const dom = new JSDOM("<!doctype html><html><body></body></html>");
+  installDomGlobals(dom.window);
+
+  const container = dom.window.document.createElement("div");
+  dom.window.document.body.append(container);
+  const root = createRoot(container);
 
   function Probe() {
     latestResult = useHook();
@@ -104,7 +128,7 @@ async function mountHook(useHook) {
   }
 
   await act(async () => {
-    renderer = TestRenderer.create(React.createElement(Probe));
+    root.render(React.createElement(Probe));
   });
 
   return {
@@ -114,8 +138,10 @@ async function mountHook(useHook) {
     },
     async unmount() {
       await act(async () => {
-        renderer?.unmount();
+        root.unmount();
       });
+
+      dom.window.close();
     },
   };
 }
@@ -159,7 +185,16 @@ test("useVastPlayback initializes and updates playback snapshot state", async ()
     "https://track.example.com/start",
   ]);
 
+  const playbackController = mounted.getLatest().controller;
+  let playbackDisposeCalls = 0;
+  const disposePlaybackController = playbackController.dispose.bind(playbackController);
+  playbackController.dispose = () => {
+    playbackDisposeCalls += 1;
+    disposePlaybackController();
+  };
+
   await mounted.unmount();
+  assert.equal(playbackDisposeCalls, 1);
 });
 
 test("useVastPlaybackQueue initializes and updates pod playback snapshot state", async () => {
@@ -203,5 +238,14 @@ test("useVastPlaybackQueue initializes and updates pod playback snapshot state",
     "https://queue.example.com/alpha/start",
   ]);
 
+  const playbackQueueController = mounted.getLatest().controller;
+  let playbackQueueDisposeCalls = 0;
+  const disposePlaybackQueueController = playbackQueueController.dispose.bind(playbackQueueController);
+  playbackQueueController.dispose = () => {
+    playbackQueueDisposeCalls += 1;
+    disposePlaybackQueueController();
+  };
+
   await mounted.unmount();
+  assert.equal(playbackQueueDisposeCalls, 1);
 });

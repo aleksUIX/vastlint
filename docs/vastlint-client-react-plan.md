@@ -119,7 +119,7 @@ Status:
 - `useVastAnnotations` is implemented as a derived annotation model grouped by line and issue ID.
 - `useVastPlayback` is implemented as a thin React wrapper around `createVastPlaybackController()`, exposing playback snapshots and bound lifecycle methods while handling controller disposal and optional auto-initialize behavior.
 - `useVastPlaybackQueue` is implemented as a thin React wrapper around `createVastPlaybackQueueController()`, exposing queue snapshots and bound lifecycle methods while handling controller disposal and optional auto-initialize behavior.
-- Build-first Node smoke tests now cover both playback hooks against built output from `vastlint-react` and `vastlint-client`.
+- Build-first Node smoke tests now cover both playback hooks against built output from `vastlint-react` and `vastlint-client` via a `jsdom` plus `react-dom/client` harness.
 - `useVastTracker` is implemented as a thin hook over session tracking state, available events, click-through helpers, ad-target inspection, and bound dispatch methods.
 - `useVastTracker` now exposes both `resolvedAd` and `resolvedAds` so React consumers can detect and render pod-aware playback state.
 
