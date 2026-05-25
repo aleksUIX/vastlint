@@ -19,7 +19,7 @@ crate-type = ["cdylib"]
 
 [dependencies]
 vastlint-core = { path = "../vastlint-core" }
-rustler = "0.37"
+rustler = "0.38"
 
 # Rayon is used inside validate_batch/1 to parallelize a list of XML inputs
 # across all CPU cores within a single dirty-scheduler dispatch.
