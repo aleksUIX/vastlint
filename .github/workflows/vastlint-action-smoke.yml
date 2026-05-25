@@ -1,0 +1,48 @@
+name: vastlint-action-smoke
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/vastlint-action-smoke.yml'
+      - 'crates/vastlint-core/tests/fixtures/**'
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/vastlint-action-smoke.yml'
+      - 'crates/vastlint-core/tests/fixtures/**'
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    name: Smoke test published vastlint-action
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout fixtures
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Valid fixture should pass
+        uses: aleksUIX/vastlint-action@v1
+        with:
+          path: crates/vastlint-core/tests/fixtures/valid_4.2.xml
+          version: latest
+
+      - name: Invalid fixture should fail
+        id: invalid
+        continue-on-error: true
+        uses: aleksUIX/vastlint-action@v1
+        with:
+          path: crates/vastlint-core/tests/fixtures/err_no_version.xml
+          version: latest
+
+      - name: Assert invalid fixture failed as expected
+        shell: bash
+        run: |
+          if [[ "${{ steps.invalid.outcome }}" != "failure" ]]; then
+            echo "Expected invalid fixture step to fail, got: ${{ steps.invalid.outcome }}"
+            exit 1
+          fi
