@@ -1,0 +1,18 @@
+{
+  "name": "vastlint-client-browser-demo",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "vastlint": "file:../../npm",
+    "vastlint-client": "file:../../packages/vastlint-client"
+  },
+  "devDependencies": {
+    "vite": "^6.4.1",
+    "vite-plugin-wasm": "^3.5.0"
+  }
+}
