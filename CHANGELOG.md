@@ -6,6 +6,13 @@ GitHub Releases: <https://github.com/aleksUIX/vastlint/releases>
 
 ---
 
+## [0.4.19] - 2026-05-31
+
+### CI / release
+
+- **MCP canary aligned with the live endpoint**: the GitHub Actions canary now parses `list_rules` as an array payload and validates `get_adcp_capabilities` against the current MCP contract without the removed top-level `status` field.
+- **Channel versions aligned**: bumped the Rust crates, npm package, VS Code extension, Chrome extension, lockfiles, example lockfile references, and tracked generated package metadata to `0.4.19`.
+
 ## [0.4.17] - 2026-05-16
 
 ### Core validator

@@ -116,13 +116,23 @@ pub fn inspect_document(xml: &str) -> InspectDocumentMeta {
             }
             Ok(Event::Text(text)) => {
                 if let Ok(value) = text.xml10_content() {
-                    apply_text(value.trim(), &mut meta, &mut target, &mut pending_media_file);
+                    apply_text(
+                        value.trim(),
+                        &mut meta,
+                        &mut target,
+                        &mut pending_media_file,
+                    );
                 }
             }
             Ok(Event::CData(text)) => {
                 let bytes = text.into_inner();
                 if let Ok(value) = std::str::from_utf8(&bytes) {
-                    apply_text(value.trim(), &mut meta, &mut target, &mut pending_media_file);
+                    apply_text(
+                        value.trim(),
+                        &mut meta,
+                        &mut target,
+                        &mut pending_media_file,
+                    );
                 }
             }
             _ => {}
@@ -182,7 +192,7 @@ mod tests {
 
     #[test]
     fn extracts_wrapper_metadata() {
-                let xml = r#"<VAST version="4.2">
+        let xml = r#"<VAST version="4.2">
   <Ad>
     <Wrapper>
       <AdSystem>Wrapper Co</AdSystem>
@@ -219,7 +229,10 @@ mod tests {
         assert_eq!(meta.impression_count, 1);
         assert_eq!(meta.tracking_event_count, 1);
         assert_eq!(meta.companion_count, 1);
-        assert_eq!(meta.wrapper_uri.as_deref(), Some("https://ads.example.com/downstream.xml"));
+        assert_eq!(
+            meta.wrapper_uri.as_deref(),
+            Some("https://ads.example.com/downstream.xml")
+        );
         assert_eq!(meta.media_files.len(), 1);
         assert_eq!(meta.media_files[0].url, "https://cdn.example.com/ad.mp4");
         assert_eq!(meta.media_files[0].mime_type, "video/mp4");
