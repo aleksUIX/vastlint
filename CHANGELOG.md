@@ -6,6 +6,16 @@ GitHub Releases: <https://github.com/aleksUIX/vastlint/releases>
 
 ---
 
+## [0.4.20] - 2026-05-31
+
+### Chrome extension
+
+- **Issue panel rendering fixed**: the inline/floating panel now mounts lint issue rows as DOM nodes instead of coercing them into `[object HTMLDivElement]` strings inside the shadow-root template.
+
+### Packaging / release
+
+- **Channel versions aligned**: bumped the Rust crates, npm package, VS Code extension, Chrome extension, and tracked lockfiles to `0.4.20` for the patch release.
+
 ## [0.4.19] - 2026-05-31
 
 ### CI / release

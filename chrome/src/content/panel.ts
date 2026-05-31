@@ -333,11 +333,7 @@ function renderOverlay(result: ValidationResult, anchor: HTMLElement, origToFmt?
         <span class="logo">vastlint</span>
         <span class="close" id="float-close">✕</span>
       </div>
-      <div id="float-body">
-        ${result.issues.length === 0
-          ? '<div style="padding:10px;color:#55efc4">✓ No issues found</div>'
-          : issueListHTML(result.issues)}
-      </div>
+      <div id="float-body"></div>
     </div>
 
     <div class="tooltip" id="tip"></div>
@@ -359,6 +355,16 @@ function renderOverlay(result: ValidationResult, anchor: HTMLElement, origToFmt?
   if (verBadge && result.version) {
     verBadge.textContent = `VAST ${result.version}`;
     verBadge.style.display = '';
+  }
+
+  if (result.issues.length === 0) {
+    const empty = htmlEl('div');
+    empty.style.padding = '10px';
+    empty.style.color = '#55efc4';
+    empty.textContent = '✓ No issues found';
+    floatBody.replaceChildren(empty);
+  } else {
+    floatBody.replaceChildren(...issueListHTML(result.issues));
   }
 
   // ── Build inline annotations ───────────────────────────────────────────────
