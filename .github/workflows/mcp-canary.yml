@@ -347,7 +347,8 @@ jobs:
           def check_list_rules():
               r, ms = post("tools/call", {"name": "list_rules", "arguments": {}})
               obj = json.loads(r["result"]["content"][0]["text"])
-              rules = [v for k, v in obj.items() if k != "status"]
+              assert isinstance(obj, list), f"expected list payload, got {type(obj).__name__}"
+              rules = obj
               count = len(rules)
               assert count > 0, f"count=0"
               ids = {rule["id"] for rule in rules}
@@ -396,10 +397,11 @@ jobs:
           def check_adcp():
               r, ms = post("tools/call", {"name": "get_adcp_capabilities", "arguments": {}})
               obj = json.loads(r["result"]["content"][0]["text"])
-              assert obj.get("status") == "ok",                  f"status={obj.get('status')}"
+              assert "status" not in obj,                         f"unexpected status={obj.get('status')}"
               assert obj.get("supported_protocols"),              f"no supported_protocols"
               assert obj.get("adcp", {}).get("major_versions"),  f"no adcp.major_versions"
-              print(f"  status=ok, protocols={obj['supported_protocols']}  ({ms} ms)")
+              assert obj.get("operator", {}).get("name"),        f"no operator.name"
+              print(f"  protocols={obj['supported_protocols']}  ({ms} ms)")
 
           check("get_adcp_capabilities", check_adcp)
 
