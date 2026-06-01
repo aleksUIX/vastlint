@@ -6,6 +6,15 @@ GitHub Releases: <https://github.com/aleksUIX/vastlint/releases>
 
 ---
 
+## [0.4.21] - 2026-05-31
+
+### Security / supply chain
+
+- **`vastlint-client` CDATA parsing hardened**: replaced the regex-based CDATA stripper with linear scanning so untrusted XML no longer hits the polynomial-regex CodeQL finding.
+- **VS Code packaging dependencies patched**: forced `tmp` to `0.2.6` in the extension build lockfile to clear `GHSA-ph9p-34f9-6g65`.
+- **Repo artifact hygiene tightened**: stopped tracking generated example `dist/` output so demo WASM bundles are no longer committed as source artifacts.
+- **Action smoke workflow pinned**: the published `vastlint-action` smoke workflow now uses the `v1` commit SHA instead of a mutable tag.
+
 ## [0.4.20] - 2026-05-31
 
 ### Chrome extension

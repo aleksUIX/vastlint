@@ -48,8 +48,29 @@ function decodeXmlEntities(value) {
         return `&${entity};`;
     });
 }
+function stripCdataSections(value) {
+    let output = "";
+    let cursor = 0;
+    while (cursor < value.length) {
+        const start = value.indexOf("<![CDATA[", cursor);
+        if (start === -1) {
+            output += value.slice(cursor);
+            break;
+        }
+        output += value.slice(cursor, start);
+        const contentStart = start + "<![CDATA[".length;
+        const end = value.indexOf("]]>", contentStart);
+        if (end === -1) {
+            output += value.slice(start);
+            break;
+        }
+        output += value.slice(contentStart, end);
+        cursor = end + 3;
+    }
+    return output;
+}
 function cleanXmlText(value, collapseWhitespace = false) {
-    const withoutCdata = value.replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1");
+    const withoutCdata = stripCdataSections(value);
     const decoded = decodeXmlEntities(withoutCdata);
     return collapseWhitespace ? normalizeWhitespace(decoded) : decoded.trim();
 }

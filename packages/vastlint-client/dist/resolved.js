@@ -20,8 +20,29 @@ function decodeXmlEntities(value) {
         return `&${entity};`;
     });
 }
+function stripCdataSections(value) {
+    let output = "";
+    let cursor = 0;
+    while (cursor < value.length) {
+        const start = value.indexOf("<![CDATA[", cursor);
+        if (start === -1) {
+            output += value.slice(cursor);
+            break;
+        }
+        output += value.slice(cursor, start);
+        const contentStart = start + "<![CDATA[".length;
+        const end = value.indexOf("]]>", contentStart);
+        if (end === -1) {
+            output += value.slice(start);
+            break;
+        }
+        output += value.slice(contentStart, end);
+        cursor = end + 3;
+    }
+    return output;
+}
 function cleanXmlText(value) {
-    const withoutCdata = value.replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1");
+    const withoutCdata = stripCdataSections(value);
     return decodeXmlEntities(withoutCdata).trim();
 }
 function extractAttribute(rawAttributes, attributeName) {
@@ -55,16 +76,6 @@ function cloneMediaFiles(mediaFiles) {
 }
 function uniqueValues(values) {
     return [...new Set(values.filter((value) => value.length > 0))];
-}
-function mergeTrackingEventMaps(...eventMaps) {
-    const grouped = {};
-    for (const eventMap of eventMaps) {
-        for (const [event, urls] of Object.entries(eventMap)) {
-            grouped[event] ??= [];
-            grouped[event].push(...urls);
-        }
-    }
-    return Object.fromEntries(Object.entries(grouped).map(([event, urls]) => [event, uniqueValues(urls)]));
 }
 function collectTagTexts(xml, tagName) {
     const values = [];
@@ -126,38 +137,6 @@ function extractMediaFiles(xml) {
         });
     }
     return mediaFiles;
-}
-function extractTrackingSurface(xml) {
-    const trackingEvents = collectTrackingEventMap(xml);
-    const viewable = collectTagTexts(xml, "Viewable");
-    const notViewable = collectTagTexts(xml, "NotViewable");
-    const viewUndetermined = collectTagTexts(xml, "ViewUndetermined");
-    return {
-        impressionUrls: uniqueValues(collectTagTexts(xml, "Impression")),
-        errorUrls: uniqueValues(collectTagTexts(xml, "Error")),
-        clickTrackingUrls: uniqueValues([
-            ...collectTagTexts(xml, "ClickTracking"),
-            ...collectTagTexts(xml, "CompanionClickTracking"),
-            ...collectTagTexts(xml, "IconClickTracking"),
-            ...collectTagTexts(xml, "NonLinearClickTracking"),
-        ]),
-        clickThroughUrls: uniqueValues([
-            ...collectTagTexts(xml, "ClickThrough"),
-            ...collectTagTexts(xml, "CompanionClickThrough"),
-            ...collectTagTexts(xml, "IconClickThrough"),
-            ...collectTagTexts(xml, "NonLinearClickThrough"),
-        ]),
-        trackingEvents: mergeTrackingEventMaps(trackingEvents, viewable.length ? { viewable } : {}, notViewable.length ? { notViewable } : {}, viewUndetermined.length ? { viewUndetermined } : {}),
-    };
-}
-function mergeTrackingSurfaces(...surfaces) {
-    return {
-        impressionUrls: uniqueValues(surfaces.flatMap((surface) => surface.impressionUrls)),
-        errorUrls: uniqueValues(surfaces.flatMap((surface) => surface.errorUrls)),
-        clickTrackingUrls: uniqueValues(surfaces.flatMap((surface) => surface.clickTrackingUrls)),
-        clickThroughUrls: uniqueValues(surfaces.flatMap((surface) => surface.clickThroughUrls)),
-        trackingEvents: mergeTrackingEventMaps(...surfaces.map((surface) => surface.trackingEvents)),
-    };
 }
 function extractAdType(xml) {
     if (/<Wrapper\b/i.test(xml)) {

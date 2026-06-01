@@ -16,6 +16,8 @@ vscode/PROGRESS.md
 chrome/dist/
 chrome/node_modules/
 chrome/*.zip
+# Example app build output
+examples/*/dist/
 # VS Code extension build artefacts — never commit pre-built VSIXs or compiled output.
 # The release workflow attaches them to GitHub Releases instead so
 # provenance is tied to the CI run that built them.

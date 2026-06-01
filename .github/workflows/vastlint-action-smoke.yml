@@ -26,7 +26,7 @@ jobs:
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: Valid fixture should pass
-        uses: aleksUIX/vastlint-action@v1
+        uses: aleksUIX/vastlint-action@4fdc6d48830825458c018a943d8bb74e54cd6dd3  # v1
         with:
           path: crates/vastlint-core/tests/fixtures/valid_4.2.xml
           version: latest
@@ -34,7 +34,7 @@ jobs:
       - name: Invalid fixture should fail
         id: invalid
         continue-on-error: true
-        uses: aleksUIX/vastlint-action@v1
+        uses: aleksUIX/vastlint-action@4fdc6d48830825458c018a943d8bb74e54cd6dd3  # v1
         with:
           path: crates/vastlint-core/tests/fixtures/err_no_version.xml
           version: latest
