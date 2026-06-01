@@ -1,0 +1,239 @@
+name: Ecosystem smoke
+
+on:
+  schedule:
+    - cron: "17 */4 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ecosystem-smoke
+  cancel-in-progress: true
+
+env:
+  VALID_FIXTURE: crates/vastlint-core/tests/fixtures/valid_4.2.xml
+  INVALID_FIXTURE: crates/vastlint-core/tests/fixtures/err_no_ad.xml
+
+jobs:
+  smoke-cli:
+    name: Smoke published CLI
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@3c5f7ea28cd621ae0bf5283f0e981fb97b8a7af9  # v (pinned SHA)
+        with:
+          toolchain: stable
+
+      - name: Install published vastlint CLI
+        run: |
+          INSTALL_ROOT="$RUNNER_TEMP/vastlint-cli"
+          cargo install --locked vastlint-cli --root "$INSTALL_ROOT"
+          echo "$INSTALL_ROOT/bin" >> "$GITHUB_PATH"
+
+      - name: Validate fixtures with published CLI
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          valid_json="$RUNNER_TEMP/valid-cli.json"
+          invalid_json="$RUNNER_TEMP/invalid-cli.json"
+
+          vastlint check "$VALID_FIXTURE" --format json > "$valid_json"
+
+          set +e
+          vastlint check "$INVALID_FIXTURE" --format json > "$invalid_json"
+          exit_code=$?
+          set -e
+
+          if [ "$exit_code" -eq 0 ]; then
+            echo "Expected invalid fixture to fail the CLI smoke test"
+            exit 1
+          fi
+
+              python3 -c 'import json, sys; valid = json.load(open(sys.argv[1], encoding="utf-8")); invalid = json.load(open(sys.argv[2], encoding="utf-8")); assert valid["summary"]["errors"] == 0, valid; assert invalid["summary"]["errors"] > 0, invalid; print("CLI smoke passed")' "$valid_json" "$invalid_json"
+
+  smoke-rust-core:
+    name: Smoke published Rust crate
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@3c5f7ea28cd621ae0bf5283f0e981fb97b8a7af9  # v (pinned SHA)
+        with:
+          toolchain: stable
+
+      - name: Build disposable Rust app with vastlint-core
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          APP_DIR="$RUNNER_TEMP/vastlint-core-smoke"
+          mkdir -p "$APP_DIR/src"
+
+            printf '%s\n' \
+              '[package]' \
+              'name = "vastlint-core-smoke"' \
+              'version = "0.1.0"' \
+              'edition = "2021"' \
+              '' \
+              '[dependencies]' \
+              'vastlint-core = "*"' \
+              > "$APP_DIR/Cargo.toml"
+
+            printf '%s\n' \
+              'use std::{env, fs};' \
+              'use vastlint_core::validate;' \
+              '' \
+              'fn main() {' \
+              '    let mut args = env::args().skip(1);' \
+              '    let valid_path = args.next().expect("valid fixture path");' \
+              '    let invalid_path = args.next().expect("invalid fixture path");' \
+              '' \
+              '    let valid = validate(&fs::read_to_string(valid_path).expect("read valid fixture"));' \
+              '    assert_eq!(valid.summary.errors, 0, "expected valid fixture to have zero errors");' \
+              '' \
+              '    let invalid = validate(&fs::read_to_string(invalid_path).expect("read invalid fixture"));' \
+              '    assert!(invalid.summary.errors > 0, "expected invalid fixture to have errors");' \
+              '' \
+              '    println!("Rust crate smoke passed ({} errors on invalid fixture)", invalid.summary.errors);' \
+              '}' \
+              > "$APP_DIR/src/main.rs"
+
+          cargo run --quiet --manifest-path "$APP_DIR/Cargo.toml" -- \
+            "$GITHUB_WORKSPACE/$VALID_FIXTURE" \
+            "$GITHUB_WORKSPACE/$INVALID_FIXTURE"
+
+  smoke-npm:
+    name: Smoke published npm package
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+
+      - name: Install Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e  # v6.4.0
+        with:
+          node-version: '24'
+          package-manager-cache: false
+
+      - name: Install published vastlint npm package in a clean app
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          APP_DIR="$RUNNER_TEMP/vastlint-npm-smoke"
+          mkdir -p "$APP_DIR"
+
+          printf '%s\n' \
+            '{' \
+            '  "name": "vastlint-npm-smoke",' \
+            '  "private": true,' \
+            '  "type": "module"' \
+            '}' \
+            > "$APP_DIR/package.json"
+
+          pushd "$APP_DIR" >/dev/null
+          npm install vastlint
+
+          printf '%s\n' \
+            "import fs from 'node:fs';" \
+            "import { validate } from 'vastlint';" \
+            '' \
+            'const [validPath, invalidPath] = process.argv.slice(2);' \
+            '' \
+            "const valid = validate(fs.readFileSync(validPath, 'utf8'));" \
+            'if (!valid.summary.valid || valid.summary.errors !== 0) {' \
+            '  throw new Error("expected valid fixture to pass: " + JSON.stringify(valid.summary));' \
+            '}' \
+            '' \
+            "const invalid = validate(fs.readFileSync(invalidPath, 'utf8'));" \
+            'if (invalid.summary.valid || invalid.summary.errors === 0) {' \
+            '  throw new Error("expected invalid fixture to fail: " + JSON.stringify(invalid.summary));' \
+            '}' \
+            '' \
+            'console.log("npm smoke passed (" + invalid.summary.errors + " errors on invalid fixture)");' \
+            > smoke.mjs
+
+          node smoke.mjs \
+            "$GITHUB_WORKSPACE/$VALID_FIXTURE" \
+            "$GITHUB_WORKSPACE/$INVALID_FIXTURE"
+          popd >/dev/null
+
+  smoke-erlang:
+    name: Smoke published Erlang package
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+
+      - name: Set up Erlang and Elixir
+        uses: erlef/setup-beam@5304e04ea2b355f03681464e683d92e3b2f18451  # v1.18.2
+        with:
+          otp-version: "27.3"
+          elixir-version: "1.18"
+
+      - name: Install Hex and rebar3
+        run: |
+          mix local.hex --force
+          mix local.rebar --force
+
+      - name: Build disposable rebar3 app with vastlint
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          APP_DIR="$RUNNER_TEMP/vastlint-erlang-smoke"
+          HEX_VERSION="$(curl -fsSL https://hex.pm/api/packages/vastlint | python3 -c 'import json,sys; print(json.load(sys.stdin)["latest_stable_version"])')"
+          mkdir -p "$APP_DIR/src"
+
+          printf '%s\n' \
+            '{erl_opts, [debug_info]}.' \
+            "{deps, [{vastlint, \"${HEX_VERSION}\"}]}." \
+            > "$APP_DIR/rebar.config"
+
+          printf '%s\n' \
+            '{application, vastlint_rebar_smoke,' \
+            ' [{description, "vastlint rebar smoke"},' \
+            '  {vsn, "0.1.0"},' \
+            '  {modules, [smoke_runner]},' \
+            '  {registered, []},' \
+            '  {applications, [kernel, stdlib]},' \
+            '  {env, []}]}.' \
+            > "$APP_DIR/src/vastlint_rebar_smoke.app.src"
+
+          printf '%s\n' \
+            '-module(smoke_runner).' \
+            '-export([main/2]).' \
+            '' \
+            'main(ValidPath, InvalidPath) ->' \
+            '    {ok, ValidXml} = file:read_file(ValidPath),' \
+            '    {ok, InvalidXml} = file:read_file(InvalidPath),' \
+            '    {ok, ValidResult} = vastlint:validate(ValidXml),' \
+            '    true = maps:get(valid, ValidResult),' \
+            '    0 = maps:get(errors, ValidResult),' \
+            '    {ok, InvalidResult} = vastlint:validate(InvalidXml),' \
+            '    false = maps:get(valid, InvalidResult),' \
+            '    Errors = maps:get(errors, InvalidResult),' \
+            '    true = Errors > 0,' \
+            '    io:format("Erlang smoke passed (~p errors on invalid fixture)~n", [Errors]),' \
+            '    ok.' \
+            > "$APP_DIR/src/smoke_runner.erl"
+
+          pushd "$APP_DIR" >/dev/null
+          rebar3 compile
+          erl -noshell \
+            -pa _build/default/lib/*/ebin \
+            -eval "smoke_runner:main(\"$GITHUB_WORKSPACE/$VALID_FIXTURE\", \"$GITHUB_WORKSPACE/$INVALID_FIXTURE\")." \
+            -s init stop
+          popd >/dev/null
