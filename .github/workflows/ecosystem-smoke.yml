@@ -13,6 +13,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
+  VASTLINT_VERSION: "0.4.21"
   VALID_FIXTURE: crates/vastlint-core/tests/fixtures/valid_4.2.xml
   INVALID_FIXTURE: crates/vastlint-core/tests/fixtures/err_no_ad.xml
 
@@ -33,7 +34,7 @@ jobs:
       - name: Install published vastlint CLI
         run: |
           INSTALL_ROOT="$RUNNER_TEMP/vastlint-cli"
-          cargo install --locked vastlint-cli --root "$INSTALL_ROOT"
+          cargo install --locked vastlint-cli --version "$VASTLINT_VERSION" --root "$INSTALL_ROOT"
           echo "$INSTALL_ROOT/bin" >> "$GITHUB_PATH"
 
       - name: Validate fixtures with published CLI
@@ -79,34 +80,34 @@ jobs:
           APP_DIR="$RUNNER_TEMP/vastlint-core-smoke"
           mkdir -p "$APP_DIR/src"
 
-            printf '%s\n' \
-              '[package]' \
-              'name = "vastlint-core-smoke"' \
-              'version = "0.1.0"' \
-              'edition = "2021"' \
-              '' \
-              '[dependencies]' \
-              'vastlint-core = "*"' \
-              > "$APP_DIR/Cargo.toml"
+          printf '%s\n' \
+            '[package]' \
+            'name = "vastlint-core-smoke"' \
+            'version = "0.1.0"' \
+            'edition = "2021"' \
+            '' \
+            '[dependencies]' \
+            "vastlint-core = { version = \"=${VASTLINT_VERSION}\" }" \
+            > "$APP_DIR/Cargo.toml"
 
-            printf '%s\n' \
-              'use std::{env, fs};' \
-              'use vastlint_core::validate;' \
-              '' \
-              'fn main() {' \
-              '    let mut args = env::args().skip(1);' \
-              '    let valid_path = args.next().expect("valid fixture path");' \
-              '    let invalid_path = args.next().expect("invalid fixture path");' \
-              '' \
-              '    let valid = validate(&fs::read_to_string(valid_path).expect("read valid fixture"));' \
-              '    assert_eq!(valid.summary.errors, 0, "expected valid fixture to have zero errors");' \
-              '' \
-              '    let invalid = validate(&fs::read_to_string(invalid_path).expect("read invalid fixture"));' \
-              '    assert!(invalid.summary.errors > 0, "expected invalid fixture to have errors");' \
-              '' \
-              '    println!("Rust crate smoke passed ({} errors on invalid fixture)", invalid.summary.errors);' \
-              '}' \
-              > "$APP_DIR/src/main.rs"
+          printf '%s\n' \
+            'use std::{env, fs};' \
+            'use vastlint_core::validate;' \
+            '' \
+            'fn main() {' \
+            '    let mut args = env::args().skip(1);' \
+            '    let valid_path = args.next().expect("valid fixture path");' \
+            '    let invalid_path = args.next().expect("invalid fixture path");' \
+            '' \
+            '    let valid = validate(&fs::read_to_string(valid_path).expect("read valid fixture"));' \
+            '    assert_eq!(valid.summary.errors, 0, "expected valid fixture to have zero errors");' \
+            '' \
+            '    let invalid = validate(&fs::read_to_string(invalid_path).expect("read invalid fixture"));' \
+            '    assert!(invalid.summary.errors > 0, "expected invalid fixture to have errors");' \
+            '' \
+            '    println!("Rust crate smoke passed ({} errors on invalid fixture)", invalid.summary.errors);' \
+            '}' \
+            > "$APP_DIR/src/main.rs"
 
           cargo run --quiet --manifest-path "$APP_DIR/Cargo.toml" -- \
             "$GITHUB_WORKSPACE/$VALID_FIXTURE" \
@@ -143,7 +144,11 @@ jobs:
             > "$APP_DIR/package.json"
 
           pushd "$APP_DIR" >/dev/null
-          npm install vastlint
+          PACKED_TARBALL="$(npm pack "vastlint@${VASTLINT_VERSION}" --silent)"
+          mkdir -p node_modules
+          tar -xzf "$PACKED_TARBALL" -C node_modules
+          mv node_modules/package node_modules/vastlint
+          rm "$PACKED_TARBALL"
 
           printf '%s\n' \
             "import fs from 'node:fs';" \
@@ -194,12 +199,11 @@ jobs:
           set -euo pipefail
 
           APP_DIR="$RUNNER_TEMP/vastlint-erlang-smoke"
-          HEX_VERSION="$(curl -fsSL https://hex.pm/api/packages/vastlint | python3 -c 'import json,sys; print(json.load(sys.stdin)["latest_stable_version"])')"
           mkdir -p "$APP_DIR/src"
 
           printf '%s\n' \
             '{erl_opts, [debug_info]}.' \
-            "{deps, [{vastlint, \"${HEX_VERSION}\"}]}." \
+            "{deps, [{vastlint, \"${VASTLINT_VERSION}\"}]}." \
             > "$APP_DIR/rebar.config"
 
           printf '%s\n' \
