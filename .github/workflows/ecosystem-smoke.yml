@@ -114,7 +114,7 @@ jobs:
             "$GITHUB_WORKSPACE/$INVALID_FIXTURE"
 
   smoke-npm:
-    name: Smoke published npm package
+    name: Smoke published npm packages
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
@@ -174,6 +174,336 @@ jobs:
             "$GITHUB_WORKSPACE/$INVALID_FIXTURE"
           popd >/dev/null
 
+      - name: Install published vastlint-client npm package in a clean app
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          APP_DIR="$RUNNER_TEMP/vastlint-client-smoke"
+          mkdir -p "$APP_DIR"
+
+          printf '%s\n' \
+            '{' \
+            '  "name": "vastlint-client-smoke",' \
+            '  "private": true,' \
+            '  "type": "module"' \
+            '}' \
+            > "$APP_DIR/package.json"
+
+          pushd "$APP_DIR" >/dev/null
+          PACKED_TARBALL="$(npm pack "vastlint-client@${VASTLINT_VERSION}" --silent)"
+          npm install --no-package-lock --ignore-scripts "./$PACKED_TARBALL"
+          rm "$PACKED_TARBALL"
+
+          cat > smoke.mjs <<'EOF'
+          import fs from 'node:fs';
+
+          import {
+            createVastPlaybackController,
+            createVastSession,
+            selectResolvedAdMediaFile,
+            selectTrackingTargets,
+          } from 'vastlint-client';
+
+          const [validPath, invalidPath] = process.argv.slice(2);
+
+          const playbackFixture = `<?xml version="1.0" encoding="UTF-8"?>
+          <VAST version="4.2">
+            <Ad id="playback-1">
+              <InLine>
+                <AdSystem>Playback Demo</AdSystem>
+                <AdTitle>Playback Fixture</AdTitle>
+                <Error><![CDATA[https://track.example.com/error?code=%%ERRORCODE%%]]></Error>
+                <Impression><![CDATA[https://track.example.com/impression]]></Impression>
+                <Creatives>
+                  <Creative>
+                    <Linear>
+                      <Duration>00:00:20</Duration>
+                      <TrackingEvents>
+                        <Tracking event="creativeView"><![CDATA[https://track.example.com/creative-view]]></Tracking>
+                        <Tracking event="start"><![CDATA[https://track.example.com/start]]></Tracking>
+                        <Tracking event="firstQuartile"><![CDATA[https://track.example.com/first-quartile]]></Tracking>
+                      </TrackingEvents>
+                      <VideoClicks>
+                        <ClickThrough><![CDATA[https://click.example.com/landing]]></ClickThrough>
+                        <ClickTracking><![CDATA[https://track.example.com/click]]></ClickTracking>
+                      </VideoClicks>
+                      <MediaFiles>
+                        <MediaFile delivery="progressive" type="video/mp4" width="1280" height="720"><![CDATA[https://cdn.example.com/video.mp4]]></MediaFile>
+                      </MediaFiles>
+                    </Linear>
+                  </Creative>
+                </Creatives>
+              </InLine>
+            </Ad>
+          </VAST>`;
+
+          function createPixelResponse() {
+            return {
+              ok: true,
+              status: 204,
+              statusText: 'No Content',
+              async text() {
+                return '';
+              },
+            };
+          }
+
+          const validSession = createVastSession({
+            source: { kind: 'xml', xml: fs.readFileSync(validPath, 'utf8') },
+          });
+          const validResult = await validSession.validate();
+          if (!validResult.summary.valid || validResult.summary.errors !== 0) {
+            throw new Error('expected valid fixture to pass: ' + JSON.stringify(validResult.summary));
+          }
+
+          const invalidSession = createVastSession({
+            source: { kind: 'xml', xml: fs.readFileSync(invalidPath, 'utf8') },
+          });
+          const invalidResult = await invalidSession.validate();
+          if (invalidResult.summary.valid || invalidResult.summary.errors === 0) {
+            throw new Error('expected invalid fixture to fail: ' + JSON.stringify(invalidResult.summary));
+          }
+
+          const trackingCalls = [];
+          const playbackSession = createVastSession({
+            source: { kind: 'xml', xml: playbackFixture },
+            fetch: async (url) => {
+              trackingCalls.push(String(url));
+              return createPixelResponse();
+            },
+          });
+
+          await playbackSession.resolve();
+          const playbackSnapshot = playbackSession.getSnapshot();
+          if (!playbackSnapshot.resolvedAd?.resolved) {
+            throw new Error('expected playback fixture to resolve to an inline ad');
+          }
+
+          const mediaSelection = selectResolvedAdMediaFile(playbackSnapshot.resolvedAd, {
+            supportedMimeTypes: ['video/mp4'],
+          });
+          if (mediaSelection.selected?.url !== 'https://cdn.example.com/video.mp4') {
+            throw new Error('expected playback fixture media to be selected');
+          }
+
+          const startTargets = selectTrackingTargets(playbackSession.getSnapshot().tracking.plan, 'start');
+          if (startTargets.length !== 1) {
+            throw new Error('expected one start tracking target, got ' + startTargets.length);
+          }
+
+          const playback = createVastPlaybackController({
+            session: playbackSession,
+            autoResolve: false,
+            mediaSelection: {
+              supportedMimeTypes: ['video/mp4'],
+            },
+          });
+
+          await playback.initialize();
+          await playback.start();
+
+          if (playback.getSnapshot().status !== 'playing') {
+            throw new Error('expected playback controller to enter playing state');
+          }
+
+          for (const url of [
+            'https://track.example.com/impression',
+            'https://track.example.com/creative-view',
+            'https://track.example.com/start',
+          ]) {
+            if (!trackingCalls.includes(url)) {
+              throw new Error('expected playback tracking call for ' + url);
+            }
+          }
+
+          console.log('vastlint-client smoke passed');
+          EOF
+
+          node smoke.mjs \
+            "$GITHUB_WORKSPACE/$VALID_FIXTURE" \
+            "$GITHUB_WORKSPACE/$INVALID_FIXTURE"
+          popd >/dev/null
+
+      - name: Install published vastlint-react npm package in a clean app
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          APP_DIR="$RUNNER_TEMP/vastlint-react-smoke"
+          mkdir -p "$APP_DIR"
+
+          printf '%s\n' \
+            '{' \
+            '  "name": "vastlint-react-smoke",' \
+            '  "private": true,' \
+            '  "type": "module"' \
+            '}' \
+            > "$APP_DIR/package.json"
+
+          pushd "$APP_DIR" >/dev/null
+          PACKED_TARBALL="$(npm pack "vastlint-react@${VASTLINT_VERSION}" --silent)"
+          npm install --no-package-lock --ignore-scripts \
+            "./$PACKED_TARBALL" \
+            react@19.2.0 \
+            react-dom@19.2.0 \
+            jsdom@26.1.0
+          rm "$PACKED_TARBALL"
+
+          cat > smoke.mjs <<'EOF'
+          import React, { act } from 'react';
+          import { JSDOM } from 'jsdom';
+          import { createRoot } from 'react-dom/client';
+
+          import {
+            useVastPlayback,
+            useVastSession,
+            useVastTracker,
+          } from 'vastlint-react';
+
+          globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+
+          function defineGlobal(name, value) {
+            Object.defineProperty(globalThis, name, {
+              configurable: true,
+              writable: true,
+              value,
+            });
+          }
+
+          function installDomGlobals(window) {
+            defineGlobal('window', window);
+            defineGlobal('document', window.document);
+            defineGlobal('navigator', window.navigator);
+            defineGlobal('HTMLElement', window.HTMLElement);
+            defineGlobal('Node', window.Node);
+            defineGlobal('Event', window.Event);
+            defineGlobal('CustomEvent', window.CustomEvent);
+            defineGlobal('requestAnimationFrame', (callback) => setTimeout(() => callback(Date.now()), 0));
+            defineGlobal('cancelAnimationFrame', (id) => clearTimeout(id));
+          }
+
+          function createPixelResponse() {
+            return {
+              ok: true,
+              status: 204,
+              statusText: 'No Content',
+              async text() {
+                return '';
+              },
+            };
+          }
+
+          const playbackFixture = `<?xml version="1.0" encoding="UTF-8"?>
+          <VAST version="4.2">
+            <Ad id="playback-1">
+              <InLine>
+                <AdSystem>Playback Demo</AdSystem>
+                <AdTitle>Playback Fixture</AdTitle>
+                <Impression><![CDATA[https://track.example.com/impression]]></Impression>
+                <Creatives>
+                  <Creative>
+                    <Linear>
+                      <Duration>00:00:20</Duration>
+                      <TrackingEvents>
+                        <Tracking event="creativeView"><![CDATA[https://track.example.com/creative-view]]></Tracking>
+                        <Tracking event="start"><![CDATA[https://track.example.com/start]]></Tracking>
+                      </TrackingEvents>
+                      <MediaFiles>
+                        <MediaFile delivery="progressive" type="video/mp4" width="1280" height="720"><![CDATA[https://cdn.example.com/video.mp4]]></MediaFile>
+                      </MediaFiles>
+                    </Linear>
+                  </Creative>
+                </Creatives>
+              </InLine>
+            </Ad>
+          </VAST>`;
+
+          const trackingCalls = [];
+          let latest = null;
+          const dom = new JSDOM('<!doctype html><html><body></body></html>');
+          installDomGlobals(dom.window);
+
+          const container = dom.window.document.createElement('div');
+          dom.window.document.body.append(container);
+          const root = createRoot(container);
+
+          function Probe() {
+            const session = useVastSession({
+              source: { kind: 'xml', xml: playbackFixture },
+              fetch: async (url) => {
+                trackingCalls.push(String(url));
+                return createPixelResponse();
+              },
+              autoLoad: false,
+              autoValidate: false,
+            });
+            const tracker = useVastTracker({ session: session.session });
+            const playback = useVastPlayback({
+              session: session.session,
+              autoInitialize: false,
+              mediaSelection: {
+                supportedMimeTypes: ['video/mp4'],
+              },
+            });
+
+            latest = { session, tracker, playback };
+            return null;
+          }
+
+          await act(async () => {
+            root.render(React.createElement(Probe));
+          });
+
+          if (!latest || latest.session.snapshot.status !== 'idle') {
+            throw new Error('expected hook session to start idle');
+          }
+
+          await act(async () => {
+            await latest.playback.initialize();
+          });
+
+          if (latest.playback.snapshot.status !== 'ready') {
+            throw new Error('expected hook playback to become ready');
+          }
+
+          if (latest.playback.snapshot.resolvedAd?.adTitle !== 'Playback Fixture') {
+            throw new Error('expected hook playback to expose resolved ad metadata');
+          }
+
+          await act(async () => {
+            await latest.playback.start();
+          });
+
+          if (latest.playback.snapshot.status !== 'playing') {
+            throw new Error('expected hook playback to enter playing state');
+          }
+
+          if (latest.tracker.tracking.history.length < 3) {
+            throw new Error('expected hook tracker history to record impression/start events');
+          }
+
+          for (const url of [
+            'https://track.example.com/impression',
+            'https://track.example.com/creative-view',
+            'https://track.example.com/start',
+          ]) {
+            if (!trackingCalls.includes(url)) {
+              throw new Error('expected hook playback tracking call for ' + url);
+            }
+          }
+
+          await act(async () => {
+            root.unmount();
+          });
+          dom.window.close();
+
+          console.log('vastlint-react smoke passed');
+          EOF
+
+          node smoke.mjs
+          popd >/dev/null
+
   smoke-erlang:
     name: Smoke published Erlang package
     runs-on: ubuntu-latest
@@ -190,8 +520,18 @@ jobs:
 
       - name: Install Hex and rebar3
         run: |
+          set -euo pipefail
+
           mix local.hex --force
           mix local.rebar --force
+
+          rebar3_bin="$(find "${MIX_HOME:-$HOME/.mix}" -type f -name rebar3 | head -n 1)"
+          if [[ -z "$rebar3_bin" ]]; then
+            echo "rebar3 binary not found after mix local.rebar"
+            exit 1
+          fi
+
+          echo "REBAR3_BIN=$rebar3_bin" >> "$GITHUB_ENV"
 
       - name: Build disposable rebar3 app with vastlint
         shell: bash
@@ -235,7 +575,7 @@ jobs:
             > "$APP_DIR/src/smoke_runner.erl"
 
           pushd "$APP_DIR" >/dev/null
-          rebar3 compile
+          "$REBAR3_BIN" compile
           erl -noshell \
             -pa _build/default/lib/*/ebin \
             -eval "smoke_runner:main(\"$GITHUB_WORKSPACE/$VALID_FIXTURE\", \"$GITHUB_WORKSPACE/$INVALID_FIXTURE\")." \
