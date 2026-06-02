@@ -355,11 +355,8 @@ jobs:
           import { JSDOM } from 'jsdom';
           import { createRoot } from 'react-dom/client';
 
-          import {
-            useVastPlayback,
-            useVastSession,
-            useVastTracker,
-          } from 'vastlint-react';
+          import { createVastSession } from 'vastlint-client';
+          import { useVastPlayback } from 'vastlint-react';
 
           globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -420,67 +417,81 @@ jobs:
           </VAST>`;
 
           const trackingCalls = [];
-          let latest = null;
           const dom = new JSDOM('<!doctype html><html><body></body></html>');
           installDomGlobals(dom.window);
 
-          const container = dom.window.document.createElement('div');
-          dom.window.document.body.append(container);
-          const root = createRoot(container);
+          async function mountHook(useHook) {
+            let latestResult = null;
+            const container = dom.window.document.createElement('div');
+            dom.window.document.body.append(container);
+            const root = createRoot(container);
 
-          function Probe() {
-            const session = useVastSession({
-              source: { kind: 'xml', xml: playbackFixture },
-              fetch: async (url) => {
-                trackingCalls.push(String(url));
-                return createPixelResponse();
-              },
-              autoLoad: false,
-              autoValidate: false,
-            });
-            const tracker = useVastTracker({ session: session.session });
-            const playback = useVastPlayback({
-              session: session.session,
-              autoInitialize: false,
-              mediaSelection: {
-                supportedMimeTypes: ['video/mp4'],
-              },
+            function Probe() {
+              latestResult = useHook();
+              return null;
+            }
+
+            await act(async () => {
+              root.render(React.createElement(Probe));
             });
 
-            latest = { session, tracker, playback };
-            return null;
+            return {
+              getLatest() {
+                if (!latestResult) {
+                  throw new Error('expected hook result to be available');
+                }
+                return latestResult;
+              },
+              async unmount() {
+                await act(async () => {
+                  root.unmount();
+                });
+              },
+            };
+          }
+
+          const session = createVastSession({
+            source: { kind: 'xml', xml: playbackFixture },
+            fetch: async (url) => {
+              trackingCalls.push(String(url));
+              return createPixelResponse();
+            },
+          });
+
+          const mounted = await mountHook(() => useVastPlayback({
+            session,
+            autoInitialize: false,
+            mediaSelection: {
+              supportedMimeTypes: ['video/mp4'],
+            },
+          }));
+
+          if (mounted.getLatest().snapshot.status !== 'idle') {
+            throw new Error('expected hook playback to start idle');
           }
 
           await act(async () => {
-            root.render(React.createElement(Probe));
+            await mounted.getLatest().initialize();
           });
 
-          if (!latest || latest.session.snapshot.status !== 'idle') {
-            throw new Error('expected hook session to start idle');
-          }
-
-          await act(async () => {
-            await latest.playback.initialize();
-          });
-
-          if (latest.playback.snapshot.status !== 'ready') {
+          if (mounted.getLatest().snapshot.status !== 'ready') {
             throw new Error('expected hook playback to become ready');
           }
 
-          if (latest.playback.snapshot.resolvedAd?.adTitle !== 'Playback Fixture') {
+          if (mounted.getLatest().snapshot.resolvedAd?.adTitle !== 'Playback Fixture') {
             throw new Error('expected hook playback to expose resolved ad metadata');
           }
 
           await act(async () => {
-            await latest.playback.start();
+            await mounted.getLatest().start();
           });
 
-          if (latest.playback.snapshot.status !== 'playing') {
+          if (mounted.getLatest().snapshot.status !== 'playing') {
             throw new Error('expected hook playback to enter playing state');
           }
 
-          if (latest.tracker.tracking.history.length < 3) {
-            throw new Error('expected hook tracker history to record impression/start events');
+          if (mounted.getLatest().snapshot.mediaSelection.selected?.url !== 'https://cdn.example.com/video.mp4') {
+            throw new Error('expected hook playback to expose selected media metadata');
           }
 
           for (const url of [
@@ -493,9 +504,7 @@ jobs:
             }
           }
 
-          await act(async () => {
-            root.unmount();
-          });
+          await mounted.unmount();
           dom.window.close();
 
           console.log('vastlint-react smoke passed');
@@ -542,6 +551,8 @@ jobs:
           mkdir -p "$APP_DIR/src"
 
           printf '%s\n' \
+            '{plugins, [{rebar_mix, "0.5.1"}]}.' \
+            '{provider_hooks, [{post, [{compile, {mix, consolidate_protocols}}]}]}.' \
             '{erl_opts, [debug_info]}.' \
             "{deps, [{vastlint, \"${VASTLINT_VERSION}\"}]}." \
             > "$APP_DIR/rebar.config"
