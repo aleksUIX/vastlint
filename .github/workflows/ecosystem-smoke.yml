@@ -527,6 +527,9 @@ jobs:
           otp-version: "27.3"
           elixir-version: "1.18"
 
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@3c5f7ea28cd621ae0bf5283f0e981fb97b8a7af9  # stable
+
       - name: Install Hex and rebar3
         run: |
           set -euo pipefail
@@ -546,6 +549,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          export VASTLINT_BUILD=true
 
           APP_DIR="$RUNNER_TEMP/vastlint-erlang-smoke"
           mkdir -p "$APP_DIR/src"
