@@ -118,7 +118,7 @@
     "vastlint": "file:../npm"
   },
   "devDependencies": {
-    "@vscode/vsce": "3.9.1",
+    "@vscode/vsce": "3.9.2",
     "@types/node": "^25.9.2",
     "@types/vscode": "1.85.0",
     "esbuild": "^0.28.0",
