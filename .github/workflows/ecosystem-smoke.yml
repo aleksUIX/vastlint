@@ -13,7 +13,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  VASTLINT_VERSION: "0.4.21"
+  VASTLINT_VERSION: "0.4.22"
   VALID_FIXTURE: crates/vastlint-core/tests/fixtures/valid_4.2.xml
   INVALID_FIXTURE: crates/vastlint-core/tests/fixtures/err_no_ad.xml
 

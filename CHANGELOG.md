@@ -6,6 +6,25 @@ GitHub Releases: <https://github.com/aleksUIX/vastlint/releases>
 
 ---
 
+## [0.4.22] - 2026-06-08
+
+### CI / release
+
+- **Ecosystem smoke stabilized**: fixed the Erlang path/build issues in the published package smoke workflow so release verification now covers the shipped ecosystem again.
+- **Release workflow inputs refreshed**: updated pinned GitHub Action dependencies including `actions/checkout` and `docker/setup-qemu-action` for the next patch release.
+
+### VS Code extension
+
+- **Packaging toolchain patched**: bumped `@vscode/vsce` to `3.9.2`, `@types/node` to `25.9.2`, and kept `ovsx` on `1.0.0` in the extension release surface.
+
+### Client
+
+- **Client package refreshed**: pulled in the current `vastlint-client` update from `main` for the patch release train.
+
+### Release metadata
+
+- **Channel versions aligned**: bumped the Rust crates, npm package, VS Code extension, Chrome extension, workflow version pins, and tracked lockfiles to `0.4.22`.
+
 ## [0.4.21] - 2026-05-31
 
 ### Security / supply chain
