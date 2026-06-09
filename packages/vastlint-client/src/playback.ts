@@ -159,10 +159,11 @@ export function createVastPlaybackController(
     }
   };
 
-  const sessionUnsubscribe = options.session.subscribe((sessionSnapshot) => {
+  const deriveSnapshotFromSession = (sessionSnapshot: VastSessionSnapshot): VastPlaybackSnapshot => {
     const resolvedAd = sessionSnapshot.resolvedAd;
     const adChanged = buildAdKey(snapshot.resolvedAd) !== buildAdKey(resolvedAd);
-    const nextSnapshot = adChanged
+
+    return adChanged
       ? {
           ...buildBaseSnapshot(sessionSnapshot, options),
           muted: snapshot.muted,
@@ -179,8 +180,10 @@ export function createVastPlaybackController(
           error: sessionSnapshot.error?.message ?? snapshot.error,
           status: normalizeStatus(snapshot.status, sessionSnapshot, resolvedAd),
         };
+  };
 
-    snapshot = nextSnapshot;
+  const sessionUnsubscribe = options.session.subscribe((sessionSnapshot) => {
+    snapshot = deriveSnapshotFromSession(sessionSnapshot);
     notify();
   });
 
@@ -204,19 +207,22 @@ export function createVastPlaybackController(
   };
 
   const ensureReady = async (): Promise<VastResolvedAd> => {
+    snapshot = deriveSnapshotFromSession(options.session.getSnapshot());
+
     if (!snapshot.resolvedAd) {
       if (options.autoResolve === false) {
         throw new Error("VAST playback controller requires a resolved session when autoResolve is false.");
       }
 
       await options.session.resolve();
+      snapshot = deriveSnapshotFromSession(options.session.getSnapshot());
     }
 
     if (!snapshot.resolvedAd || !snapshot.resolvedAd.resolved) {
       throw new Error("No resolved inline VAST ad is available for playback.");
     }
 
-    if (snapshot.status === "idle") {
+    if (snapshot.status !== "ready" || snapshot.error !== null) {
       setSnapshot({
         ...snapshot,
         status: "ready",

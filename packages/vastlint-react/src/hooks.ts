@@ -359,11 +359,13 @@ export function useVastPlayback(options: UseVastPlaybackOptions): VastPlaybackHo
   const { autoInitialize = true, ...controllerOptions } = options;
   const trackedPlaybackRef = useRef<TrackedPlayback | null>(null);
   const autoInitializedControllersRef = useRef(new WeakSet<RuntimeVastPlaybackController>());
+  const disposedControllersRef = useRef(new WeakSet<RuntimeVastPlaybackController>());
 
   const playbackConfig = createPlaybackConfig(controllerOptions);
 
   if (
     !trackedPlaybackRef.current
+    || disposedControllersRef.current.has(trackedPlaybackRef.current.controller)
     || hasPlaybackConfigChanged(trackedPlaybackRef.current.config, playbackConfig)
   ) {
     trackedPlaybackRef.current = {
@@ -378,6 +380,7 @@ export function useVastPlayback(options: UseVastPlaybackOptions): VastPlaybackHo
 
   useEffect(() => {
     return () => {
+      disposedControllersRef.current.add(controller);
       controller.dispose();
     };
   }, [controller]);
@@ -440,11 +443,13 @@ export function useVastPlaybackQueue(options: UseVastPlaybackQueueOptions): Vast
   const { autoInitialize = true, ...controllerOptions } = options;
   const trackedPlaybackQueueRef = useRef<TrackedPlaybackQueue | null>(null);
   const autoInitializedControllersRef = useRef(new WeakSet<RuntimeVastPlaybackQueueController>());
+  const disposedControllersRef = useRef(new WeakSet<RuntimeVastPlaybackQueueController>());
 
   const playbackQueueConfig = createPlaybackQueueConfig(controllerOptions);
 
   if (
     !trackedPlaybackQueueRef.current
+    || disposedControllersRef.current.has(trackedPlaybackQueueRef.current.controller)
     || hasPlaybackQueueConfigChanged(trackedPlaybackQueueRef.current.config, playbackQueueConfig)
   ) {
     trackedPlaybackQueueRef.current = {
@@ -459,6 +464,7 @@ export function useVastPlaybackQueue(options: UseVastPlaybackQueueOptions): Vast
 
   useEffect(() => {
     return () => {
+      disposedControllersRef.current.add(controller);
       controller.dispose();
     };
   }, [controller]);

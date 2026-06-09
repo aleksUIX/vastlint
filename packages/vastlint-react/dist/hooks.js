@@ -230,8 +230,10 @@ export function useVastPlayback(options) {
     const { autoInitialize = true, ...controllerOptions } = options;
     const trackedPlaybackRef = useRef(null);
     const autoInitializedControllersRef = useRef(new WeakSet());
+    const disposedControllersRef = useRef(new WeakSet());
     const playbackConfig = createPlaybackConfig(controllerOptions);
     if (!trackedPlaybackRef.current
+        || disposedControllersRef.current.has(trackedPlaybackRef.current.controller)
         || hasPlaybackConfigChanged(trackedPlaybackRef.current.config, playbackConfig)) {
         trackedPlaybackRef.current = {
             config: playbackConfig,
@@ -243,6 +245,7 @@ export function useVastPlayback(options) {
     const snapshot = useSubscribedSnapshot(controller);
     useEffect(() => {
         return () => {
+            disposedControllersRef.current.add(controller);
             controller.dispose();
         };
     }, [controller]);
@@ -300,8 +303,10 @@ export function useVastPlaybackQueue(options) {
     const { autoInitialize = true, ...controllerOptions } = options;
     const trackedPlaybackQueueRef = useRef(null);
     const autoInitializedControllersRef = useRef(new WeakSet());
+    const disposedControllersRef = useRef(new WeakSet());
     const playbackQueueConfig = createPlaybackQueueConfig(controllerOptions);
     if (!trackedPlaybackQueueRef.current
+        || disposedControllersRef.current.has(trackedPlaybackQueueRef.current.controller)
         || hasPlaybackQueueConfigChanged(trackedPlaybackQueueRef.current.config, playbackQueueConfig)) {
         trackedPlaybackQueueRef.current = {
             config: playbackQueueConfig,
@@ -313,6 +318,7 @@ export function useVastPlaybackQueue(options) {
     const snapshot = useSubscribedSnapshot(controller);
     useEffect(() => {
         return () => {
+            disposedControllersRef.current.add(controller);
             controller.dispose();
         };
     }, [controller]);
