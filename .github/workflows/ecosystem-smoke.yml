@@ -16,6 +16,7 @@ env:
   VASTLINT_VERSION: "0.4.22"
   VALID_FIXTURE: crates/vastlint-core/tests/fixtures/valid_4.2.xml
   INVALID_FIXTURE: crates/vastlint-core/tests/fixtures/err_no_ad.xml
+  CHROME_WEB_STORE_EXTENSION_ID: "chbbcgdpdpcmkocbmeljkfefeeknghnb"
 
 jobs:
   smoke-cli:
@@ -591,7 +592,21 @@ jobs:
 
           echo "CHROME_SMOKE_DIR=$SMOKE_DIR" >> "$GITHUB_ENV"
 
-      - name: Launch Chrome with unpacked extension
+      - name: Configure Chrome Web Store policy install
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          sudo install -d -m 0755 /etc/opt/chrome/policies/managed
+          cat <<EOF | sudo tee /etc/opt/chrome/policies/managed/vastlint-smoke.json >/dev/null
+          {
+            "ExtensionInstallForcelist": [
+              "${CHROME_WEB_STORE_EXTENSION_ID};https://clients2.google.com/service/update2/crx"
+            ]
+          }
+          EOF
+
+      - name: Smoke unpacked and Web Store Chrome extension installs
         shell: bash
         run: |
           set -euo pipefail
@@ -603,7 +618,7 @@ jobs:
           import { chromium } from 'playwright';
 
           const extensionPath = path.join(process.env.GITHUB_WORKSPACE, 'chrome', 'dist');
-          const userDataDir = path.join(process.env.RUNNER_TEMP, 'chrome-profile');
+          const publishedExtensionId = process.env.CHROME_WEB_STORE_EXTENSION_ID;
           const fixtureHtml = `<!doctype html>
           <html>
             <body>
@@ -619,7 +634,40 @@ jobs:
           </html>`;
 
           let server;
-          let context;
+
+          async function smokeChromeInstall({ label, userDataDir, args = [], expectedPrefix }) {
+            let context;
+
+            try {
+              context = await chromium.launchPersistentContext(userDataDir, {
+                channel: 'chrome',
+                headless: false,
+                args,
+              });
+
+              let serviceWorker = context.serviceWorkers().find((worker) => worker.url().startsWith(expectedPrefix));
+              if (!serviceWorker) {
+                serviceWorker = await context.waitForEvent('serviceworker', {
+                  timeout: 60000,
+                  predicate: (worker) => worker.url().startsWith(expectedPrefix),
+                });
+              }
+
+              const serviceWorkerUrl = serviceWorker.url();
+              const page = await context.newPage();
+              await page.goto(`http://127.0.0.1:${server.address().port}/`, { waitUntil: 'networkidle' });
+              await page.waitForSelector('[data-vastlint-overlay]', { timeout: 30000 });
+
+              const overlayCount = await page.locator('[data-vastlint-overlay]').count();
+              if (overlayCount < 1) {
+                throw new Error(`Expected VASTlint overlay to be injected for ${label}`);
+              }
+
+              console.log(`${label} smoke passed (${serviceWorkerUrl})`);
+            } finally {
+              await context?.close();
+            }
+          }
 
           try {
             server = http.createServer((_req, res) => {
@@ -636,42 +684,27 @@ jobs:
               throw new Error('Failed to determine local server address');
             }
 
-            context = await chromium.launchPersistentContext(userDataDir, {
-              channel: 'chrome',
-              headless: false,
+            await smokeChromeInstall({
+              label: 'Unpacked Chrome extension',
+              userDataDir: path.join(process.env.RUNNER_TEMP, 'chrome-profile-unpacked'),
               args: [
                 `--disable-extensions-except=${extensionPath}`,
                 `--load-extension=${extensionPath}`,
               ],
+              expectedPrefix: 'chrome-extension://',
             });
 
-            let serviceWorker = context.serviceWorkers()[0];
-            if (!serviceWorker) {
-              serviceWorker = await context.waitForEvent('serviceworker', { timeout: 30000 });
-            }
-
-            const serviceWorkerUrl = serviceWorker.url();
-            if (!serviceWorkerUrl.startsWith('chrome-extension://')) {
-              throw new Error(`Unexpected extension service worker URL: ${serviceWorkerUrl}`);
-            }
-
-            const page = await context.newPage();
-            await page.goto(`http://127.0.0.1:${address.port}/`, { waitUntil: 'networkidle' });
-            await page.waitForSelector('[data-vastlint-overlay]', { timeout: 30000 });
-
-            const overlayCount = await page.locator('[data-vastlint-overlay]').count();
-            if (overlayCount < 1) {
-              throw new Error('Expected VASTlint overlay to be injected into the page');
-            }
-
-            console.log(`Chrome extension smoke passed (${serviceWorkerUrl})`);
+            await smokeChromeInstall({
+              label: 'Chrome Web Store extension',
+              userDataDir: path.join(process.env.RUNNER_TEMP, 'chrome-profile-webstore'),
+              expectedPrefix: `chrome-extension://${publishedExtensionId}/`,
+            });
           } finally {
-            await context?.close();
             await new Promise((resolve) => server?.close(() => resolve()));
           }
           EOF
 
-          xvfb-run -a node "$CHROME_SMOKE_DIR/smoke-extension.mjs"
+          xvfb-run -a env CHROME_WEB_STORE_EXTENSION_ID="$CHROME_WEB_STORE_EXTENSION_ID" node "$CHROME_SMOKE_DIR/smoke-extension.mjs"
 
   smoke-vscode-vscodium-extension:
     name: Smoke VS Code/VSCodium extension package
