@@ -6,6 +6,16 @@ GitHub Releases: <https://github.com/aleksUIX/vastlint/releases>
 
 ---
 
+## [0.4.23] - 2026-06-09
+
+### Branding
+
+- **VASTlint display branding aligned**: updated the user-facing product name across the root docs, Chrome extension UI, VS Code extension metadata, MCP docs, and package descriptions to use `VASTlint` while keeping commands, repo names, package names, URLs, and config keys unchanged.
+
+### Release metadata
+
+- **Channel versions aligned**: bumped the Rust crates, npm package, VS Code extension, Chrome extension, and tracked lockfiles to `0.4.23`.
+
 ## [0.4.22] - 2026-06-08
 
 ### CI / release
