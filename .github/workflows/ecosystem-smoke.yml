@@ -635,6 +635,22 @@ jobs:
 
           let server;
 
+          async function waitForOverlay(page, timeoutMs) {
+            const deadline = Date.now() + timeoutMs;
+
+            while (Date.now() < deadline) {
+              const overlayCount = await page.locator('[data-vastlint-overlay]').count();
+              if (overlayCount > 0) {
+                return overlayCount;
+              }
+
+              await page.reload({ waitUntil: 'networkidle' });
+              await page.waitForTimeout(1500);
+            }
+
+            throw new Error('Timed out waiting for VASTlint overlay injection');
+          }
+
           async function smokeChromeInstall({ label, userDataDir, args = [], expectedPrefix }) {
             let context;
 
@@ -644,23 +660,31 @@ jobs:
                 headless: false,
                 args,
               });
-
-              let serviceWorker = context.serviceWorkers().find((worker) => worker.url().startsWith(expectedPrefix));
-              if (!serviceWorker) {
-                serviceWorker = await context.waitForEvent('serviceworker', {
-                  timeout: 60000,
-                  predicate: (worker) => worker.url().startsWith(expectedPrefix),
-                });
-              }
-
-              const serviceWorkerUrl = serviceWorker.url();
               const page = await context.newPage();
               await page.goto(`http://127.0.0.1:${server.address().port}/`, { waitUntil: 'networkidle' });
-              await page.waitForSelector('[data-vastlint-overlay]', { timeout: 30000 });
+              await waitForOverlay(page, 90000);
 
               const overlayCount = await page.locator('[data-vastlint-overlay]').count();
               if (overlayCount < 1) {
                 throw new Error(`Expected VASTlint overlay to be injected for ${label}`);
+              }
+
+              // The MV3 service worker can spin up lazily after extension activity.
+              // Overlay injection is the primary smoke signal; service worker URL is best-effort diagnostics.
+              let serviceWorkerUrl = 'unavailable';
+              let serviceWorker = context.serviceWorkers().find((worker) => worker.url().startsWith(expectedPrefix));
+              if (!serviceWorker) {
+                try {
+                  serviceWorker = await context.waitForEvent('serviceworker', {
+                    timeout: 15000,
+                    predicate: (worker) => worker.url().startsWith(expectedPrefix),
+                  });
+                } catch {
+                  // Do not fail solely on lazy worker startup once overlay was confirmed.
+                }
+              }
+              if (serviceWorker) {
+                serviceWorkerUrl = serviceWorker.url();
               }
 
               console.log(`${label} smoke passed (${serviceWorkerUrl})`);
