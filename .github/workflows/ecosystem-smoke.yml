@@ -627,3 +627,94 @@ jobs:
           test -s vastlint-smoke.vsix
           unzip -l vastlint-smoke.vsix | grep -q 'extension/package.json'
           unzip -l vastlint-smoke.vsix | grep -q 'extension/out/extension.js'
+
+  smoke-editor-marketplace-install:
+    name: Smoke editor marketplace installs
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6.0.3
+
+      - name: Install Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e  # v6.4.0
+        with:
+          node-version: '22'
+          package-manager-cache: false
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@3c5f7ea28cd621ae0bf5283f0e981fb97b8a7af9  # stable
+        with:
+          toolchain: stable
+          targets: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4  # v2.9.1
+
+      - name: Install wasm-pack
+        run: cargo install wasm-pack --locked
+
+      - name: Build WASM payload for extension npm dependency
+        run: |
+          wasm-pack build crates/vastlint-wasm --target bundler --out-dir ../../npm/pkg
+          wasm-pack build crates/vastlint-wasm --target nodejs --out-dir ../../npm/pkg-node
+
+      - name: Assemble npm package
+        run: node npm/scripts/assemble.js
+
+      - name: Build and package VSIX
+        working-directory: vscode
+        run: |
+          npm ci
+          npm run bundle
+          npx --no-install vsce package --no-update-package-json --out vastlint-smoke.vsix
+
+      - name: Download portable VS Code and VSCodium
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          mkdir -p "$RUNNER_TEMP/editors"
+
+          curl -fL "https://update.code.visualstudio.com/latest/linux-x64/stable" -o "$RUNNER_TEMP/editors/vscode.tar.gz"
+          mkdir -p "$RUNNER_TEMP/editors/vscode"
+          tar -xzf "$RUNNER_TEMP/editors/vscode.tar.gz" -C "$RUNNER_TEMP/editors/vscode"
+          echo "VSCODE_BIN=$RUNNER_TEMP/editors/vscode/VSCode-linux-x64/bin/code" >> "$GITHUB_ENV"
+
+          CODIUM_URL="$(curl -fsSL https://api.github.com/repos/VSCodium/vscodium/releases/latest | grep browser_download_url | grep 'VSCodium-linux-x64-.*\.tar\.gz' | head -n1 | cut -d '"' -f4)"
+          if [[ -z "$CODIUM_URL" ]]; then
+            echo "Could not determine VSCodium release tarball URL"
+            exit 1
+          fi
+
+          curl -fL "$CODIUM_URL" -o "$RUNNER_TEMP/editors/vscodium.tar.gz"
+          mkdir -p "$RUNNER_TEMP/editors/vscodium"
+          tar -xzf "$RUNNER_TEMP/editors/vscodium.tar.gz" -C "$RUNNER_TEMP/editors/vscodium"
+          echo "VSCODIUM_BIN=$RUNNER_TEMP/editors/vscodium/bin/codium" >> "$GITHUB_ENV"
+
+      - name: Install from VS Code Marketplace in VS Code
+        shell: bash
+        run: |
+          set -euo pipefail
+          "$VSCODE_BIN" --user-data-dir "$RUNNER_TEMP/vscode-user" --extensions-dir "$RUNNER_TEMP/vscode-exts" --install-extension aleksUIX.vastlint --force
+          "$VSCODE_BIN" --user-data-dir "$RUNNER_TEMP/vscode-user" --extensions-dir "$RUNNER_TEMP/vscode-exts" --list-extensions | grep -qi '^aleksuix\.vastlint$'
+
+      - name: Install from Open VSX in VSCodium
+        shell: bash
+        run: |
+          set -euo pipefail
+          "$VSCODIUM_BIN" --user-data-dir "$RUNNER_TEMP/codium-user" --extensions-dir "$RUNNER_TEMP/codium-exts" --install-extension aleksUIX.vastlint --force
+          "$VSCODIUM_BIN" --user-data-dir "$RUNNER_TEMP/codium-user" --extensions-dir "$RUNNER_TEMP/codium-exts" --list-extensions | grep -qi '^aleksuix\.vastlint$'
+
+      - name: Install local VSIX in both editors
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          VSIX_PATH="$GITHUB_WORKSPACE/vscode/vastlint-smoke.vsix"
+          test -f "$VSIX_PATH"
+
+          "$VSCODE_BIN" --user-data-dir "$RUNNER_TEMP/vscode-user-local" --extensions-dir "$RUNNER_TEMP/vscode-exts-local" --install-extension "$VSIX_PATH" --force
+          "$VSCODE_BIN" --user-data-dir "$RUNNER_TEMP/vscode-user-local" --extensions-dir "$RUNNER_TEMP/vscode-exts-local" --list-extensions | grep -qi '^aleksuix\.vastlint$'
+
+          "$VSCODIUM_BIN" --user-data-dir "$RUNNER_TEMP/codium-user-local" --extensions-dir "$RUNNER_TEMP/codium-exts-local" --install-extension "$VSIX_PATH" --force
+          "$VSCODIUM_BIN" --user-data-dir "$RUNNER_TEMP/codium-user-local" --extensions-dir "$RUNNER_TEMP/codium-exts-local" --list-extensions | grep -qi '^aleksuix\.vastlint$'
