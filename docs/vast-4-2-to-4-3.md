@@ -74,7 +74,7 @@ The IAB moved the VAST macros reference to a separate, independently maintained 
 
 ## `<JavaScriptResource browserOptional>` Recommended
 
-While not new in 4.3, the `browserOptional` attribute on `<JavaScriptResource>` — added in 4.1 — has a corresponding vastlint rule that flags its absence. For CTV/non-browser delivery contexts, this attribute tells the player whether the JavaScript resource is strictly required or whether execution can proceed without it.
+While not new in 4.3, the `browserOptional` attribute on `<JavaScriptResource>` — added in 4.1 — has a corresponding VASTlint rule that flags its absence. For CTV/non-browser delivery contexts, this attribute tells the player whether the JavaScript resource is strictly required or whether execution can proceed without it.
 
 ```xml
 <JavaScriptResource apiFramework="omid" browserOptional="false">

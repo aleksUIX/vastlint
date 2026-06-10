@@ -2,7 +2,7 @@
   "name": "vastlint-client",
   "version": "0.1.0",
   "private": true,
-  "description": "Headless VAST session/runtime package built on top of vastlint.",
+  "description": "Headless VAST session/runtime package built on top of VASTlint.",
   "license": "Apache-2.0",
   "author": "Alex Sekowski <alex@vastlint.org>",
   "homepage": "https://vastlint.org",

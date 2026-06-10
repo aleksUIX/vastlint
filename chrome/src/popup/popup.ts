@@ -130,12 +130,12 @@ async function init() {
       siteToggle.classList.remove('on');
       siteToggle.classList.add('disabled-state');
       toggleLabel.textContent = 'off';
-      siteToggle.title = `vastlint is OFF on ${host} — click to enable`;
+      siteToggle.title = `VASTlint is OFF on ${host} — click to enable`;
     } else {
       siteToggle.classList.add('on');
       siteToggle.classList.remove('disabled-state');
       toggleLabel.textContent = 'on';
-      siteToggle.title = `vastlint is ON on ${host} — click to disable`;
+      siteToggle.title = `VASTlint is ON on ${host} — click to disable`;
     }
   }
   applyToggleState();

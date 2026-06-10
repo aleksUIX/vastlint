@@ -1,4 +1,4 @@
-# vastlint - VAST XML Validator for VS Code
+# VASTlint - VAST XML Validator for VS Code
 
 Inline linting for [IAB VAST](https://iabtechlab.com/standards/vast/) ad tags directly in VS Code.
 Supports VAST 2.0 through 4.3 with clean Problems entries, concise hovers, fix guidance, and direct docs links. Web validator and full documentation: [vastlint.org](https://vastlint.org)
@@ -59,7 +59,7 @@ Docs: vastlint.org/docs/rules/VAST-2.0-inline-adsystem
 
 ## Rules
 
-vastlint checks 121 rules across:
+VASTlint checks 121 rules across:
 - Required elements and attributes (VAST 2.0–4.3)
 - Value formats (durations, URLs, enums)
 - Schema conformance (unknown elements/attributes)

@@ -1,5 +1,5 @@
 /**
- * VAST Lint overlay renderer.
+ * VASTlint overlay renderer.
  *
  * Two annotation modes, switchable via the summary bar:
  *
@@ -320,7 +320,7 @@ function renderOverlay(result: ValidationResult, anchor: HTMLElement, origToFmt?
       <span class="sep">·</span>
       <button class="mode-btn active" id="btn-inline" title="Inline line annotations">inline</button>
       <button class="mode-btn"        id="btn-panel"  title="Floating panel">panel</button>
-      <span class="logo">vastlint</span>
+      <span class="logo">VASTlint</span>
       <span class="bar-close" id="bar-close" title="Hide">✕</span>
     </div>
 
@@ -330,7 +330,7 @@ function renderOverlay(result: ValidationResult, anchor: HTMLElement, origToFmt?
       <div id="float-hdr">
         ${summaryHTML(result)}
         ${result.version ? `<span style="opacity:.5;font-size:10px;font-weight:400">VAST ${result.version}</span>` : ''}
-        <span class="logo">vastlint</span>
+        <span class="logo">VASTlint</span>
         <span class="close" id="float-close">✕</span>
       </div>
       <div id="float-body"></div>
@@ -878,7 +878,7 @@ function renderFloatingPanel(result: ValidationResult, anchor: Element | null) {
       <div id="hdr">
         ${summaryHTML(result)}
         <span id="float-ver-badge" style="opacity:.5;font-size:10px;font-weight:400;display:none"></span>
-        <span class="logo">vastlint</span>
+        <span class="logo">VASTlint</span>
       </div>
       <div id="body">
       </div>

@@ -21,7 +21,7 @@ VAST 4.0 removed `<ClickThrough>` from Wrapper `<VideoClicks>`, on the reasoning
 
 This was achieved in the XSD by collapsing the separate `VideoClicks_Base_type` and `VideoClicks_Inline_type` (4.1) into a single unified `VideoClicks_type` used by both InLine and Wrapper.
 
-**Practical implication:** A vastlint rule that fires for `<ClickThrough>` in Wrapper on version 4.0 or 4.1 documents should **not** fire on 4.2+ documents.
+**Practical implication:** A VASTlint rule that fires for `<ClickThrough>` in Wrapper on version 4.0 or 4.1 documents should **not** fire on 4.2+ documents.
 
 **Related validation rule:**
 - [`VAST-4.0-wrapper-clickthrough`](https://vastlint.org/docs/rules/VAST-4.0-wrapper-clickthrough/) — this rule is version-scoped to 4.0 and 4.1 only; it does not fire on 4.2+ documents

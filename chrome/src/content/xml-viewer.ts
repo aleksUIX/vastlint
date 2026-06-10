@@ -217,7 +217,7 @@ export function injectXmlViewer(src: string): { pre: HTMLPreElement; origToFmt: 
 
   const iDoc = iframe.contentDocument!;
   iDoc.open();
-  iDoc.write(`<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>VAST XML \u2014 vastlint</title>
+  iDoc.write(`<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>VAST XML \u2014 VASTlint</title>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html,body{background:#0d0d17;color:#cdd6f4;height:100%;overflow:hidden}
@@ -246,7 +246,7 @@ html,body{background:#0d0d17;color:#cdd6f4;height:100%;overflow:hidden}
 </style></head><body>
 <div id="root">
   <div id="toolbar">
-    <span class="logo">vastlint</span>
+    <span class="logo">VASTlint</span>
     <span style="opacity:.3">&middot;</span>
     <span class="url" id="url-bar"></span>
     <button id="btn-native">&#x2715; Native view</button>

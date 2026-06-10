@@ -212,7 +212,7 @@ The `sequence` attribute on `<Ad>` was present in 2.0 but was explicitly documen
 
 ---
 
-## Relevant New Rules in vastlint
+## Relevant New Rules in VASTlint
 
 Rules first enforced against VAST 3.0 documents (not applied to 2.0 documents):
 

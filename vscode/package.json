@@ -1,6 +1,6 @@
 {
   "name": "vastlint",
-  "displayName": "vastlint — VAST XML Validator",
+  "displayName": "VASTlint — VAST XML Validator",
   "description": "Inline linting for IAB VAST 2.0–4.3 ad tags with clean Problems entries, concise hovers, fix guidance, and docs links. Works in XML, HTML, JS templates, and more. 121 rules. CLI backend with WASM fallback.",
   "version": "0.4.22",
   "publisher": "aleksUIX",
@@ -45,7 +45,7 @@
     "commands": [
       {
         "command": "vastlint.fixAll",
-        "title": "vastlint: Fix All Auto-fixable Issues (Experimental)"
+        "title": "VASTlint: Fix All Auto-fixable Issues (Experimental)"
       }
     ],
     "languages": [
@@ -57,12 +57,12 @@
       }
     ],
     "configuration": {
-      "title": "vastlint",
+      "title": "VASTlint",
       "properties": {
         "vastlint.enable": {
           "type": "boolean",
           "default": true,
-          "description": "Enable/disable vastlint diagnostics."
+          "description": "Enable/disable VASTlint diagnostics."
         },
         "vastlint.minSeverity": {
           "type": "string",
@@ -101,7 +101,7 @@
         "vastlint.cliPath": {
           "type": "string",
           "default": "vastlint",
-          "description": "Path to the vastlint CLI binary. Defaults to 'vastlint' (searched on PATH and common install locations). Set an absolute path if the binary is not on PATH. When found, the CLI is used for validation; the bundled WASM is used as a fallback."
+          "description": "Path to the VASTlint CLI binary. Defaults to 'vastlint' (searched on PATH and common install locations). Set an absolute path if the binary is not on PATH. When found, the CLI is used for validation; the bundled WASM is used as a fallback."
         }
       }
     }

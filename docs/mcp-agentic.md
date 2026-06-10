@@ -1,6 +1,6 @@
-# VAST validation in agent-based ad delivery - vastlint MCP
+# VAST validation in agent-based ad delivery - VASTlint MCP
 
-> **TL;DR** - vastlint ships a native [Model Context Protocol](https://modelcontextprotocol.io) server at `vastlint.org/mcp`. Any MCP-compatible client or agent pipeline can call `validate_vast`, `validate_vast_url`, `explain_rule`, and `fix_vast` as structured tools with no custom integration work. This page covers how to connect and where it fits in the IAB AAMP stack.
+> **TL;DR** - VASTlint ships a native [Model Context Protocol](https://modelcontextprotocol.io) server at `vastlint.org/mcp`. Any MCP-compatible client or agent pipeline can call `validate_vast`, `validate_vast_url`, `explain_rule`, and `fix_vast` as structured tools with no custom integration work. This page covers how to connect and where it fits in the IAB AAMP stack.
 
 ---
 
@@ -8,7 +8,7 @@
 
 Malformed VAST tags are a common source of lost impressions, broken tracking, and discrepancies between buyers and sellers. Today most of that is caught - or missed - by ops teams and QA checklists. As creative trafficking moves into automated pipelines, those checks need to move with it.
 
-vastlint exposes a sub-millisecond validation engine via MCP: call it from a buyer agent before confirming a deal, from an SSAI server before stitching, or from CI before tagging a release. It returns structured JSON with rule IDs, XPath locations, and spec references - enough information to reject, fix, or escalate a creative without a manual review step.
+VASTlint exposes a sub-millisecond validation engine via MCP: call it from a buyer agent before confirming a deal, from an SSAI server before stitching, or from CI before tagging a release. It returns structured JSON with rule IDs, XPath locations, and spec references - enough information to reject, fix, or escalate a creative without a manual review step.
 
 ---
 

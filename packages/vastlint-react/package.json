@@ -2,7 +2,7 @@
   "name": "vastlint-react",
   "version": "0.1.0",
   "private": true,
-  "description": "Headless React hooks for vastlint-client.",
+  "description": "Headless React hooks for the VASTlint client runtime.",
   "license": "Apache-2.0",
   "author": "Alex Sekowski <alex@vastlint.org>",
   "homepage": "https://vastlint.org",

@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "VAST Lint",
+  "name": "VASTlint",
   "version": "0.4.22",
-  "description": "Detect and validate VAST XML on any page. IAB VAST 2.0–4.3, SIMID, VPAID. 121 rules. Wrapper chains. By vastlint.org.",
+  "description": "Detect and validate VAST XML on any page. IAB VAST 2.0–4.3, SIMID, VPAID. 121 rules. Wrapper chains. By VASTlint.",
   "permissions": ["activeTab", "storage"],
   "host_permissions": ["<all_urls>"],
   "icons": {
@@ -16,7 +16,7 @@
       "16": "icons/icon16.png",
       "48": "icons/icon48.png"
     },
-    "default_title": "VAST Lint"
+    "default_title": "VASTlint"
   },
   "background": {
     "service_worker": "service-worker.js",

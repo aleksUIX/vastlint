@@ -1,6 +1,6 @@
-# Getting started with vastlint
+# Getting started with VASTlint
 
-This tutorial walks through validating a VAST XML tag, reading the output, fixing the issues, and integrating vastlint into a CI pipeline.
+This tutorial walks through validating a VAST XML tag, reading the output, fixing the issues, and integrating VASTlint into a CI pipeline.
 
 ## Install
 
@@ -83,7 +83,7 @@ Errors mean the tag violates a "must" or "required" rule in the spec. Most ad SD
 
 > **`vastlint fix` is opinionated and experimental.** It applies a small set of deterministic, low-risk repairs (HTTPS upgrades, `conditionalAd` removal). Always review the diff before committing. Future releases may make individual fixes configurable.
 
-For issues that have a safe, unambiguous fix, vastlint can repair the file for you - but always preview first:
+For issues that have a safe, unambiguous fix, VASTlint can repair the file for you - but always preview first:
 
 ```
 vastlint fix tag.xml --dry-run
@@ -179,7 +179,7 @@ vastlint check *.xml --format json | jq 'select(.valid == false)'
 
 ## CI integration
 
-Add vastlint to your CI pipeline so broken tags never ship.
+Add VASTlint to your CI pipeline so broken tags never ship.
 
 GitHub Actions:
 
