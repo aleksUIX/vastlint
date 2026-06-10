@@ -576,6 +576,103 @@ jobs:
           done
           [ "$MISSING" -eq 0 ] || { echo "$MISSING required file(s) missing from dist/"; exit 1; }
 
+      - name: Install Playwright and Google Chrome
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          SMOKE_DIR="$RUNNER_TEMP/chrome-browser-smoke"
+          mkdir -p "$SMOKE_DIR"
+          pushd "$SMOKE_DIR" >/dev/null
+          npm init -y >/dev/null 2>&1
+          npm install --no-save playwright@1.55.0
+          npx playwright install --with-deps chrome
+          popd >/dev/null
+
+          echo "CHROME_SMOKE_DIR=$SMOKE_DIR" >> "$GITHUB_ENV"
+
+      - name: Launch Chrome with unpacked extension
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          cat > "$CHROME_SMOKE_DIR/smoke-extension.mjs" <<'EOF'
+          import http from 'node:http';
+          import path from 'node:path';
+
+          import { chromium } from 'playwright';
+
+          const extensionPath = path.join(process.env.GITHUB_WORKSPACE, 'chrome', 'dist');
+          const userDataDir = path.join(process.env.RUNNER_TEMP, 'chrome-profile');
+          const fixtureHtml = `<!doctype html>
+          <html>
+            <body>
+              <pre><?xml version="1.0" encoding="UTF-8"?>
+          <VAST version="4.2">
+            <Ad id="fixture-1">
+              <InLine>
+                <AdTitle>Broken fixture</AdTitle>
+              </InLine>
+            </Ad>
+          </VAST></pre>
+            </body>
+          </html>`;
+
+          let server;
+          let context;
+
+          try {
+            server = http.createServer((_req, res) => {
+              res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+              res.end(fixtureHtml);
+            });
+
+            await new Promise((resolve, reject) => {
+              server.listen(0, '127.0.0.1', (err) => (err ? reject(err) : resolve()));
+            });
+
+            const address = server.address();
+            if (!address || typeof address === 'string') {
+              throw new Error('Failed to determine local server address');
+            }
+
+            context = await chromium.launchPersistentContext(userDataDir, {
+              channel: 'chrome',
+              headless: false,
+              args: [
+                `--disable-extensions-except=${extensionPath}`,
+                `--load-extension=${extensionPath}`,
+              ],
+            });
+
+            let serviceWorker = context.serviceWorkers()[0];
+            if (!serviceWorker) {
+              serviceWorker = await context.waitForEvent('serviceworker', { timeout: 30000 });
+            }
+
+            const serviceWorkerUrl = serviceWorker.url();
+            if (!serviceWorkerUrl.startsWith('chrome-extension://')) {
+              throw new Error(`Unexpected extension service worker URL: ${serviceWorkerUrl}`);
+            }
+
+            const page = await context.newPage();
+            await page.goto(`http://127.0.0.1:${address.port}/`, { waitUntil: 'networkidle' });
+            await page.waitForSelector('[data-vastlint-overlay]', { timeout: 30000 });
+
+            const overlayCount = await page.locator('[data-vastlint-overlay]').count();
+            if (overlayCount < 1) {
+              throw new Error('Expected VASTlint overlay to be injected into the page');
+            }
+
+            console.log(`Chrome extension smoke passed (${serviceWorkerUrl})`);
+          } finally {
+            await context?.close();
+            await new Promise((resolve) => server?.close(() => resolve()));
+          }
+          EOF
+
+          xvfb-run -a node "$CHROME_SMOKE_DIR/smoke-extension.mjs"
+
   smoke-vscode-vscodium-extension:
     name: Smoke VS Code/VSCodium extension package
     runs-on: ubuntu-latest
