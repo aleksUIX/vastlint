@@ -6,6 +6,22 @@ GitHub Releases: <https://github.com/aleksUIX/vastlint/releases>
 
 ---
 
+## [0.4.24] - 2026-06-09
+
+### Core validator
+
+- **OMID coverage expanded inside core validation**: `validate()` and `validate_with_context()` now validate OMID compatibility blocks carried in pre-4.1 `Extension type="AdVerifications"` payloads, enforce Verification tracking semantics, and warn when `verificationNotExecuted` tracking URLs omit the `[REASON]` macro.
+- **Verification tracking tightened**: `<Tracking>` under `<Verification>` now only accepts `event="verificationNotExecuted"`, matching the VAST verification schema instead of the generic Linear tracking event set.
+
+### Documentation / metadata
+
+- **Public docs updated for shipped OMID support**: README, ROADMAP, MCP docs, tutorial copy, and package metadata now describe OMID validation as shipped instead of upcoming.
+- **Rule count aligned to 129**: release-facing docs and package descriptions now reflect the current catalog size.
+
+### Release metadata
+
+- **Channel versions aligned**: bumped the Rust crates, npm package, VS Code extension, Chrome extension, and tracked lockfiles to `0.4.24`.
+
 ## [0.4.23] - 2026-06-09
 
 ### Branding

@@ -892,6 +892,105 @@ fn valid_4_3_with_verification_produces_no_errors() {
     assert!(result.summary.is_valid());
 }
 
+#[test]
+fn valid_4_3_with_verification_produces_no_omid_semantic_warnings() {
+    let result = validate(&load("valid_4.3_with_verification.xml"));
+    for rule_id in [
+        "VAST-4.1-verification-vendor-format",
+        "VAST-4.1-verification-duplicate-vendor",
+        "VAST-4.1-verification-parameters",
+        "VAST-4.1-js-resource-apiframework-value",
+        "VAST-4.1-js-resource-https",
+        "VAST-4.1-exec-resource-apiframework-value",
+        "VAST-4.1-exec-resource-https",
+    ] {
+        assert!(
+            !has_issue(&result, rule_id),
+            "did not expect {rule_id} for valid_4.3_with_verification.xml, got: {:#?}",
+            result.issues
+        );
+    }
+}
+
+#[test]
+fn verification_vendor_format_fires_warning() {
+    let result = validate(&load("warn_verification_vendor_format.xml"));
+    assert!(
+        has_issue(&result, "VAST-4.1-verification-vendor-format"),
+        "expected VAST-4.1-verification-vendor-format, got: {:#?}",
+        result.issues
+    );
+    assert!(result.summary.is_valid());
+}
+
+#[test]
+fn duplicate_verification_vendor_fires_warning() {
+    let result = validate(&load("warn_verification_duplicate_vendor.xml"));
+    assert!(
+        has_issue(&result, "VAST-4.1-verification-duplicate-vendor"),
+        "expected VAST-4.1-verification-duplicate-vendor, got: {:#?}",
+        result.issues
+    );
+    assert!(result.summary.is_valid());
+}
+
+#[test]
+fn verification_in_extension_block_is_validated() {
+    let result = validate(&load("warn_verification_extension_compat.xml"));
+    assert!(
+        has_issue(&result, "VAST-4.1-verification-parameters"),
+        "expected VAST-4.1-verification-parameters from extension-carried verification block, got: {:#?}",
+        result.issues
+    );
+    assert!(
+        has_issue(&result, "VAST-4.1-js-resource-apiframework-value"),
+        "expected VAST-4.1-js-resource-apiframework-value from extension-carried verification block, got: {:#?}",
+        result.issues
+    );
+    assert!(result.summary.is_valid());
+}
+
+#[test]
+fn omid_semantic_resource_issues_fire_warnings() {
+    let result = validate(&load("warn_verification_omid_semantics.xml"));
+    for rule_id in [
+        "VAST-4.1-verification-parameters",
+        "VAST-4.1-js-resource-apiframework-value",
+        "VAST-4.1-js-resource-https",
+        "VAST-4.1-exec-resource-apiframework-value",
+        "VAST-4.1-exec-resource-https",
+    ] {
+        assert!(
+            has_issue(&result, rule_id),
+            "expected {rule_id}, got: {:#?}",
+            result.issues
+        );
+    }
+    assert!(result.summary.is_valid());
+}
+
+#[test]
+fn verification_tracking_invalid_event_fires_error() {
+    let result = validate(&load("err_verification_tracking_event.xml"));
+    assert!(
+        has_issue(&result, "VAST-4.1-tracking-event-value"),
+        "expected VAST-4.1-tracking-event-value, got: {:#?}",
+        result.issues
+    );
+    assert!(!result.summary.is_valid());
+}
+
+#[test]
+fn verification_tracking_missing_reason_macro_fires_warning() {
+    let result = validate(&load("warn_verification_tracking_reason.xml"));
+    assert!(
+        has_issue(&result, "VAST-4.1-verification-tracking-reason"),
+        "expected VAST-4.1-verification-tracking-reason, got: {:#?}",
+        result.issues
+    );
+    assert!(result.summary.is_valid());
+}
+
 // ── CTV / SSAI rules ─────────────────────────────────────────────────────────
 
 #[test]

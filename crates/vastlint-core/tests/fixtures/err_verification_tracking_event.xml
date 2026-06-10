@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<VAST version="4.3">
+  <Ad id="1">
+    <InLine>
+      <AdSystem>Test AdServer</AdSystem>
+      <AdTitle>Invalid Verification Tracking Event</AdTitle>
+      <AdServingId>TEST-TRACK-EVENT</AdServingId>
+      <Impression><![CDATA[https://example.com/impression]]></Impression>
+      <Creatives>
+        <Creative>
+          <UniversalAdId idRegistry="ad-id.org">TEST-TRACK-EVENT</UniversalAdId>
+          <Linear>
+            <Duration>00:00:30</Duration>
+            <MediaFiles>
+              <MediaFile delivery="progressive" type="video/mp4" width="1920" height="1080"><![CDATA[https://example.com/video.mp4]]></MediaFile>
+            </MediaFiles>
+          </Linear>
+        </Creative>
+      </Creatives>
+      <AdVerifications>
+        <Verification vendor="company.com-omid">
+          <JavaScriptResource apiFramework="omid" browserOptional="false"><![CDATA[https://verification.example.com/omid.js]]></JavaScriptResource>
+          <VerificationParameters><![CDATA[param=value]]></VerificationParameters>
+          <TrackingEvents>
+            <Tracking event="start"><![CDATA[https://verification.example.com/not-executed?reason=[REASON]]></Tracking>
+          </TrackingEvents>
+        </Verification>
+      </AdVerifications>
+    </InLine>
+  </Ad>
+</VAST>

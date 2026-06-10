@@ -2,7 +2,7 @@
 
 Full reference documentation for every rule is at **[vastlint.org/docs/rules](https://vastlint.org/docs/rules/)**.
 
-121 rules across IAB VAST 2.0 – 4.3 and SIMID 1.0 – 1.1. Each rule has a stable ID, a default severity (`error` / `warning` / `info`), and a dedicated docs page with the spec reference, examples, and fix guidance.
+129 rules across IAB VAST 2.0 – 4.3 and SIMID 1.0 – 1.1. Each rule has a stable ID, a default severity (`error` / `warning` / `info`), and a dedicated docs page with the spec reference, examples, and fix guidance.
 
 ---
 
@@ -133,10 +133,18 @@ Full reference documentation for every rule is at **[vastlint.org/docs/rules](ht
 | [VAST-4.1-mezzanine-height](https://vastlint.org/docs/rules/VAST-4.1-mezzanine-height/) | error | `<Mezzanine>` missing required `height` attribute |
 | [VAST-4.1-mezzanine-recommended](https://vastlint.org/docs/rules/VAST-4.1-mezzanine-recommended/) | info | No `<Mezzanine>` present — tag may be rejected in CTV/SSAI contexts |
 | [VAST-4.1-verification-vendor](https://vastlint.org/docs/rules/VAST-4.1-verification-vendor/) | error | `<Verification>` missing required `vendor` attribute |
+| [VAST-4.1-verification-vendor-format](https://vastlint.org/docs/rules/VAST-4.1-verification-vendor-format/) | warning | `<Verification>` vendor should use a domain-qualified identifier such as `company.com-omid` |
+| [VAST-4.1-verification-duplicate-vendor](https://vastlint.org/docs/rules/VAST-4.1-verification-duplicate-vendor/) | warning | `<AdVerifications>` contains duplicate vendor identifiers |
 | [VAST-4.1-verification-no-resource](https://vastlint.org/docs/rules/VAST-4.1-verification-no-resource/) | warning | `<Verification>` should have `<JavaScriptResource>` or `<ExecutableResource>` |
+| [VAST-4.1-verification-parameters](https://vastlint.org/docs/rules/VAST-4.1-verification-parameters/) | warning | OMID `<Verification>` should include non-empty `<VerificationParameters>` |
+| [VAST-4.1-verification-tracking-reason](https://vastlint.org/docs/rules/VAST-4.1-verification-tracking-reason/) | warning | `verificationNotExecuted` tracking URI should include the `[REASON]` macro |
 | [VAST-4.1-js-resource-apiframework](https://vastlint.org/docs/rules/VAST-4.1-js-resource-apiframework/) | error | `<JavaScriptResource>` missing required `apiFramework` attribute |
+| [VAST-4.1-js-resource-apiframework-value](https://vastlint.org/docs/rules/VAST-4.1-js-resource-apiframework-value/) | warning | OMID `<JavaScriptResource>` should declare `apiFramework="omid"` |
+| [VAST-4.1-js-resource-https](https://vastlint.org/docs/rules/VAST-4.1-js-resource-https/) | warning | OMID `<JavaScriptResource>` URL should use HTTPS |
 | [VAST-4.1-exec-resource-apiframework](https://vastlint.org/docs/rules/VAST-4.1-exec-resource-apiframework/) | error | `<ExecutableResource>` missing required `apiFramework` attribute |
+| [VAST-4.1-exec-resource-apiframework-value](https://vastlint.org/docs/rules/VAST-4.1-exec-resource-apiframework-value/) | warning | OMID `<ExecutableResource>` should declare `apiFramework="omid"` |
 | [VAST-4.1-exec-resource-type](https://vastlint.org/docs/rules/VAST-4.1-exec-resource-type/) | error | `<ExecutableResource>` missing required `type` attribute |
+| [VAST-4.1-exec-resource-https](https://vastlint.org/docs/rules/VAST-4.1-exec-resource-https/) | warning | OMID `<ExecutableResource>` reference should use HTTPS when it is a URL |
 | [VAST-4.1-blockedadcategories-no-authority](https://vastlint.org/docs/rules/VAST-4.1-blockedadcategories-no-authority/) | warning | `<BlockedAdCategories>` should have an `authority` attribute |
 | [VAST-4.1-tracking-event-value](https://vastlint.org/docs/rules/VAST-4.1-tracking-event-value/) | error | `event` attribute not in the valid set for this VAST version |
 | [VAST-4.1-companion-renderingmode-value](https://vastlint.org/docs/rules/VAST-4.1-companion-renderingmode-value/) | warning | `renderingMode` must be `default`, `end-card`, or `concurrent` |

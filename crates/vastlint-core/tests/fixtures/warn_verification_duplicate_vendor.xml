@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<VAST version="4.3">
+  <Ad id="1">
+    <InLine>
+      <AdSystem>Test AdServer</AdSystem>
+      <AdTitle>Duplicate Vendor Warning</AdTitle>
+      <AdServingId>TEST-SERVING-ID-102</AdServingId>
+      <Impression><![CDATA[https://example.com/impression]]></Impression>
+      <Creatives>
+        <Creative>
+          <UniversalAdId idRegistry="ad-id.org">TEST-1234</UniversalAdId>
+          <Linear>
+            <Duration>00:00:30</Duration>
+            <MediaFiles>
+              <MediaFile delivery="progressive" type="video/mp4" width="1920" height="1080">
+                <![CDATA[https://example.com/video_1080p.mp4]]>
+              </MediaFile>
+            </MediaFiles>
+          </Linear>
+        </Creative>
+      </Creatives>
+      <AdVerifications>
+        <Verification vendor="doubleverify.com-omid">
+          <JavaScriptResource apiFramework="omid" browserOptional="false">
+            <![CDATA[https://verification.example.com/omid.js]]>
+          </JavaScriptResource>
+          <VerificationParameters><![CDATA[param=value]]></VerificationParameters>
+        </Verification>
+        <Verification vendor="DoubleVerify.com-omid">
+          <JavaScriptResource apiFramework="omid" browserOptional="true">
+            <![CDATA[https://verification.example.com/omid-secondary.js]]>
+          </JavaScriptResource>
+          <VerificationParameters><![CDATA[param=secondary]]></VerificationParameters>
+        </Verification>
+      </AdVerifications>
+    </InLine>
+  </Ad>
+</VAST>

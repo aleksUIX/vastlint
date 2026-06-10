@@ -3,6 +3,8 @@
 //! These enforce fields the spec marks as "must" or "required". All fire at
 //! Severity::Error. Justification for each is noted inline with the spec ref.
 
+use std::collections::HashSet;
+
 use super::emit;
 use crate::parse::{Node, VastDocument};
 use crate::Issue;
@@ -303,14 +305,11 @@ fn check_inline(
 
     // VAST-4.1-verification-no-resource
     if let Some(ad_ver) = inline.child("AdVerifications") {
-        for (vi, ver_node) in ad_ver.children_named("Verification").enumerate() {
-            check_verification_resource(
-                ver_node,
-                &format!("{}/AdVerifications/Verification[{}]", path, vi),
-                ctx,
-                issues,
-            );
-        }
+        check_ad_verifications(ad_ver, &format!("{}/AdVerifications", path), ctx, issues);
+    }
+
+    if let Some(extensions) = inline.child("Extensions") {
+        check_embedded_ad_verifications(extensions, &format!("{}/Extensions", path), ctx, issues);
     }
 }
 
@@ -652,16 +651,13 @@ fn check_wrapper(
     if let Some(v) = version.best() {
         if v.at_least(&VastVersion::V4_1) {
             if let Some(av) = wrapper.child("AdVerifications") {
-                for (vi, ver_node) in av.children_named("Verification").enumerate() {
-                    check_verification_resource(
-                        ver_node,
-                        &format!("{}/AdVerifications/Verification[{}]", path, vi),
-                        ctx,
-                        issues,
-                    );
-                }
+                check_ad_verifications(av, &format!("{}/AdVerifications", path), ctx, issues);
             }
         }
+    }
+
+    if let Some(extensions) = wrapper.child("Extensions") {
+        check_embedded_ad_verifications(extensions, &format!("{}/Extensions", path), ctx, issues);
     }
 }
 
@@ -954,6 +950,54 @@ pub(super) fn check_mezzanine_required_attrs(
     }
 }
 
+fn check_ad_verifications(
+    ad_ver_node: &Node,
+    ad_ver_path: &str,
+    ctx: &ValidationContext,
+    issues: &mut Vec<Issue>,
+) {
+    let mut seen_vendors: HashSet<String> = HashSet::new();
+
+    for (vi, ver_node) in ad_ver_node.children_named("Verification").enumerate() {
+        let ver_path = format!("{}/Verification[{}]", ad_ver_path, vi);
+
+        if let Some(vendor) = ver_node.attr("vendor") {
+            let normalized = vendor.trim().to_ascii_lowercase();
+            if !normalized.is_empty() && !seen_vendors.insert(normalized) {
+                emit(
+                    ctx,
+                    issues,
+                    "VAST-4.1-verification-duplicate-vendor",
+                    Severity::Warning,
+                    "<AdVerifications> contains more than one <Verification> entry for the same vendor",
+                    Some(ver_path.clone()),
+                    "IAB VAST 4.1 §3.17",
+                    Some(ver_node),
+                );
+            }
+        }
+
+        check_verification_resource(ver_node, &ver_path, ctx, issues);
+    }
+}
+
+fn check_embedded_ad_verifications(
+    node: &Node,
+    path: &str,
+    ctx: &ValidationContext,
+    issues: &mut Vec<Issue>,
+) {
+    if node.name == "AdVerifications" || node.has_child("Verification") {
+        check_ad_verifications(node, path, ctx, issues);
+        return;
+    }
+
+    for (child_index, child) in node.children.iter().enumerate() {
+        let child_path = format!("{}/{}[{}]", path, child.name, child_index);
+        check_embedded_ad_verifications(child, &child_path, ctx, issues);
+    }
+}
+
 /// Checks Verification for required resource presence and vendor attr (4.1+).
 pub(super) fn check_verification_resource(
     ver_node: &Node,
@@ -989,7 +1033,41 @@ pub(super) fn check_verification_resource(
             "IAB VAST 4.1 §3.17",
             Some(ver_node),
         )
+    } else if let Some(vendor) = ver_node.attr("vendor") {
+        if !verification_vendor_looks_well_formed(vendor) {
+            emit(
+                ctx,
+                issues,
+                "VAST-4.1-verification-vendor-format",
+                Severity::Warning,
+                "<Verification> vendor should use a domain-qualified key such as \"company.com-omid\"",
+                Some(ver_path.to_owned()),
+                "IAB VAST 4.1 §3.17",
+                Some(ver_node),
+            );
+        }
     }
+
+    let is_omid_verification = verification_is_omid(ver_node);
+    let has_bootstrap_params = ver_node
+        .child("VerificationParameters")
+        .map(|params| !params.text.trim().is_empty())
+        .unwrap_or(false);
+
+    if is_omid_verification && !has_bootstrap_params {
+        emit(
+            ctx,
+            issues,
+            "VAST-4.1-verification-parameters",
+            Severity::Warning,
+            "OMID <Verification> should include non-empty <VerificationParameters> for bootstrap metadata",
+            Some(ver_path.to_owned()),
+            "IAB VAST 4.3 §3.17.5",
+            Some(ver_node),
+        );
+    }
+
+    check_verification_tracking_events(ver_node, ver_path, ctx, issues);
 
     // Check JavaScriptResource elements for required attributes.
     for (ji, js) in ver_node.children_named("JavaScriptResource").enumerate() {
@@ -1007,6 +1085,33 @@ pub(super) fn check_verification_resource(
                 "IAB VAST 4.1 §3.17.1",
                 Some(js),
             )
+        } else if let Some(api_framework) = js.attr("apiFramework") {
+            if is_omid_verification && api_framework != "omid" {
+                emit(
+                    ctx,
+                    issues,
+                    "VAST-4.1-js-resource-apiframework-value",
+                    Severity::Warning,
+                    "OMID <JavaScriptResource> should declare apiFramework=\"omid\" exactly",
+                    Some(js_path.clone()),
+                    "IAB VAST 4.1 §3.17.1",
+                    Some(js),
+                );
+            }
+        }
+
+        let js_url = js.text.trim();
+        if is_omid_verification && js_url.starts_with("http://") {
+            emit(
+                ctx,
+                issues,
+                "VAST-4.1-js-resource-https",
+                Severity::Warning,
+                "OMID <JavaScriptResource> URL should use HTTPS",
+                Some(js_path.clone()),
+                "IAB VAST 4.1 §3.17.1",
+                Some(js),
+            );
         }
 
         // VAST-4.3-js-resource-browser-optional: browserOptional is required (added 4.3).
@@ -1040,6 +1145,19 @@ pub(super) fn check_verification_resource(
                 "IAB VAST 4.1 §3.17.2",
                 Some(exec),
             )
+        } else if let Some(api_framework) = exec.attr("apiFramework") {
+            if is_omid_verification && api_framework != "omid" {
+                emit(
+                    ctx,
+                    issues,
+                    "VAST-4.1-exec-resource-apiframework-value",
+                    Severity::Warning,
+                    "OMID <ExecutableResource> should declare apiFramework=\"omid\" exactly",
+                    Some(exec_path.clone()),
+                    "IAB VAST 4.1 §3.17.2",
+                    Some(exec),
+                );
+            }
         }
 
         // VAST-4.1-exec-resource-type: type is required.
@@ -1050,12 +1168,127 @@ pub(super) fn check_verification_resource(
                 "VAST-4.1-exec-resource-type",
                 Severity::Error,
                 "<ExecutableResource> is missing required type attribute",
+                Some(exec_path.clone()),
+                "IAB VAST 4.1 §3.17.2",
+                Some(exec),
+            );
+        }
+
+        let exec_ref = exec.text.trim();
+        if is_omid_verification && exec_ref.starts_with("http://") {
+            emit(
+                ctx,
+                issues,
+                "VAST-4.1-exec-resource-https",
+                Severity::Warning,
+                "OMID <ExecutableResource> reference should use HTTPS when it is a URL",
                 Some(exec_path),
                 "IAB VAST 4.1 §3.17.2",
                 Some(exec),
             );
         }
     }
+}
+
+fn check_verification_tracking_events(
+    ver_node: &Node,
+    ver_path: &str,
+    ctx: &ValidationContext,
+    issues: &mut Vec<Issue>,
+) {
+    let Some(tracking_events) = ver_node.child("TrackingEvents") else {
+        return;
+    };
+
+    for (tracking_index, tracking) in tracking_events.children_named("Tracking").enumerate() {
+        let tracking_path = format!(
+            "{}/TrackingEvents/Tracking[{}]",
+            ver_path, tracking_index
+        );
+
+        let Some(event) = tracking.attr("event") else {
+            continue;
+        };
+
+        if event != "verificationNotExecuted" {
+            emit(
+                ctx,
+                issues,
+                "VAST-4.1-tracking-event-value",
+                Severity::Error,
+                "<Tracking> under <Verification> only supports event=\"verificationNotExecuted\"",
+                Some(format!("{}[@event]", tracking_path)),
+                "IAB VAST 4.3 §3.17.4",
+                Some(tracking),
+            );
+            continue;
+        }
+
+        if !tracking_has_reason_macro(&tracking.text) {
+            emit(
+                ctx,
+                issues,
+                "VAST-4.1-verification-tracking-reason",
+                Severity::Warning,
+                "verificationNotExecuted tracking URI should include the [REASON] macro",
+                Some(tracking_path),
+                "IAB VAST 4.3 §3.17.4",
+                Some(tracking),
+            );
+        }
+    }
+}
+
+fn tracking_has_reason_macro(value: &str) -> bool {
+    value.contains("[REASON]") || value.to_ascii_lowercase().contains("%5breason%5d")
+}
+
+fn verification_is_omid(ver_node: &Node) -> bool {
+    vendor_looks_like_omid(ver_node.attr("vendor"))
+        || ver_node.children_named("JavaScriptResource").any(|js| {
+            js.attr("apiFramework")
+                .map(|api_framework| api_framework.eq_ignore_ascii_case("omid"))
+                .unwrap_or(false)
+        })
+        || ver_node.children_named("ExecutableResource").any(|exec| {
+            exec.attr("apiFramework")
+                .map(|api_framework| api_framework.eq_ignore_ascii_case("omid"))
+                .unwrap_or(false)
+        })
+}
+
+fn vendor_looks_like_omid(vendor: Option<&str>) -> bool {
+    vendor
+        .map(|value| {
+            let value = value.trim().to_ascii_lowercase();
+            value == "omid" || value.ends_with("-omid") || value.ends_with("/omid")
+        })
+        .unwrap_or(false)
+}
+
+fn verification_vendor_looks_well_formed(vendor: &str) -> bool {
+    let vendor = vendor.trim();
+    if vendor.is_empty() || vendor.chars().any(char::is_whitespace) {
+        return false;
+    }
+
+    let Some((domain, use_case)) = vendor
+        .split_once('-')
+        .or_else(|| vendor.split_once('/'))
+    else {
+        return false;
+    };
+
+    if domain.is_empty() || use_case.is_empty() || !domain.contains('.') {
+        return false;
+    }
+
+    domain
+        .chars()
+        .all(|ch| ch.is_ascii_alphanumeric() || ch == '.' || ch == '-')
+        && use_case
+            .chars()
+            .all(|ch| ch.is_ascii_alphanumeric() || ch == '.' || ch == '_' || ch == '-')
 }
 
 /// Checks BlockedAdCategories for recommended authority attribute (4.1+).

@@ -459,7 +459,7 @@ checksum = "b6c140620e7ffbb22c2dee59cafe6084a59b5ffc27a8859a5f0d494b5d52b6be"
 
 [[package]]
 name = "vastlint-core"
-version = "0.4.23"
+version = "0.4.24"
 dependencies = [
  "phf",
  "quick-xml",
@@ -468,7 +468,7 @@ dependencies = [
 
 [[package]]
 name = "vastlint_nif"
-version = "0.4.23"
+version = "0.4.24"
 dependencies = [
  "rayon",
  "rustler",
