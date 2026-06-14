@@ -2160,7 +2160,10 @@ fn rule_override_upgrade_info_to_error() {
         Severity::Error,
         "severity should be Error after upgrade override"
     );
-    assert!(!result.summary.is_valid(), "upgraded to Error means invalid");
+    assert!(
+        !result.summary.is_valid(),
+        "upgraded to Error means invalid"
+    );
 }
 
 // ── version-gating negatives ──────────────────────────────────────────────────
