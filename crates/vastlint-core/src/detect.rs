@@ -5,7 +5,21 @@
 //! DetectedVersion that captures both observations and whether they agree.
 
 use crate::parse::VastDocument;
-use crate::{DetectedVersion, VastVersion};
+use crate::{DetectedVersion, DocumentType, VastVersion};
+
+/// Detect the document type from the root element's local name.
+///
+/// The parser strips namespace prefixes, so `<vmap:VMAP>` parses with the
+/// local name `VMAP`. Anything that is not a recognised VMAP or DAAST root is
+/// treated as VAST so the existing VAST rules (including the root-element
+/// error for unknown roots) apply.
+pub fn detect_document_type(doc: &VastDocument) -> DocumentType {
+    match doc.root.name.as_str() {
+        "VMAP" => DocumentType::Vmap,
+        "DAAST" => DocumentType::Daast,
+        _ => DocumentType::Vast,
+    }
+}
 
 /// Detect the VAST version from a parsed document.
 pub fn detect_version(doc: &VastDocument) -> DetectedVersion {

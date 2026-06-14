@@ -747,19 +747,19 @@ const OK_STYLE: Style = Style::new().fg_color(Some(Color::Ansi(AnsiColor::Green)
 const UNDERLINE_STYLE: Style = Style::new().underline();
 
 fn print_plain(file: &str, result: &ValidationResult) {
-    let version_str = result
-        .version
-        .best()
-        .map(|v| v.as_str())
-        .unwrap_or("unknown");
+    let type_str = result.document_type.as_str();
+    let label = match result.version.best() {
+        Some(v) => format!("{} {}", type_str, v.as_str()),
+        None => type_str.to_owned(),
+    };
 
     println!(
-        "\n{}{}{}  {}VAST {}{}",
+        "\n{}{}{}  {}{}{}",
         UNDERLINE_STYLE.render(),
         file,
         UNDERLINE_STYLE.render_reset(),
         DIM_STYLE.render(),
-        version_str,
+        label,
         DIM_STYLE.render_reset(),
     );
 
@@ -867,8 +867,9 @@ fn print_json(file: &str, result: &ValidationResult) {
         .collect();
 
     println!(
-        "{{\"file\":\"{}\",\"version\":\"{}\",\"valid\":{},\"summary\":{{\"errors\":{},\"warnings\":{},\"infos\":{}}},\"issues\":[{}]}}",
+        "{{\"file\":\"{}\",\"document_type\":\"{}\",\"version\":\"{}\",\"valid\":{},\"summary\":{{\"errors\":{},\"warnings\":{},\"infos\":{}}},\"issues\":[{}]}}",
         json_escape(file),
+        result.document_type.as_str(),
         version_str,
         result.summary.is_valid(),
         result.summary.errors,
@@ -1262,7 +1263,8 @@ fn daemon_result_json(result: &ValidationResult) -> String {
         .collect();
 
     format!(
-        "{{\"version\":\"{}\",\"valid\":{},\"summary\":{{\"errors\":{},\"warnings\":{},\"infos\":{}}},\"issues\":[{}]}}",
+        "{{\"document_type\":\"{}\",\"version\":\"{}\",\"valid\":{},\"summary\":{{\"errors\":{},\"warnings\":{},\"infos\":{}}},\"issues\":[{}]}}",
+        result.document_type.as_str(),
         version_str,
         result.summary.is_valid(),
         result.summary.errors,

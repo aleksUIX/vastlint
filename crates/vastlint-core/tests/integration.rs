@@ -2094,6 +2094,146 @@ fn linear_with_quartile_tracking_does_not_fire() {
     );
 }
 
+// ── catalog integrity ─────────────────────────────────────────────────────────
+
+#[test]
+fn all_rules_catalog_has_expected_count() {
+    assert_eq!(
+        vastlint_core::all_rules().len(),
+        182,
+        "catalog count changed — update this assertion and bump RULES.md"
+    );
+}
+
+// ── issue path and location ───────────────────────────────────────────────────
+
+#[test]
+fn issue_path_and_location_are_populated_for_element_level_rules() {
+    let result = validate(&load("err_missing_adsystem.xml"));
+    let issue = result
+        .issues
+        .iter()
+        .find(|i| i.id == "VAST-2.0-inline-adsystem")
+        .expect("VAST-2.0-inline-adsystem should fire");
+    assert!(
+        issue.path.is_some(),
+        "VAST-2.0-inline-adsystem should carry a path, got: {issue:?}"
+    );
+    assert!(
+        issue.line.is_some(),
+        "VAST-2.0-inline-adsystem should carry a line number, got: {issue:?}"
+    );
+    assert!(
+        issue.col.is_some(),
+        "VAST-2.0-inline-adsystem should carry a column number, got: {issue:?}"
+    );
+    let path = issue.path.as_deref().unwrap();
+    assert!(
+        path.contains("InLine"),
+        "path should reference the InLine element, got: {path}"
+    );
+}
+
+// ── rule override: upgrade severity ──────────────────────────────────────────
+
+#[test]
+fn rule_override_upgrade_info_to_error() {
+    use std::collections::HashMap;
+    use vastlint_core::{validate_with_context, RuleLevel, ValidationContext};
+
+    let mut overrides = HashMap::new();
+    overrides.insert("VAST-2.0-mediafile-https", RuleLevel::Error);
+
+    let ctx = ValidationContext {
+        rule_overrides: Some(overrides),
+        ..Default::default()
+    };
+
+    let result = validate_with_context(&load("warn_http_mediafile.xml"), ctx);
+    let issue = result
+        .issues
+        .iter()
+        .find(|i| i.id == "VAST-2.0-mediafile-https")
+        .expect("VAST-2.0-mediafile-https should fire");
+    assert_eq!(
+        issue.severity,
+        Severity::Error,
+        "severity should be Error after upgrade override"
+    );
+    assert!(!result.summary.is_valid(), "upgraded to Error means invalid");
+}
+
+// ── version-gating negatives ──────────────────────────────────────────────────
+
+#[test]
+fn version_gated_rules_do_not_fire_below_minimum_version() {
+    // VAST-4.1-adservingid-present is 4.1+; must not fire on a 4.0 document.
+    let result = validate(&load("valid_4.0.xml"));
+    assert!(
+        !has_issue(&result, "VAST-4.1-adservingid-present"),
+        "VAST-4.1-adservingid-present must not fire on a 4.0 document, got: {:#?}",
+        result.issues
+    );
+
+    // VAST-4.0-universaladid-present is 4.0+; must not fire on a 3.0 document.
+    let result = validate(&load("valid_3.0.xml"));
+    assert!(
+        !has_issue(&result, "VAST-4.0-universaladid-present"),
+        "VAST-4.0-universaladid-present must not fire on a 3.0 document, got: {:#?}",
+        result.issues
+    );
+
+    // Pricing rules are 3.0+; must not fire on a 2.0 document with no Pricing.
+    let result = validate(&load("valid_2.0.xml"));
+    assert!(
+        !has_issue(&result, "VAST-3.0-pricing-model"),
+        "VAST-3.0-pricing-model must not fire on a 2.0 document, got: {:#?}",
+        result.issues
+    );
+}
+
+// ── inspect_document ──────────────────────────────────────────────────────────
+
+#[test]
+fn inspect_document_extracts_inline_metadata() {
+    use vastlint_core::{inspect_document, InspectAdType};
+
+    let xml = minimal_valid_inline_xml("3.0", "", "");
+    let meta = inspect_document(&xml);
+    assert_eq!(meta.ad_type, InspectAdType::InLine);
+    assert_eq!(meta.ad_system, "Test AdServer");
+    assert_eq!(meta.impression_count, 1);
+    // 5 tracking events: start, firstQuartile, midpoint, thirdQuartile, complete
+    assert_eq!(meta.tracking_event_count, 5);
+    assert_eq!(meta.media_files.len(), 1);
+    assert_eq!(meta.media_files[0].mime_type, "video/mp4");
+    assert_eq!(meta.media_files[0].delivery, "progressive");
+    assert!(meta.wrapper_uri.is_none());
+}
+
+#[test]
+fn inspect_document_extracts_wrapper_uri() {
+    use vastlint_core::{inspect_document, InspectAdType};
+
+    let xml = r#"<VAST version="4.1">
+  <Ad id="1">
+    <Wrapper>
+      <AdSystem>SSP</AdSystem>
+      <Impression><![CDATA[https://t.example.com/imp]]></Impression>
+      <VASTAdTagURI><![CDATA[https://ads.example.com/next.xml]]></VASTAdTagURI>
+    </Wrapper>
+  </Ad>
+</VAST>"#;
+    let meta = inspect_document(xml);
+    assert_eq!(meta.ad_type, InspectAdType::Wrapper);
+    assert_eq!(meta.ad_system, "SSP");
+    assert_eq!(
+        meta.wrapper_uri.as_deref(),
+        Some("https://ads.example.com/next.xml")
+    );
+    assert_eq!(meta.media_files.len(), 0);
+}
+
 // ── forced_version override ───────────────────────────────────────────────────
 
 /// A minimal VAST 2.0 InLine document — valid for 2.0, missing 4.1+ required

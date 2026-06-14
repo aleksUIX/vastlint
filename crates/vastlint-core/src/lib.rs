@@ -1,8 +1,12 @@
 //! # vastlint-core
 //!
-//! A zero-I/O VAST XML validation library. Takes a VAST XML
+//! A zero-I/O VAST XML validation library. Takes a VAST, VMAP, or DAAST XML
 //! string and returns a structured [`ValidationResult`] listing every issue
-//! found, the detected VAST version, and a summary of error/warning/info counts.
+//! found, the detected document type and VAST version, and a summary of
+//! error/warning/info counts. The document type is decided by the root
+//! element: `<vmap:VMAP>` runs the VMAP 1.0 rules (including full VAST
+//! validation of inline `<vmap:VASTAdData>` ad data) and `<DAAST>` runs the
+//! DAAST 1.0 rules.
 //!
 //! The entire public surface is two functions and a handful of types:
 //!
@@ -11,7 +15,7 @@
 //! - [`fix`] -- fix deterministic issues and return repaired XML
 //! - [`fix_with_context`] -- fix with rule overrides or wrapper depth
 //! - [`inspect_document`] -- extract creative and wrapper metadata from one VAST XML document
-//! - [`all_rules`] -- list the full 121-rule catalog
+//! - [`all_rules`] -- list the full rule catalog
 //!
 //! # Performance — allocator recommendation
 //!
@@ -152,6 +156,29 @@ impl VastVersion {
     }
 }
 
+/// The kind of IAB ad document that was validated.
+///
+/// vastlint dispatches on the root element: `<VAST>` documents run the VAST
+/// rule chain, `<vmap:VMAP>` documents run the VMAP 1.0 rules (including full
+/// VAST validation of any inline ad data), and `<DAAST>` documents run the
+/// DAAST 1.0 rules. Any other root is treated as (invalid) VAST.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DocumentType {
+    Vast,
+    Vmap,
+    Daast,
+}
+
+impl DocumentType {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            DocumentType::Vast => "VAST",
+            DocumentType::Vmap => "VMAP",
+            DocumentType::Daast => "DAAST",
+        }
+    }
+}
+
 /// How the version was determined.
 ///
 /// Version detection is a two-pass process: first the `version` attribute on
@@ -254,6 +281,11 @@ impl Summary {
 /// The `issues` vector is ordered by document position (depth-first traversal).
 #[derive(Debug, Clone)]
 pub struct ValidationResult {
+    /// The kind of document that was validated (VAST, VMAP, or DAAST),
+    /// decided by the root element.
+    pub document_type: DocumentType,
+    /// The detected VAST version. Always `Unknown` for VMAP and DAAST
+    /// documents — their version attributes are checked by their own rules.
     pub version: DetectedVersion,
     pub issues: Vec<Issue>,
     pub summary: Summary,
@@ -407,14 +439,21 @@ pub fn validate(input: &str) -> ValidationResult {
 /// ```
 pub fn validate_with_context(input: &str, context: ValidationContext) -> ValidationResult {
     let doc = parse::parse(input);
-    let version = match context.forced_version {
-        Some(v) => DetectedVersion::Declared(v),
-        None => detect::detect_version(&doc),
+    let document_type = detect::detect_document_type(&doc);
+    let version = match document_type {
+        // version attributes on VMAP/DAAST roots are validated by their own
+        // rule chains; DetectedVersion only describes VAST versions.
+        DocumentType::Vmap | DocumentType::Daast => DetectedVersion::Unknown,
+        DocumentType::Vast => match context.forced_version {
+            Some(v) => DetectedVersion::Declared(v),
+            None => detect::detect_version(&doc),
+        },
     };
     let mut issues = Vec::new();
     rules::run(&doc, &version, &context, &mut issues);
     let summary = summarize::summarize(&issues);
     ValidationResult {
+        document_type,
         version,
         issues,
         summary,
@@ -455,6 +494,12 @@ pub enum RuleSource {
     Inferred,
     /// IAB Tech Lab SIMID spec normative prose
     SimidSpec,
+    /// IAB Tech Lab VMAP 1.0.1 spec normative prose
+    VmapSpec,
+    /// IAB Tech Lab DAAST spec normative prose
+    DaastSpec,
+    /// IAB Tech Lab DAAST published XSD schema
+    DaastXsd,
     /// Industry best practice derived from real-world ad serving patterns;
     /// violation has a direct revenue or measurement impact.
     IndustryBestPractice,
@@ -473,6 +518,9 @@ impl RuleSource {
             RuleSource::AdId => "Ad-ID",
             RuleSource::Inferred => "inferred",
             RuleSource::SimidSpec => "IAB SIMID",
+            RuleSource::VmapSpec => "IAB VMAP",
+            RuleSource::DaastSpec => "IAB DAAST",
+            RuleSource::DaastXsd => "DAAST XSD",
             RuleSource::IndustryBestPractice => "revenue impact",
         }
     }

@@ -2,6 +2,8 @@
 
 Headless React bindings for `vastlint-client`.
 
+**Guide:** [vastlint.org/docs/vastlint-react](https://vastlint.org/docs/vastlint-react/) · **Web validator:** [vastlint.org/validate](https://vastlint.org/validate)
+
 Current status:
 
 - `useVastSession` is implemented as a thin hook over `vastlint-client` session instances.

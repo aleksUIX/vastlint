@@ -105,6 +105,7 @@ pub struct ValidationIssue {
 #[derive(Serialize, schemars::JsonSchema)]
 pub struct ValidateVastOutput {
     pub valid: bool,
+    pub document_type: String,
     pub version: String,
     pub summary: ValidationSummary,
     pub issues: Vec<ValidationIssue>,
@@ -114,6 +115,7 @@ pub struct ValidateVastOutput {
 pub struct ValidateVastUrlOutput {
     pub url: String,
     pub valid: bool,
+    pub document_type: String,
     pub version: String,
     pub summary: ValidationSummary,
     pub issues: Vec<ValidationIssue>,
@@ -247,10 +249,11 @@ pub struct InspectVastOutput {
 #[tool_router]
 impl VastlintServer {
     #[tool(
-        description = "Validate a VAST XML tag against the IAB VAST 2.0-4.3 specification. \
+        description = "Validate an IAB ad tag XML document. Accepts VAST 2.0-4.3, VMAP 1.0, and \
+        DAAST 1.0/1.1. The document type is auto-detected from the root element. \
         Returns all issues found with severity, rule ID, location, and spec reference. \
         A document is valid when errors == 0, regardless of warning or info count. \
-        Use wrapper_depth when validating a document inside a wrapper chain.",
+        Use wrapper_depth when validating a VAST document inside a wrapper chain.",
         output_schema = output_schema::<ValidateVastOutput>(),
         annotations(read_only_hint = true, idempotent_hint = true, destructive_hint = false)
     )]
@@ -286,6 +289,7 @@ impl VastlintServer {
 
         Json(ValidateVastOutput {
             valid: result.summary.is_valid(),
+            document_type: result.document_type.as_str().to_string(),
             version,
             summary: ValidationSummary {
                 errors: result.summary.errors,
@@ -297,8 +301,9 @@ impl VastlintServer {
     }
 
     #[tool(
-        description = "Fetch a VAST tag from a URL and validate it. \
-        Handles redirects. Use max_depth to control how deep wrapper chains are followed \
+        description = "Fetch an IAB ad tag XML document from a URL and validate it. \
+        Accepts VAST 2.0-4.3, VMAP 1.0, and DAAST 1.0/1.1 (auto-detected). \
+        Handles redirects. Use max_depth to control how deep VAST wrapper chains are followed \
         (default 5, per IAB VAST 4.x recommendation). \
         AI agents typically receive VAST URLs rather than raw XML — use this tool for that case.",
         output_schema = output_schema::<ValidateVastUrlOutput>(),
@@ -318,6 +323,7 @@ impl VastlintServer {
                 return Json(ValidateVastUrlOutput {
                     url: input.url,
                     valid: false,
+                    document_type: "VAST".to_string(),
                     version: "unknown".to_string(),
                     summary: ValidationSummary {
                         errors: 1,
@@ -344,6 +350,7 @@ impl VastlintServer {
                     return Json(ValidateVastUrlOutput {
                         url: input.url,
                         valid: false,
+                        document_type: "VAST".to_string(),
                         version: "unknown".to_string(),
                         summary: ValidationSummary {
                             errors: 1,
@@ -366,6 +373,7 @@ impl VastlintServer {
                 return Json(ValidateVastUrlOutput {
                     url: input.url,
                     valid: false,
+                    document_type: "VAST".to_string(),
                     version: "unknown".to_string(),
                     summary: ValidationSummary {
                         errors: 1,
@@ -415,6 +423,7 @@ impl VastlintServer {
         Json(ValidateVastUrlOutput {
             url: input.url,
             valid: result.summary.is_valid(),
+            document_type: result.document_type.as_str().to_string(),
             version,
             summary: ValidationSummary {
                 errors: result.summary.errors,
@@ -475,9 +484,10 @@ impl VastlintServer {
     }
 
     #[tool(
-        description = "List the full catalog of VAST validation rules available in vastlint. \
+        description = "List the full catalog of validation rules available in vastlint. \
+        Covers VAST 2.0-4.3, VMAP 1.0, and DAAST 1.0/1.1. \
         Returns rule IDs, default severities, descriptions, and the external standard each rule \
-        is derived from (e.g. \"VAST spec\", \"VAST XSD\", \"RFC 3986\", \"inferred\"). \
+        is derived from (e.g. \"VAST spec\", \"VAST XSD\", \"IAB VMAP\", \"IAB DAAST\", \"RFC 3986\", \"inferred\"). \
         Call this once and cache the result — the catalog is static. \
         Use rule IDs from this list with explain_rule for full details and fix guidance.",
         output_schema = output_schema::<ListRulesOutput>(),
@@ -725,12 +735,12 @@ impl ServerHandler for VastlintServer {
         ServerInfo::new(ServerCapabilities::builder().enable_tools().build())
             .with_server_info(Implementation::new("vastlint", env!("CARGO_PKG_VERSION")))
             .with_instructions(
-                "VAST XML validation and inspection tools. \
-                 Use validate_vast to check a VAST tag for spec violations. \
-                 Use validate_vast_url to validate a VAST tag fetched from a URL. \
+                "IAB ad tag XML validation and inspection tools. Supports VAST 2.0-4.3, VMAP 1.0, and DAAST 1.0/1.1. \
+                 Use validate_vast to check a VAST, VMAP, or DAAST document for spec violations (auto-detected). \
+                 Use validate_vast_url to validate a tag fetched from a URL. \
                  Use inspect_vast to follow a VAST wrapper chain hop-by-hop, returning creative \
                  metadata and validation results for every level of the chain. \
-                 Use list_rules to see all rules. \
+                 Use list_rules to see all rules (VAST, VMAP, and DAAST). \
                  Use explain_rule to get details and fix guidance for a specific rule ID. \
                  Use fix_vast to auto-fix deterministic issues in a VAST XML string.",
             )

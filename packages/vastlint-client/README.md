@@ -2,6 +2,8 @@
 
 Headless VAST session/runtime package for the `vastlint` monorepo.
 
+**React bindings & guide:** [vastlint.org/docs/vastlint-react](https://vastlint.org/docs/vastlint-react/) · **Web validator:** [vastlint.org/validate](https://vastlint.org/validate)
+
 Current status:
 
 - XML-backed sessions are implemented.
