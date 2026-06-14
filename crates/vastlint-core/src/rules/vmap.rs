@@ -488,8 +488,8 @@ mod tests {
             assert!(is_valid_time_offset(ok), "expected valid: {ok}");
         }
         for bad in [
-            "", "Start", "END", "#0", "#-1", "#1.5", "101%", "-5%", "%", "0:15", "00:00",
-            "1:2:3", "00:61:00",
+            "", "Start", "END", "#0", "#-1", "#1.5", "101%", "-5%", "%", "0:15", "00:00", "1:2:3",
+            "00:61:00",
         ] {
             assert!(!is_valid_time_offset(bad), "expected invalid: {bad}");
         }
@@ -497,10 +497,23 @@ mod tests {
 
     #[test]
     fn break_type_values() {
-        for ok in ["linear", "nonlinear", "display", "linear,nonlinear", "linear,nonlinear,display"] {
+        for ok in [
+            "linear",
+            "nonlinear",
+            "display",
+            "linear,nonlinear",
+            "linear,nonlinear,display",
+        ] {
             assert!(is_valid_break_type(ok), "expected valid: {ok}");
         }
-        for bad in ["", "Linear", "linear, nonlinear", "banner", "linear,", ",linear"] {
+        for bad in [
+            "",
+            "Linear",
+            "linear, nonlinear",
+            "banner",
+            "linear,",
+            ",linear",
+        ] {
             assert!(!is_valid_break_type(bad), "expected invalid: {bad}");
         }
     }

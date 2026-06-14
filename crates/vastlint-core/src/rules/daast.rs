@@ -365,7 +365,12 @@ fn check_linear(
             )
         }
         for (mi, mf) in media_files.iter().enumerate() {
-            check_media_file(mf, &format!("{}/MediaFiles/MediaFile[{}]", path, mi), ctx, issues);
+            check_media_file(
+                mf,
+                &format!("{}/MediaFiles/MediaFile[{}]", path, mi),
+                ctx,
+                issues,
+            );
         }
     }
 
@@ -454,7 +459,12 @@ fn check_media_file(mf: &Node, path: &str, ctx: &ValidationContext, issues: &mut
     }
 }
 
-fn check_tracking_events(linear: &Node, path: &str, ctx: &ValidationContext, issues: &mut Vec<Issue>) {
+fn check_tracking_events(
+    linear: &Node,
+    path: &str,
+    ctx: &ValidationContext,
+    issues: &mut Vec<Issue>,
+) {
     let Some(te) = linear.child("TrackingEvents") else {
         return;
     };

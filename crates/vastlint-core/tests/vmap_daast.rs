@@ -244,7 +244,10 @@ fn daast_missing_category_is_an_error_and_adsystem_is_not_required() {
 fn daast_root_version_rules() {
     let result = validate(r#"<DAAST><Error><![CDATA[https://e.example.com]]></Error></DAAST>"#);
     assert!(issue_ids(&result).contains(&"DAAST-1.0-root-version"));
-    assert_eq!(result.summary.errors, 1, "Error child satisfies ad-or-error");
+    assert_eq!(
+        result.summary.errors, 1,
+        "Error child satisfies ad-or-error"
+    );
 
     let result = validate(r#"<DAAST version="2.0"/>"#);
     let ids = issue_ids(&result);

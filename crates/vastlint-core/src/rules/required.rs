@@ -1201,10 +1201,7 @@ fn check_verification_tracking_events(
     };
 
     for (tracking_index, tracking) in tracking_events.children_named("Tracking").enumerate() {
-        let tracking_path = format!(
-            "{}/TrackingEvents/Tracking[{}]",
-            ver_path, tracking_index
-        );
+        let tracking_path = format!("{}/TrackingEvents/Tracking[{}]", ver_path, tracking_index);
 
         let Some(event) = tracking.attr("event") else {
             continue;
@@ -1272,10 +1269,7 @@ fn verification_vendor_looks_well_formed(vendor: &str) -> bool {
         return false;
     }
 
-    let Some((domain, use_case)) = vendor
-        .split_once('-')
-        .or_else(|| vendor.split_once('/'))
-    else {
+    let Some((domain, use_case)) = vendor.split_once('-').or_else(|| vendor.split_once('/')) else {
         return false;
     };
 
