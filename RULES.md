@@ -2,7 +2,7 @@
 
 Full reference documentation for every rule is at **[vastlint.org/docs/rules](https://vastlint.org/docs/rules/)**.
 
-129 rules across IAB VAST 2.0 – 4.3 and SIMID 1.0 – 1.1. Each rule has a stable ID, a default severity (`error` / `warning` / `info`), and a dedicated docs page with the spec reference, examples, and fix guidance.
+182 rules across IAB VAST 2.0 – 4.3, VMAP 1.0, DAAST 1.0, and SIMID 1.0 – 1.1. Each rule has a stable ID, a default severity (`error` / `warning` / `info`), and a dedicated docs page with the spec reference, examples, and fix guidance.
 
 ---
 
@@ -185,3 +185,70 @@ Full reference documentation for every rule is at **[vastlint.org/docs/rules](ht
 ---
 
 Full docs, examples, and fix guidance: **[vastlint.org/docs/rules](https://vastlint.org/docs/rules/)**
+
+---
+
+## VMAP 1.0 rules
+
+| Rule | Severity | Description |
+|------|----------|-------------|
+| [VMAP-1.0-root-version](https://vastlint.org/docs/rules/VMAP-1.0-root-version/) | error | Root `<VMAP>` element must have a version attribute |
+| [VMAP-1.0-root-version-value](https://vastlint.org/docs/rules/VMAP-1.0-root-version-value/) | warning | `<VMAP>` version attribute should be `"1.0"` — the only published VMAP version |
+| [VMAP-1.0-root-namespace](https://vastlint.org/docs/rules/VMAP-1.0-root-namespace/) | warning | `<VMAP>` should declare the VMAP namespace URI http://www.iab.net/videosuite/vmap |
+| [VMAP-1.0-root-unknown-child](https://vastlint.org/docs/rules/VMAP-1.0-root-unknown-child/) | error | `<VMAP>` may only contain `<AdBreak>` and `<Extensions>` elements |
+| [VMAP-1.0-adbreak-timeoffset](https://vastlint.org/docs/rules/VMAP-1.0-adbreak-timeoffset/) | error | `<AdBreak>` must have a timeOffset attribute |
+| [VMAP-1.0-adbreak-timeoffset-format](https://vastlint.org/docs/rules/VMAP-1.0-adbreak-timeoffset-format/) | error | `<AdBreak>` timeOffset must be hh:mm:ss[.mmm], n%, `"start"`, `"end"`, or #m |
+| [VMAP-1.0-adbreak-breaktype](https://vastlint.org/docs/rules/VMAP-1.0-adbreak-breaktype/) | error | `<AdBreak>` must have a breakType attribute |
+| [VMAP-1.0-adbreak-breaktype-value](https://vastlint.org/docs/rules/VMAP-1.0-adbreak-breaktype-value/) | error | `<AdBreak>` breakType must be a comma-separated list of linear, nonlinear, or display |
+| [VMAP-1.0-adbreak-repeatafter-format](https://vastlint.org/docs/rules/VMAP-1.0-adbreak-repeatafter-format/) | warning | `<AdBreak>` repeatAfter does not match the required hh:mm:ss[.mmm] format |
+| [VMAP-1.0-adbreak-unknown-child](https://vastlint.org/docs/rules/VMAP-1.0-adbreak-unknown-child/) | error | `<AdBreak>` may only contain `<AdSource>`, `<TrackingEvents>`, and `<Extensions>` elements |
+| [VMAP-1.0-adbreak-multiple-adsource](https://vastlint.org/docs/rules/VMAP-1.0-adbreak-multiple-adsource/) | error | `<AdBreak>` may contain at most one `<AdSource>` element |
+| [VMAP-1.0-adsource-bool-attr](https://vastlint.org/docs/rules/VMAP-1.0-adsource-bool-attr/) | warning | `<AdSource>` allowMultipleAds and followRedirects must be `"true"` or `"false"` |
+| [VMAP-1.0-adsource-content](https://vastlint.org/docs/rules/VMAP-1.0-adsource-content/) | error | `<AdSource>` must contain exactly one of `<VASTAdData>`, `<AdTagURI>`, or `<CustomAdData>` |
+| [VMAP-1.0-adtaguri-empty](https://vastlint.org/docs/rules/VMAP-1.0-adtaguri-empty/) | error | `<AdTagURI>` must contain a URI referencing an ad response |
+| [VMAP-1.0-adtaguri-cdata](https://vastlint.org/docs/rules/VMAP-1.0-adtaguri-cdata/) | error | `<AdTagURI>` URI must be contained within a CDATA block |
+| [VMAP-1.0-customaddata-cdata](https://vastlint.org/docs/rules/VMAP-1.0-customaddata-cdata/) | error | `<CustomAdData>` data must be contained within a CDATA block |
+| [VMAP-1.0-vastaddata-vast-root](https://vastlint.org/docs/rules/VMAP-1.0-vastaddata-vast-root/) | error | `<VASTAdData>` must contain an embedded `<VAST>` element (as XML, not CDATA) |
+| [VMAP-1.0-embedded-vast-version](https://vastlint.org/docs/rules/VMAP-1.0-embedded-vast-version/) | info | Embedded VAST is not version 3.0 — VMAP players are only required to support VAST 3.0 |
+| [VMAP-1.0-trackingevents-unknown-child](https://vastlint.org/docs/rules/VMAP-1.0-trackingevents-unknown-child/) | error | VMAP `<TrackingEvents>` may only contain `<Tracking>` elements |
+| [VMAP-1.0-tracking-event](https://vastlint.org/docs/rules/VMAP-1.0-tracking-event/) | error | VMAP `<Tracking>` must have an event attribute |
+| [VMAP-1.0-tracking-event-value](https://vastlint.org/docs/rules/VMAP-1.0-tracking-event-value/) | error | VMAP `<Tracking>` event must be breakStart, breakEnd, or error |
+| [VMAP-1.0-error-tracking-macro](https://vastlint.org/docs/rules/VMAP-1.0-error-tracking-macro/) | info | VMAP error tracking URI should include the [ERROR_CODE] macro |
+| [VMAP-1.0-tracking-url-empty](https://vastlint.org/docs/rules/VMAP-1.0-tracking-url-empty/) | error | VMAP `<Tracking>` element does not contain a tracking URI |
+| [VMAP-1.0-repeatafter-conflict](https://vastlint.org/docs/rules/VMAP-1.0-repeatafter-conflict/) | warning | repeatAfter has no effect when timeOffset is `"start"` or `"end"` |
+
+---
+
+## DAAST 1.0 rules
+
+| Rule | Severity | Description |
+|------|----------|-------------|
+| [DAAST-1.0-root-version](https://vastlint.org/docs/rules/DAAST-1.0-root-version/) | error | Root `<DAAST>` element must have a version attribute |
+| [DAAST-1.0-root-version-value](https://vastlint.org/docs/rules/DAAST-1.0-root-version-value/) | warning | `<DAAST>` version attribute must be a recognised version string (1.0 or 1.1) |
+| [DAAST-1.0-root-has-ad-or-error](https://vastlint.org/docs/rules/DAAST-1.0-root-has-ad-or-error/) | error | `<DAAST>` must contain at least one `<Ad>` or `<Error>` |
+| [DAAST-1.0-ad-has-inline-or-wrapper](https://vastlint.org/docs/rules/DAAST-1.0-ad-has-inline-or-wrapper/) | error | Each DAAST `<Ad>` must contain exactly one `<InLine>` or `<Wrapper>` |
+| [DAAST-1.0-inline-adtitle](https://vastlint.org/docs/rules/DAAST-1.0-inline-adtitle/) | error | DAAST `<InLine>` must contain `<AdTitle>` |
+| [DAAST-1.0-inline-impression](https://vastlint.org/docs/rules/DAAST-1.0-inline-impression/) | error | DAAST `<InLine>` must contain at least one `<Impression>` |
+| [DAAST-1.0-inline-category](https://vastlint.org/docs/rules/DAAST-1.0-inline-category/) | error | DAAST `<InLine>` must contain `<Category>` (required in DAAST, unlike VAST) |
+| [DAAST-1.0-inline-creatives](https://vastlint.org/docs/rules/DAAST-1.0-inline-creatives/) | error | DAAST `<InLine>` must contain `<Creatives>` with at least one `<Creative>` |
+| [DAAST-1.0-wrapper-daastadtaguri](https://vastlint.org/docs/rules/DAAST-1.0-wrapper-daastadtaguri/) | error | DAAST `<Wrapper>` must contain `<DAASTAdTagURI>` |
+| [DAAST-1.0-wrapper-vast-adtaguri](https://vastlint.org/docs/rules/DAAST-1.0-wrapper-vast-adtaguri/) | warning | `<VASTAdTagURI>` is a VAST element — DAAST wrappers redirect via `<DAASTAdTagURI>` |
+| [DAAST-1.0-wrapper-impression](https://vastlint.org/docs/rules/DAAST-1.0-wrapper-impression/) | error | DAAST `<Wrapper>` must contain at least one `<Impression>` |
+| [DAAST-1.0-videoclicks-element](https://vastlint.org/docs/rules/DAAST-1.0-videoclicks-element/) | warning | `<VideoClicks>` is a VAST element — DAAST uses `<AdInteractions>` |
+| [DAAST-1.0-audiointeractions-renamed](https://vastlint.org/docs/rules/DAAST-1.0-audiointeractions-renamed/) | warning | `<AudioInteractions>` was renamed `<AdInteractions>` in the final DAAST release |
+| [DAAST-1.0-linear-duration](https://vastlint.org/docs/rules/DAAST-1.0-linear-duration/) | error | DAAST `<Linear>` must contain `<Duration>` |
+| [DAAST-1.0-duration-format](https://vastlint.org/docs/rules/DAAST-1.0-duration-format/) | error | DAAST `<Duration>` value does not match HH:MM:SS[.mmm] format |
+| [DAAST-1.0-linear-mediafiles](https://vastlint.org/docs/rules/DAAST-1.0-linear-mediafiles/) | error | DAAST `<Linear>` must contain `<MediaFiles>` with at least one `<MediaFile>` |
+| [DAAST-1.0-mediafile-delivery](https://vastlint.org/docs/rules/DAAST-1.0-mediafile-delivery/) | error | DAAST `<MediaFile>` must have a delivery attribute |
+| [DAAST-1.0-mediafile-delivery-enum](https://vastlint.org/docs/rules/DAAST-1.0-mediafile-delivery-enum/) | error | DAAST `<MediaFile>` delivery must be `"progressive"` or `"streaming"` |
+| [DAAST-1.0-mediafile-type](https://vastlint.org/docs/rules/DAAST-1.0-mediafile-type/) | error | DAAST `<MediaFile>` must have a type attribute |
+| [DAAST-1.0-mediafile-audio-type](https://vastlint.org/docs/rules/DAAST-1.0-mediafile-audio-type/) | warning | DAAST `<MediaFile>` type is a video MIME type — DAAST creative is audio |
+| [DAAST-1.0-mediafile-id](https://vastlint.org/docs/rules/DAAST-1.0-mediafile-id/) | warning | DAAST `<MediaFile>` should have an id attribute (required by the DAAST XSD) |
+| [DAAST-1.0-mediafile-url-empty](https://vastlint.org/docs/rules/DAAST-1.0-mediafile-url-empty/) | error | DAAST `<MediaFile>` does not contain a media URI |
+| [DAAST-1.0-tracking-event-value](https://vastlint.org/docs/rules/DAAST-1.0-tracking-event-value/) | error | DAAST `<Tracking>` event is not in the DAAST audio event set |
+| [DAAST-1.0-progress-offset](https://vastlint.org/docs/rules/DAAST-1.0-progress-offset/) | error | DAAST `<Tracking event="progress">` requires a valid offset attribute |
+| [DAAST-1.0-pricing-model](https://vastlint.org/docs/rules/DAAST-1.0-pricing-model/) | error | DAAST `<Pricing>` is missing the required model attribute |
+| [DAAST-1.0-pricing-model-value](https://vastlint.org/docs/rules/DAAST-1.0-pricing-model-value/) | warning | DAAST `<Pricing>` model must be one of cpm, cpc, cpe, cpv, cpo |
+| [DAAST-1.0-pricing-currency](https://vastlint.org/docs/rules/DAAST-1.0-pricing-currency/) | error | DAAST `<Pricing>` is missing the required currency attribute |
+| [DAAST-1.0-error-url-empty](https://vastlint.org/docs/rules/DAAST-1.0-error-url-empty/) | warning | DAAST `<Error>` element is present but contains no URI |
+| [DAAST-1.0-error-tracking-macro](https://vastlint.org/docs/rules/DAAST-1.0-error-tracking-macro/) | info | DAAST `<Error>` URI does not include the [ERRORCODE] macro |

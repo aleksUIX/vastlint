@@ -6,6 +6,25 @@ GitHub Releases: <https://github.com/aleksUIX/vastlint/releases>
 
 ---
 
+## [0.5.0] - 2026-06-13
+
+### Core validator
+
+- **VMAP 1.0 validation**: `validate()` now recognises `<vmap:VMAP>` documents and runs a dedicated 24-rule VMAP chain — `<AdBreak>` structure, `timeOffset`/`breakType`/`repeatAfter` formats, `<AdSource>` content constraints (exactly one of `VASTAdData`/`AdTagURI`/`CustomAdData`, CDATA requirements), VMAP tracking events, and `repeatAfter`/`timeOffset` conflict detection. Inline VAST inside `<vmap:VASTAdData>` is validated with the full VAST rule chain; issues surface with `/VMAP/AdBreak[i]/AdSource/VASTAdData`-prefixed paths and document-absolute line/col.
+- **DAAST 1.0 validation**: `<DAAST>` documents run a dedicated 29-rule chain covering the audio-specific deltas from VAST 3.0 — required `<Category>`, optional `<AdSystem>`, `<DAASTAdTagURI>` wrappers, `<AdInteractions>` (with detection of VAST leftovers like `<VideoClicks>` and `<VASTAdTagURI>`), audio MediaFile attributes, the DAAST tracking event set, DAAST pricing models (incl. `cpo`), root-level `<Error>` URI presence, and `[ERRORCODE]` macro inclusion.
+- **`ValidationResult.document_type`**: new `DocumentType` enum (`Vast` / `Vmap` / `Daast`) reporting which rule chain ran. `version` stays VAST-specific and is `Unknown` for VMAP/DAAST documents. New `RuleSource` variants: `VmapSpec`, `DaastSpec`, `DaastXsd`. Breaking change: callers that destructure `ValidationResult` must add the new field.
+- **Rule catalog grown to 182** (`all_rules()`, RULES.md, VS Code rule list).
+
+### Documentation / metadata
+
+- **RULES.md and VS Code README updated**: all 182 rules listed with correct severities and spec references.
+- **README.md rule count updated**: three occurrences of "129 rules" updated to "182 rules"; VMAP 1.0 and DAAST 1.0 added to category list.
+- **vastlint.org rule pages**: 53 new per-rule doc pages for all VMAP and DAAST rule IDs, with category impact descriptions, spec links, and XML examples.
+
+### Release metadata
+
+- **Semver bump to 0.5.0**: breaking change due to new public `document_type` field on `ValidationResult`.
+
 ## [0.4.24] - 2026-06-09
 
 ### Core validator

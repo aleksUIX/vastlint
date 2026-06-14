@@ -373,13 +373,13 @@ fn check_pricing_values(
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 /// Returns true if `s` matches `HH:MM:SS` or `HH:MM:SS.mmm`.
-fn is_valid_duration(s: &str) -> bool {
+pub(super) fn is_valid_duration(s: &str) -> bool {
     is_hhmmss(s)
 }
 
 /// Returns true if `s` matches the time-or-percent pattern used for
 /// `skipoffset` and progress `offset`: `HH:MM:SS[.mmm]` or `n%` (0–100%).
-fn is_valid_time_or_percent(s: &str) -> bool {
+pub(super) fn is_valid_time_or_percent(s: &str) -> bool {
     if let Some(num) = s.strip_suffix('%') {
         return num
             .parse::<f64>()
@@ -390,7 +390,7 @@ fn is_valid_time_or_percent(s: &str) -> bool {
 }
 
 /// Validates `HH:MM:SS` or `HH:MM:SS.mmm` without regex.
-fn is_hhmmss(s: &str) -> bool {
+pub(super) fn is_hhmmss(s: &str) -> bool {
     // Split on the first dot for optional milliseconds.
     let (time_part, ms_part) = match s.find('.') {
         Some(dot) => (&s[..dot], Some(&s[dot + 1..])),

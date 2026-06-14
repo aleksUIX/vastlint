@@ -11,6 +11,7 @@
 pub mod ambiguous;
 pub mod consistency;
 pub mod ctv;
+pub mod daast;
 pub mod deprecated;
 pub mod required;
 pub mod schema;
@@ -18,16 +19,24 @@ pub mod security;
 pub mod simid;
 pub mod structure;
 pub mod values;
+pub mod vmap;
 
+use crate::detect::detect_document_type;
 use crate::parse::Node;
 use crate::parse::VastDocument;
-use crate::{DetectedVersion, Issue, RuleMeta, RuleSource, Severity, ValidationContext};
+use crate::{
+    DetectedVersion, DocumentType, Issue, RuleMeta, RuleSource, Severity, ValidationContext,
+};
 use RuleSource::{
-    IanaMediaTypes, IndustryBestPractice, Inferred, Iso4217, Rfc3986, SimidSpec, VastSpec, VastXsd,
-    Xml,
+    DaastSpec, DaastXsd, IanaMediaTypes, IndustryBestPractice, Inferred, Iso4217, Rfc3986,
+    SimidSpec, VastSpec, VastXsd, VmapSpec, Xml,
 };
 
 /// Run all applicable rules against the document and collect issues.
+///
+/// Dispatches on the document type: VMAP and DAAST documents run their own
+/// rule chains; everything else runs the VAST chain. VMAP recurses back into
+/// this function for inline `<vmap:VASTAdData>` VAST documents.
 pub fn run(
     doc: &VastDocument,
     version: &DetectedVersion,
@@ -37,6 +46,18 @@ pub fn run(
     if doc.parse_error.is_some() {
         consistency::check(doc, version, ctx, issues);
         return;
+    }
+
+    match detect_document_type(doc) {
+        DocumentType::Vmap => {
+            vmap::check(doc, ctx, issues);
+            return;
+        }
+        DocumentType::Daast => {
+            daast::check(doc, ctx, issues);
+            return;
+        }
+        DocumentType::Vast => {}
     }
 
     required::check(doc, version, ctx, issues);
@@ -234,4 +255,59 @@ pub static CATALOG: &[RuleMeta] = &[
     RuleMeta { id: "SIMID-1.1-iframe-simid-type-required",    default_severity: Severity::Warning, description: "<IFrameResource> in SIMID <NonLinear> should have type=\"text/html\"",                   source: SimidSpec },
     RuleMeta { id: "SIMID-1.1-iframe-simid-url-empty",        default_severity: Severity::Error,   description: "<IFrameResource> in SIMID <NonLinear> must contain a non-empty URL",                     source: SimidSpec },
     RuleMeta { id: "SIMID-1.1-iframe-simid-url-https",        default_severity: Severity::Error,   description: "<IFrameResource> in SIMID <NonLinear> URL must use HTTPS",                               source: SimidSpec },
+    // vmap.rs
+    RuleMeta { id: "VMAP-1.0-root-version",                   default_severity: Severity::Error,   description: "Root <VMAP> element must have a version attribute",                                      source: VmapSpec },
+    RuleMeta { id: "VMAP-1.0-root-version-value",             default_severity: Severity::Warning, description: "<VMAP> version attribute should be \"1.0\" — the only published VMAP version",            source: VmapSpec },
+    RuleMeta { id: "VMAP-1.0-root-namespace",                 default_severity: Severity::Warning, description: "<VMAP> should declare the VMAP namespace URI http://www.iab.net/videosuite/vmap",        source: VmapSpec },
+    RuleMeta { id: "VMAP-1.0-root-unknown-child",             default_severity: Severity::Error,   description: "<VMAP> may only contain <AdBreak> and <Extensions> elements",                            source: VmapSpec },
+    RuleMeta { id: "VMAP-1.0-adbreak-timeoffset",             default_severity: Severity::Error,   description: "<AdBreak> must have a timeOffset attribute",                                             source: VmapSpec },
+    RuleMeta { id: "VMAP-1.0-adbreak-timeoffset-format",      default_severity: Severity::Error,   description: "<AdBreak> timeOffset must be hh:mm:ss[.mmm], n%, \"start\", \"end\", or #m",             source: VmapSpec },
+    RuleMeta { id: "VMAP-1.0-adbreak-breaktype",              default_severity: Severity::Error,   description: "<AdBreak> must have a breakType attribute",                                              source: VmapSpec },
+    RuleMeta { id: "VMAP-1.0-adbreak-breaktype-value",        default_severity: Severity::Error,   description: "<AdBreak> breakType must be a comma-separated list of linear, nonlinear, or display",    source: VmapSpec },
+    RuleMeta { id: "VMAP-1.0-adbreak-repeatafter-format",     default_severity: Severity::Warning, description: "<AdBreak> repeatAfter does not match the required hh:mm:ss[.mmm] format",                source: VmapSpec },
+    RuleMeta { id: "VMAP-1.0-adbreak-unknown-child",          default_severity: Severity::Error,   description: "<AdBreak> may only contain <AdSource>, <TrackingEvents>, and <Extensions> elements",     source: VmapSpec },
+    RuleMeta { id: "VMAP-1.0-adbreak-multiple-adsource",      default_severity: Severity::Error,   description: "<AdBreak> may contain at most one <AdSource> element",                                   source: VmapSpec },
+    RuleMeta { id: "VMAP-1.0-adsource-bool-attr",             default_severity: Severity::Warning, description: "<AdSource> allowMultipleAds and followRedirects must be \"true\" or \"false\"",          source: VmapSpec },
+    RuleMeta { id: "VMAP-1.0-adsource-content",               default_severity: Severity::Error,   description: "<AdSource> must contain exactly one of <VASTAdData>, <AdTagURI>, or <CustomAdData>",     source: VmapSpec },
+    RuleMeta { id: "VMAP-1.0-adtaguri-empty",                 default_severity: Severity::Error,   description: "<AdTagURI> must contain a URI referencing an ad response",                               source: VmapSpec },
+    RuleMeta { id: "VMAP-1.0-adtaguri-cdata",                 default_severity: Severity::Error,   description: "<AdTagURI> URI must be contained within a CDATA block",                                  source: VmapSpec },
+    RuleMeta { id: "VMAP-1.0-customaddata-cdata",             default_severity: Severity::Error,   description: "<CustomAdData> data must be contained within a CDATA block",                             source: VmapSpec },
+    RuleMeta { id: "VMAP-1.0-vastaddata-vast-root",           default_severity: Severity::Error,   description: "<VASTAdData> must contain an embedded <VAST> element (as XML, not CDATA)",               source: VmapSpec },
+    RuleMeta { id: "VMAP-1.0-embedded-vast-version",          default_severity: Severity::Info,    description: "Embedded VAST is not version 3.0 — VMAP players are only required to support VAST 3.0",  source: VmapSpec },
+    RuleMeta { id: "VMAP-1.0-trackingevents-unknown-child",   default_severity: Severity::Error,   description: "VMAP <TrackingEvents> may only contain <Tracking> elements",                             source: VmapSpec },
+    RuleMeta { id: "VMAP-1.0-tracking-event",                 default_severity: Severity::Error,   description: "VMAP <Tracking> must have an event attribute",                                           source: VmapSpec },
+    RuleMeta { id: "VMAP-1.0-tracking-event-value",           default_severity: Severity::Error,   description: "VMAP <Tracking> event must be breakStart, breakEnd, or error",                           source: VmapSpec },
+    RuleMeta { id: "VMAP-1.0-error-tracking-macro",           default_severity: Severity::Info,    description: "VMAP error tracking URI should include the [ERROR_CODE] macro",                          source: VmapSpec },
+    RuleMeta { id: "VMAP-1.0-tracking-url-empty",             default_severity: Severity::Error,   description: "VMAP <Tracking> element does not contain a tracking URI",                                source: VmapSpec },
+    RuleMeta { id: "VMAP-1.0-repeatafter-conflict",           default_severity: Severity::Warning, description: "repeatAfter has no effect when timeOffset is \"start\" or \"end\"",                        source: VmapSpec },
+    // daast.rs
+    RuleMeta { id: "DAAST-1.0-root-version",                  default_severity: Severity::Error,   description: "Root <DAAST> element must have a version attribute",                                     source: DaastSpec },
+    RuleMeta { id: "DAAST-1.0-root-version-value",            default_severity: Severity::Warning, description: "<DAAST> version attribute must be a recognised version string (1.0 or 1.1)",             source: DaastXsd },
+    RuleMeta { id: "DAAST-1.0-root-has-ad-or-error",          default_severity: Severity::Error,   description: "<DAAST> must contain at least one <Ad> or <Error>",                                      source: DaastSpec },
+    RuleMeta { id: "DAAST-1.0-ad-has-inline-or-wrapper",      default_severity: Severity::Error,   description: "Each DAAST <Ad> must contain exactly one <InLine> or <Wrapper>",                         source: DaastSpec },
+    RuleMeta { id: "DAAST-1.0-inline-adtitle",                default_severity: Severity::Error,   description: "DAAST <InLine> must contain <AdTitle>",                                                  source: DaastSpec },
+    RuleMeta { id: "DAAST-1.0-inline-impression",             default_severity: Severity::Error,   description: "DAAST <InLine> must contain at least one <Impression>",                                  source: DaastSpec },
+    RuleMeta { id: "DAAST-1.0-inline-category",               default_severity: Severity::Error,   description: "DAAST <InLine> must contain <Category> (required in DAAST, unlike VAST)",                source: DaastSpec },
+    RuleMeta { id: "DAAST-1.0-inline-creatives",              default_severity: Severity::Error,   description: "DAAST <InLine> must contain <Creatives> with at least one <Creative>",                   source: DaastSpec },
+    RuleMeta { id: "DAAST-1.0-wrapper-daastadtaguri",         default_severity: Severity::Error,   description: "DAAST <Wrapper> must contain <DAASTAdTagURI>",                                           source: DaastSpec },
+    RuleMeta { id: "DAAST-1.0-wrapper-vast-adtaguri",         default_severity: Severity::Warning, description: "<VASTAdTagURI> is a VAST element — DAAST wrappers redirect via <DAASTAdTagURI>",         source: Inferred },
+    RuleMeta { id: "DAAST-1.0-wrapper-impression",            default_severity: Severity::Error,   description: "DAAST <Wrapper> must contain at least one <Impression>",                                 source: DaastSpec },
+    RuleMeta { id: "DAAST-1.0-videoclicks-element",           default_severity: Severity::Warning, description: "<VideoClicks> is a VAST element — DAAST uses <AdInteractions>",                          source: Inferred },
+    RuleMeta { id: "DAAST-1.0-audiointeractions-renamed",     default_severity: Severity::Warning, description: "<AudioInteractions> was renamed <AdInteractions> in the final DAAST release",            source: DaastSpec },
+    RuleMeta { id: "DAAST-1.0-linear-duration",               default_severity: Severity::Error,   description: "DAAST <Linear> must contain <Duration>",                                                 source: DaastSpec },
+    RuleMeta { id: "DAAST-1.0-duration-format",               default_severity: Severity::Error,   description: "DAAST <Duration> value does not match HH:MM:SS[.mmm] format",                            source: DaastSpec },
+    RuleMeta { id: "DAAST-1.0-linear-mediafiles",             default_severity: Severity::Error,   description: "DAAST <Linear> must contain <MediaFiles> with at least one <MediaFile>",                 source: DaastSpec },
+    RuleMeta { id: "DAAST-1.0-mediafile-delivery",            default_severity: Severity::Error,   description: "DAAST <MediaFile> must have a delivery attribute",                                       source: DaastSpec },
+    RuleMeta { id: "DAAST-1.0-mediafile-delivery-enum",       default_severity: Severity::Error,   description: "DAAST <MediaFile> delivery must be \"progressive\" or \"streaming\"",                    source: DaastXsd },
+    RuleMeta { id: "DAAST-1.0-mediafile-type",                default_severity: Severity::Error,   description: "DAAST <MediaFile> must have a type attribute",                                           source: DaastSpec },
+    RuleMeta { id: "DAAST-1.0-mediafile-audio-type",          default_severity: Severity::Warning, description: "DAAST <MediaFile> type is a video MIME type — DAAST creative is audio",                  source: Inferred },
+    RuleMeta { id: "DAAST-1.0-mediafile-id",                  default_severity: Severity::Warning, description: "DAAST <MediaFile> should have an id attribute (required by the DAAST XSD)",              source: DaastXsd },
+    RuleMeta { id: "DAAST-1.0-mediafile-url-empty",           default_severity: Severity::Error,   description: "DAAST <MediaFile> does not contain a media URI",                                         source: DaastSpec },
+    RuleMeta { id: "DAAST-1.0-tracking-event-value",          default_severity: Severity::Error,   description: "DAAST <Tracking> event is not in the DAAST audio event set",                             source: DaastXsd },
+    RuleMeta { id: "DAAST-1.0-progress-offset",               default_severity: Severity::Error,   description: "DAAST <Tracking event=\"progress\"> requires a valid offset attribute",                  source: DaastSpec },
+    RuleMeta { id: "DAAST-1.0-pricing-model",                 default_severity: Severity::Error,   description: "DAAST <Pricing> is missing the required model attribute",                                source: DaastSpec },
+    RuleMeta { id: "DAAST-1.0-pricing-model-value",           default_severity: Severity::Warning, description: "DAAST <Pricing> model must be one of cpm, cpc, cpe, cpv, cpo",                           source: DaastXsd },
+    RuleMeta { id: "DAAST-1.0-pricing-currency",              default_severity: Severity::Error,   description: "DAAST <Pricing> is missing the required currency attribute",                             source: DaastSpec },
+    RuleMeta { id: "DAAST-1.0-error-url-empty",               default_severity: Severity::Warning, description: "DAAST <Error> element is present but contains no URI",                                    source: DaastSpec },
+    RuleMeta { id: "DAAST-1.0-error-tracking-macro",          default_severity: Severity::Info,    description: "DAAST <Error> URI does not include the [ERRORCODE] macro",                                source: DaastSpec },
 ];
