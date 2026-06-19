@@ -1685,6 +1685,77 @@ jobs:
           git tag "$TAG"
           git push origin "$TAG"
 
+  # ── Sync vastlint-python ────────────────────────────────────────────────────
+  # After a successful release, bump the version in the vastlint-python repo and
+  # tag it at the same version. The vastlint-python publish workflow then runs
+  # fetch-libs.sh against this release to vendor the shared libraries and pushes
+  # the wheel to PyPI via trusted publishing.
+  #
+  # Prerequisites (one-time setup):
+  #   1. Generate an SSH deploy key for vastlint-python:
+  #        ssh-keygen -t ed25519 -f ~/VASTLINT_PYTHON_DEPLOY_KEY -C "vastlint release bot (python)" -N ""
+  #   2. Add ~/VASTLINT_PYTHON_DEPLOY_KEY.pub as a deploy key in vastlint-python
+  #      (Settings → Deploy keys) with write access.
+  #   3. Add ~/VASTLINT_PYTHON_DEPLOY_KEY (private key) as secret
+  #      VASTLINT_PYTHON_DEPLOY_KEY in this repo (Settings → Secrets → Actions).
+  #
+  # Set ENABLE_PYTHON_SYNC to "true" in repo variables to activate this job.
+  sync-python:
+    name: Sync vastlint-python
+    needs: [release]
+    runs-on: ubuntu-latest
+    if: vars.ENABLE_PYTHON_SYNC == 'true'
+
+    steps:
+      - name: Checkout vastlint-python via deploy key
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6.0.3
+        with:
+          repository: aleksUIX/vastlint-python
+          ssh-key: ${{ secrets.VASTLINT_PYTHON_DEPLOY_KEY }}
+          path: vastlint-python
+
+      - name: Bump version
+        run: |
+          TAG="${{ github.ref_name }}"
+          VERSION="${TAG#v}"
+          cd vastlint-python
+          printf '__version__ = "%s"\n' "$VERSION" > src/vastlint/_version.py
+          echo "set __version__ = ${VERSION}"
+
+      - name: Import bot GPG key
+        run: |
+          echo "${{ secrets.BOT_GPG_KEY }}" | gpg --batch --import
+          # Trust the key fully so git can use it without prompts
+          echo "AEA67F4C8B714AC26E14ACDB67DF23E270B033DB:6:" | gpg --import-ownertrust
+
+      - name: Commit and push
+        run: |
+          TAG="${{ github.ref_name }}"
+          cd vastlint-python
+          git config user.name  "vastlint release bot"
+          git config user.email "bot@vastlint.org"
+          git config user.signingkey "67DF23E270B033DB"
+          git config commit.gpgsign  true
+
+          git add src/vastlint/_version.py
+          if git diff --cached --quiet; then
+            echo "version already at ${TAG#v} — nothing to commit"
+          else
+            git commit -S -m "chore: release ${TAG}"
+            git push origin main
+          fi
+
+      - name: Tag vastlint-python
+        run: |
+          TAG="${{ github.ref_name }}"
+          cd vastlint-python
+          # Fail loudly if the tag already exists — never silently overwrite.
+          if git ls-remote --tags origin "$TAG" | grep -q "$TAG"; then
+            echo "::warning::Tag $TAG already exists on vastlint-python — skipping tag push" && exit 0
+          fi
+          git tag "$TAG"
+          git push origin "$TAG"
+
   # ── Chrome Web Store ────────────────────────────────────────────────────────
   chrome-extension:
     name: Publish Chrome extension
