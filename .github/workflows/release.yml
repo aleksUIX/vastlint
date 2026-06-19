@@ -908,7 +908,12 @@ jobs:
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
           for toml in crates/*/Cargo.toml; do
-            sed -i.bak "s/^version = \".*\"/version = \"${VERSION}\"/" "$toml" && rm "$toml.bak"
+            # crate's own [package] version
+            sed -i.bak -E "s/^version = \"[^\"]*\"/version = \"${VERSION}\"/" "$toml"
+            # inter-crate path-dependency version pins, e.g. cli/mcp/wasm pin
+            # vastlint-core = { path = "...", version = "X" }; path-only deps untouched
+            sed -i.bak -E "s/(vastlint-[a-z-]+ = \{[^}]*version = \")[^\"]*(\")/\1${VERSION}\2/g" "$toml"
+            rm "$toml.bak"
           done
           echo "Bumped all crates to ${VERSION}"
 
@@ -1212,7 +1217,12 @@ jobs:
           # `cargo publish` always publishes the tag version, not whatever was
           # last committed in Cargo.toml.
           for toml in crates/*/Cargo.toml; do
-            sed -i "s/^version = \".*\"/version = \"${VERSION}\"/" "$toml"
+            # crate's own [package] version
+            sed -i.bak -E "s/^version = \"[^\"]*\"/version = \"${VERSION}\"/" "$toml"
+            # inter-crate path-dependency version pins, e.g. cli/mcp/wasm pin
+            # vastlint-core = { path = "...", version = "X" }; path-only deps untouched
+            sed -i.bak -E "s/(vastlint-[a-z-]+ = \{[^}]*version = \")[^\"]*(\")/\1${VERSION}\2/g" "$toml"
+            rm "$toml.bak"
           done
           echo "Bumped all crates to ${VERSION}"
 
