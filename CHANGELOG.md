@@ -6,6 +6,18 @@ GitHub Releases: <https://github.com/aleksUIX/vastlint/releases>
 
 ---
 
+## [0.6.2] - 2026-06-19
+
+### Security
+
+- Patched 16 Dependabot alerts across npm dependency trees: `undici` 7.28.0, `form-data` 4.0.6, `js-yaml` 4.2.0, `tmp` 0.2.7 (vscode); `vite` 6.4.3 (3 example manifests); `esbuild` 0.28.1 (chrome extension).
+
+### Versioning
+
+- Aligned all package versions (npm, vscode extension, chrome extension, all Rust crates) to the core release version. Previously these drifted across 0.4.24 and 0.5.0.
+
+---
+
 ## [0.5.0] - 2026-06-13
 
 ### Core validator
