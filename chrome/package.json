@@ -13,7 +13,7 @@
   },
   "devDependencies": {
     "@types/chrome": "^0.0.299",
-    "esbuild": "^0.28.0",
+    "esbuild": "^0.28.1",
     "esbuild-plugin-copy": "^2.1.1",
     "typescript": "^6.0.3"
   }
