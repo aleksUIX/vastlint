@@ -347,8 +347,10 @@ jobs:
           def check_list_rules():
               r, ms = post("tools/call", {"name": "list_rules", "arguments": {}})
               obj = json.loads(r["result"]["content"][0]["text"])
-              assert isinstance(obj, list), f"expected list payload, got {type(obj).__name__}"
-              rules = obj
+              # v3 server wraps the catalog in an envelope: {"status","count","rules":[...]}.
+              # Older servers returned a bare list. Accept either shape.
+              rules = obj["rules"] if isinstance(obj, dict) else obj
+              assert isinstance(rules, list), f"expected rules list, got {type(rules).__name__}"
               count = len(rules)
               assert count > 0, f"count=0"
               ids = {rule["id"] for rule in rules}
@@ -397,7 +399,7 @@ jobs:
           def check_adcp():
               r, ms = post("tools/call", {"name": "get_adcp_capabilities", "arguments": {}})
               obj = json.loads(r["result"]["content"][0]["text"])
-              assert "status" not in obj,                         f"unexpected status={obj.get('status')}"
+              # v3 server adds a top-level envelope status (e.g. "completed"); not an error.
               assert obj.get("supported_protocols"),              f"no supported_protocols"
               assert obj.get("adcp", {}).get("major_versions"),  f"no adcp.major_versions"
               assert obj.get("operator", {}).get("name"),        f"no operator.name"
