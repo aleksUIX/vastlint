@@ -923,16 +923,19 @@ jobs:
           sudo apt-get update -q
           sudo apt-get install -y musl-tools
 
-      - name: Install cross (Linux aarch64)
+      # aarch64-unknown-linux-musl needs a cross linker (aarch64-linux-musl-gcc).
+      # `cross` is unreliable here: on the runner it silently fails to read
+      # workspace metadata and falls back to host cargo, which lacks the musl
+      # cross compiler, so the build dies in ring's build script. setup-cross-
+      # toolchain-action installs the musl cross toolchain and wires up the
+      # linker/CC env so a plain `cargo build` cross-compiles cleanly.
+      - name: Set up cross toolchain (Linux aarch64)
         if: matrix.target == 'aarch64-unknown-linux-musl'
-        run: cargo install cross --locked
+        uses: taiki-e/setup-cross-toolchain-action@3d9770ce98eb7dbcf378563182a5e8031165f75b  # v1.41.0
+        with:
+          target: ${{ matrix.target }}
 
-      - name: Build (cross — Linux aarch64)
-        if: matrix.target == 'aarch64-unknown-linux-musl'
-        run: cross build --release --target ${{ matrix.target }} -p ${{ matrix.crate }}
-
-      - name: Build (cargo — all others)
-        if: matrix.target != 'aarch64-unknown-linux-musl'
+      - name: Build (cargo)
         run: cargo build --release --target ${{ matrix.target }} -p ${{ matrix.crate }}
 
       - name: Package
