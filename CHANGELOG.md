@@ -6,6 +6,15 @@ GitHub Releases: <https://github.com/aleksUIX/vastlint/releases>
 
 ---
 
+## [0.6.3] - 2026-06-24
+
+### Maintenance
+
+- Dependency updates via Dependabot: `phf` 0.13.1 → 0.14.0 (core crate), `@types/node` 25.9.3 → 26.0.0 (vscode dev dependency).
+- CI action pins refreshed: `actions/checkout` 6.0.3 → 7.0.0, `softprops/action-gh-release` 3.0.0 → 3.0.1, `dtolnay/rust-toolchain` advanced to the latest pinned SHA.
+
+---
+
 ## [0.6.2] - 2026-06-19
 
 ### Security
