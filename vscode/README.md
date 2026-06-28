@@ -12,7 +12,7 @@ Supports VAST 2.0 through 4.3 with clean Problems entries, concise hovers, fix g
 - **Multi-block** — validates every `<VAST>...</VAST>` block in a file independently
 - **Live as you type** — re-validates 500 ms after you stop typing, and on every save
 - **CLI backend** — uses the `vastlint` CLI binary when available, falls back to WASM in-process
-- **182 rules** across VAST 2.0–4.3 plus SIMID and OMID validation: required fields, schema structure, URLs, verification semantics, deprecations, and CTV/SSAI advisories
+- **187 rules** across VAST 2.0–4.3 plus SIMID and OMID validation: required fields, schema structure, URLs, verification semantics, deprecations, and CTV/SSAI advisories
 
 ## How it looks
 
@@ -59,7 +59,7 @@ Docs: vastlint.org/docs/rules/VAST-2.0-inline-adsystem
 
 ## Rules
 
-VASTlint checks 182 rules across:
+VASTlint checks 187 rules across:
 - Required elements and attributes (VAST 2.0–4.3)
 - Value formats (durations, URLs, enums)
 - Schema conformance (unknown elements/attributes)
@@ -80,7 +80,7 @@ Canonical rule catalog:
 - [vastlint.org/docs/rules](https://vastlint.org/docs/rules/) for the hosted per-rule pages
 
 <details>
-<summary>All 182 rules</summary>
+<summary>All 187 rules</summary>
 
 ### VAST 2.0
 
@@ -141,6 +141,10 @@ Canonical rule catalog:
 | [VAST-2.0-flash-mediafile](https://vastlint.org/docs/rules/VAST-2.0-flash-mediafile/) | warning | Flash MediaFile type is no longer supported |
 | [VAST-2.0-linear-tracking-quartiles](https://vastlint.org/docs/rules/VAST-2.0-linear-tracking-quartiles/) | warning | `<Linear>` has no standard quartile tracking events — measurement system receives no signal |
 | [VAST-2.0-duration-format](https://vastlint.org/docs/rules/VAST-2.0-duration-format/) | error | Duration value does not match `HH:MM:SS[.mmm]` format |
+| [VAST-2.0-macro-unknown](https://vastlint.org/docs/rules/VAST-2.0-macro-unknown/) | warning | URL contains a `[MACRO]` that is not a recognised IAB VAST macro |
+| [VAST-2.0-macro-lowercase](https://vastlint.org/docs/rules/VAST-2.0-macro-lowercase/) | warning | Recognised macro is not uppercase — players match macro names case-sensitively |
+| [VAST-2.0-macro-wrong-context](https://vastlint.org/docs/rules/VAST-2.0-macro-wrong-context/) | info | Context-restricted macro (`[ERRORCODE]`/`[REASON]`) used where it has no defined value |
+| [VAST-2.0-macro-uri-unencoded](https://vastlint.org/docs/rules/VAST-2.0-macro-uri-unencoded/) | warning | Macro-bearing URL contains characters that must be percent-encoded per RFC 3986 |
 
 ### VAST 3.0
 
@@ -194,6 +198,7 @@ Canonical rule catalog:
 | [VAST-4.1-universaladid-content](https://vastlint.org/docs/rules/VAST-4.1-universaladid-content/) | error | `<UniversalAdId>` must have text content in VAST 4.1+ |
 | [VAST-4.1-adtype-value](https://vastlint.org/docs/rules/VAST-4.1-adtype-value/) | warning | `adType` must be `video`, `audio`, or `hybrid` |
 | [VAST-4.1-survey-deprecated](https://vastlint.org/docs/rules/VAST-4.1-survey-deprecated/) | warning | `<Survey>` is deprecated as of VAST 4.1 |
+| [VAST-4.1-macro-deprecated](https://vastlint.org/docs/rules/VAST-4.1-macro-deprecated/) | info | `[CONTENTPLAYHEAD]`/`[MEDIAPLAYHEAD]` are deprecated as of VAST 4.1 — use `[ADPLAYHEAD]` |
 | [VAST-4.1-vpaid-apiframework](https://vastlint.org/docs/rules/VAST-4.1-vpaid-apiframework/) | warning | VPAID is deprecated as of VAST 4.1 |
 | [VAST-4.1-vpaid-in-interactive-context](https://vastlint.org/docs/rules/VAST-4.1-vpaid-in-interactive-context/) | warning | VPAID `<MediaFile>` alongside `<InteractiveCreativeFile>` — unsupported in CTV |
 | [VAST-4.1-interactive-creative-type](https://vastlint.org/docs/rules/VAST-4.1-interactive-creative-type/) | warning | `<InteractiveCreativeFile>` should have a `type` attribute |

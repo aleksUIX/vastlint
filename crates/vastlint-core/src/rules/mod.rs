@@ -13,6 +13,7 @@ pub mod consistency;
 pub mod ctv;
 pub mod daast;
 pub mod deprecated;
+pub mod macros;
 pub mod required;
 pub mod schema;
 pub mod security;
@@ -70,6 +71,7 @@ pub fn run(
     values::check(doc, version, ctx, issues);
     ctv::check(doc, version, ctx, issues);
     simid::check(doc, version, ctx, issues);
+    macros::check(doc, version, ctx, issues);
 }
 
 // ── Helper: emit an issue respecting rule overrides ───────────────────────────
@@ -255,6 +257,12 @@ pub static CATALOG: &[RuleMeta] = &[
     RuleMeta { id: "SIMID-1.1-iframe-simid-type-required",    default_severity: Severity::Warning, description: "<IFrameResource> in SIMID <NonLinear> should have type=\"text/html\"",                   source: SimidSpec },
     RuleMeta { id: "SIMID-1.1-iframe-simid-url-empty",        default_severity: Severity::Error,   description: "<IFrameResource> in SIMID <NonLinear> must contain a non-empty URL",                     source: SimidSpec },
     RuleMeta { id: "SIMID-1.1-iframe-simid-url-https",        default_severity: Severity::Error,   description: "<IFrameResource> in SIMID <NonLinear> URL must use HTTPS",                               source: SimidSpec },
+    // macros.rs
+    RuleMeta { id: "VAST-2.0-macro-unknown",                  default_severity: Severity::Warning, description: "URL contains a [MACRO] that is not a recognised IAB VAST macro",                          source: VastSpec },
+    RuleMeta { id: "VAST-2.0-macro-lowercase",                default_severity: Severity::Warning, description: "Recognised macro is not uppercase — players match macro names case-sensitively",          source: VastSpec },
+    RuleMeta { id: "VAST-4.1-macro-deprecated",               default_severity: Severity::Info,    description: "[CONTENTPLAYHEAD]/[MEDIAPLAYHEAD] are deprecated as of VAST 4.1 — use [ADPLAYHEAD]",      source: VastSpec },
+    RuleMeta { id: "VAST-2.0-macro-wrong-context",            default_severity: Severity::Info,    description: "Context-restricted macro ([ERRORCODE]/[REASON]) used where it has no defined value",      source: VastSpec },
+    RuleMeta { id: "VAST-2.0-macro-uri-unencoded",            default_severity: Severity::Warning, description: "Macro-bearing URL contains characters that must be percent-encoded per RFC 3986",         source: Rfc3986  },
     // vmap.rs
     RuleMeta { id: "VMAP-1.0-root-version",                   default_severity: Severity::Error,   description: "Root <VMAP> element must have a version attribute",                                      source: VmapSpec },
     RuleMeta { id: "VMAP-1.0-root-version-value",             default_severity: Severity::Warning, description: "<VMAP> version attribute should be \"1.0\" — the only published VMAP version",            source: VmapSpec },

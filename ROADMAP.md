@@ -11,11 +11,11 @@ Where vastlint is today and where it's going.
 
 | Milestone | Detail |
 |---|---|
-| **Core library** | `vastlint-core` v0.5 on crates.io - zero-dependency Rust library, 182 rules, VAST 2.0–4.3 plus SIMID, OMID, VMAP 1.0, and DAAST 1.0 validation. |
+| **Core library** | `vastlint-core` v0.5 on crates.io - zero-dependency Rust library, 187 rules, VAST 2.0–4.3 plus SIMID, OMID, VMAP 1.0, and DAAST 1.0 validation. |
 | **CLI** | `vastlint` on crates.io and Homebrew (`brew install aleksUIX/tap/vastlint`). JS/WASM on npm, Go bindings on GitHub. |
 | **Web validator** | Paste or drop a VAST tag at [vastlint.org/validate](https://vastlint.org/validate) - structured report, nothing stored. |
 | **VS Code extension** | Inline VAST XML validation as you type - errors and warnings with rule IDs and spec refs, directly in your editor. [Install →](https://marketplace.visualstudio.com/items?itemName=aleksuix.vastlint) |
-| **REST API** | Authenticated `/validate` endpoint on [RapidAPI](https://rapidapi.com/aleksUIX/api/vastlint). Same 182 rules, WASM-powered, sub-millisecond response. |
+| **REST API** | Authenticated `/validate` endpoint on [RapidAPI](https://rapidapi.com/aleksUIX/api/vastlint). Same 187 rules, WASM-powered, sub-millisecond response. |
 | **VMAP 1.0 validation** | 24 rules covering `<AdBreak>` structure, `timeOffset`/`breakType`/`repeatAfter` formats (including `repeatAfter` + `start`/`end` conflict detection), `<AdSource>` content constraints, VMAP tracking events, and full VAST validation of inline `<vmap:VASTAdData>` ad data. |
 | **DAAST 1.0 validation** | 29 rules covering audio-specific VAST 3.0 deltas: required `<Category>`, `<DAASTAdTagURI>` wrappers, `<AdInteractions>` (with VAST-leftover detection), audio MediaFile attributes, DAAST tracking event set, DAAST pricing models, and root-level `<Error>` URI and `[ERRORCODE]` macro checks. |
 | **MCP server** | Model Context Protocol server wrapping vastlint-core. Hosted SSE endpoint at `https://vastlint.org/mcp` - no install needed. Six tools: `validate_vast`, `validate_vast_url`, `list_rules`, `explain_rule`, `fix_vast`, `inspect_vast`. Published to [registry.modelcontextprotocol.io](https://registry.modelcontextprotocol.io/servers/io.github.aleksUIX/vastlint) and Smithery. Works with Claude Desktop, Cursor, Windsurf, VS Code, and any MCP-compatible client. |

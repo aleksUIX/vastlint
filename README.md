@@ -36,7 +36,7 @@ Validates VAST documents against:
 - [IAB Tech Lab SIMID](https://iabtechlab.com/simid/) 1.0, 1.0.1, 1.1, 1.2 — interactive creative validation for `<InteractiveCreativeFile apiFramework="SIMID">` and nonlinear `<IFrameResource>` (the IAB-sanctioned VPAID replacement)
 - [IAB Tech Lab OMID / Open Measurement](https://iabtechlab.com/standards/open-measurement-sdk/) compatibility in VAST `<AdVerifications>` — vendor format, duplicate vendor detection, OMID resource semantics, verification tracking validation, and pre-4.1 extension-carried compatibility blocks
 
-182 rules across required fields, schema validation, structural correctness, security, consistency, deprecated features, ambiguous usage, value formats, SIMID validation, OMID validation, VMAP 1.0, and DAAST 1.0. Rules marked with `$` have direct revenue impact - use `vastlint check --fail-on-warning` in CI to catch them before they reach production. See [common errors](docs/common-errors.md) for the ones that cost real money. New to VASTlint? Start with the [tutorial](docs/tutorial.md).
+187 rules across required fields, schema validation, structural correctness, security, consistency, deprecated features, ambiguous usage, value formats, SIMID validation, OMID validation, VMAP 1.0, and DAAST 1.0. Rules marked with `$` have direct revenue impact - use `vastlint check --fail-on-warning` in CI to catch them before they reach production. See [common errors](docs/common-errors.md) for the ones that cost real money. New to VASTlint? Start with the [tutorial](docs/tutorial.md).
 
 Full rule reference with examples and fix instructions: [VAST error rule reference](https://vastlint.org/docs/rules) · [RULES.md](RULES.md)
 
@@ -379,7 +379,7 @@ All three bindings share the same compiled Rust core — identical rule enforcem
 
 ## Use from JavaScript / TypeScript
 
-[`vastlint`](https://www.npmjs.com/package/vastlint) is published on npm. Same 182 rules, same core - compiled to WASM.
+[`vastlint`](https://www.npmjs.com/package/vastlint) is published on npm. Same 187 rules, same core - compiled to WASM.
 
 ```sh
 npm install vastlint
@@ -517,7 +517,7 @@ Returns the same structured result as the CLI and library: version, issues with 
 
 ## Use from a browser
 
-Paste any VAST tag into the web validator at **[VAST tag validator](https://vastlint.org/validate)** - no install, no account, nothing stored. Runs the same 182 rules as the CLI, entirely in your browser via WebAssembly.
+Paste any VAST tag into the web validator at **[VAST tag validator](https://vastlint.org/validate)** - no install, no account, nothing stored. Runs the same 187 rules as the CLI, entirely in your browser via WebAssembly.
 
 ## Telemetry
 

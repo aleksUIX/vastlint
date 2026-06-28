@@ -1,6 +1,6 @@
 {
   "name": "vastlint-extension",
-  "version": "0.6.2",
+  "version": "0.7.0",
   "private": true,
   "description": "Chrome extension that detects VAST XML in the DOM and displays inline validation errors/warnings powered by VASTlint WASM",
   "scripts": {

@@ -93,7 +93,7 @@ Listed as **`io.github.aleksUIX/vastlint`** on the [MCP Registry](https://regist
 |---|---|
 | `validate_vast` | Raw XML in, issues array out. Use when you have the tag in memory. |
 | `validate_vast_url` | Fetch-and-validate a VAST URL. Follows wrapper chains up to the configured depth. |
-| `list_rules` | Returns all 182 rule IDs with severities and descriptions. Cache this - it's static. |
+| `list_rules` | Returns all 187 rule IDs with severities and descriptions. Cache this - it's static. |
 | `explain_rule` | Full details, spec reference, and fix guidance for a specific rule ID. |
 | `fix_vast` | Auto-applies all deterministic safe fixes (HTTP→HTTPS upgrades, deprecated attribute removal). Returns patched XML plus a diff of what changed. |
 
@@ -312,7 +312,7 @@ The local binary is the right choice for latency-sensitive SSAI pipelines and AR
 - [`crates/vastlint-mcp`](../crates/vastlint-mcp/README.md) - full tool schema reference
 - [Common errors](common-errors.md) - the VAST mistakes that cost real money
 - [Tutorial](tutorial.md) - getting started with VAST validation
-- [Rule reference](https://vastlint.org/docs/rules) - all 182 rules with examples and fix instructions
+- [Rule reference](https://vastlint.org/docs/rules) - all 187 rules with examples and fix instructions
 - [IAB Tech Lab AAMP](https://iabtechlab.com/standards/aamp-agentic-advertising-management-protocols/)
 - [IAB Tech Lab ARTF](https://iabtechlab.com/standards/artf/)
 - [AAMP Buyer Agent SDK](https://github.com/IABTechLab/buyer-agent)

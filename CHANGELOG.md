@@ -6,6 +6,26 @@ GitHub Releases: <https://github.com/aleksUIX/vastlint/releases>
 
 ---
 
+## [0.7.0] - 2026-06-27
+
+### Core validator
+
+- **VAST macro validation**: a new `macros` rule chain inspects `[MACRO]` substitution tokens in tracking, click, error, impression, and media URLs against the IAB VAST macro list. Five new rules:
+  - `VAST-2.0-macro-unknown` (warning): bracketed token that is not a recognised IAB macro (typo, or a vendor-specific macro to allowlist).
+  - `VAST-2.0-macro-lowercase` (warning): a recognised macro not written in uppercase, which players never substitute.
+  - `VAST-4.1-macro-deprecated` (info): `[CONTENTPLAYHEAD]`/`[MEDIAPLAYHEAD]`, deprecated in 4.1 in favour of `[ADPLAYHEAD]` (fires on 4.1+ only).
+  - `VAST-2.0-macro-wrong-context` (info): a context-restricted macro used where it has no defined value (`[ERRORCODE]` outside `<Error>`, `[REASON]` outside `verificationNotExecuted`).
+  - `VAST-2.0-macro-uri-unencoded` (warning, RFC 3986): a macro-bearing URL with characters that must be percent-encoded.
+- The scanner is a single bounded, linear byte pass (`MAX_MACRO_LEN`): only URL-bearing elements are inspected (free text such as `<AdTitle>` is never treated as a macro), numeric array indices like `key[0]` are skipped, and adversarial input (large runs of `[`) cannot cause super-linear scanning. Root-level `<Error>` beacons are scanned with the correct context.
+- **Rule catalog grown to 187** (`all_rules()`, RULES.md, VS Code rule list).
+
+### Documentation / metadata
+
+- **RULES.md and VS Code README updated**: the five macro rules listed with severities and spec references; rule count updated to 187.
+- **Rule count updated to 187** across README.md, ROADMAP.md, docs/tutorial.md, docs/mcp-agentic.md, crate/npm/vscode/chrome/MCP descriptions, and the vastlint.org site (new "Macros" rule category with per-rule doc pages).
+
+---
+
 ## [0.6.3] - 2026-06-24
 
 ### Maintenance

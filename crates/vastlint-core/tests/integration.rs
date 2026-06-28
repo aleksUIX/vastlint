@@ -2100,7 +2100,7 @@ fn linear_with_quartile_tracking_does_not_fire() {
 fn all_rules_catalog_has_expected_count() {
     assert_eq!(
         vastlint_core::all_rules().len(),
-        182,
+        187,
         "catalog count changed — update this assertion and bump RULES.md"
     );
 }
@@ -2360,4 +2360,188 @@ fn forced_version_none_is_identity() {
         result_plain.issues.len(),
         "forced_version: None issue count mismatch"
     );
+}
+
+// ── macro rules ────────────────────────────────────────────────────────────────
+
+fn inline_with_impression(version: &str, impression_url: &str) -> String {
+    minimal_valid_inline_xml(
+        version,
+        &format!("<Impression><![CDATA[{impression_url}]]></Impression>"),
+        "",
+    )
+}
+
+#[test]
+fn macro_unknown_fires_on_unrecognised_token() {
+    let xml = inline_with_impression("4.0", "https://e.com/i?z=[FOOBAR]");
+    let result = validate(&xml);
+    assert!(has_issue(&result, "VAST-2.0-macro-unknown"));
+}
+
+#[test]
+fn macro_unknown_does_not_fire_on_known_macro() {
+    let xml = inline_with_impression("4.0", "https://e.com/i?z=[CACHEBUSTING]");
+    let result = validate(&xml);
+    assert!(!has_issue(&result, "VAST-2.0-macro-unknown"));
+}
+
+#[test]
+fn macro_unknown_ignores_array_indices() {
+    let xml = inline_with_impression("4.0", "https://e.com/i?key[0]=5&c=[CACHEBUSTING]");
+    let result = validate(&xml);
+    assert!(!has_issue(&result, "VAST-2.0-macro-unknown"));
+}
+
+#[test]
+fn macro_lowercase_fires_on_recognised_macro() {
+    let xml = inline_with_impression("4.0", "https://e.com/i?z=[cachebusting]");
+    let result = validate(&xml);
+    assert!(has_issue(&result, "VAST-2.0-macro-lowercase"));
+    assert!(!has_issue(&result, "VAST-2.0-macro-unknown"));
+}
+
+#[test]
+fn macro_deprecated_fires_on_4_1() {
+    let xml = inline_with_impression("4.1", "https://e.com/i?p=[CONTENTPLAYHEAD]");
+    let result = validate(&xml);
+    assert!(has_issue(&result, "VAST-4.1-macro-deprecated"));
+}
+
+#[test]
+fn macro_deprecated_does_not_fire_on_3_0() {
+    let xml = inline_with_impression("3.0", "https://e.com/i?p=[CONTENTPLAYHEAD]");
+    let result = validate(&xml);
+    assert!(!has_issue(&result, "VAST-4.1-macro-deprecated"));
+    assert!(!has_issue(&result, "VAST-2.0-macro-unknown"));
+}
+
+#[test]
+fn macro_wrong_context_fires_for_errorcode_outside_error() {
+    let xml = inline_with_impression("4.0", "https://e.com/i?e=[ERRORCODE]");
+    let result = validate(&xml);
+    assert!(has_issue(&result, "VAST-2.0-macro-wrong-context"));
+}
+
+#[test]
+fn macro_errorcode_in_error_element_is_valid_context() {
+    let xml = minimal_valid_inline_xml(
+        "4.0",
+        "<Error><![CDATA[https://e.com/e?code=[ERRORCODE]]]></Error>",
+        "",
+    );
+    let result = validate(&xml);
+    assert!(!has_issue(&result, "VAST-2.0-macro-wrong-context"));
+}
+
+#[test]
+fn macro_uri_unencoded_fires_on_raw_space() {
+    let xml = inline_with_impression("4.0", "https://e.com/i?x=a b&c=[CACHEBUSTING]");
+    let result = validate(&xml);
+    assert!(has_issue(&result, "VAST-2.0-macro-uri-unencoded"));
+}
+
+#[test]
+fn macro_uri_unencoded_does_not_fire_on_clean_url() {
+    let xml = inline_with_impression("4.0", "https://e.com/i?c=[CACHEBUSTING]");
+    let result = validate(&xml);
+    assert!(!has_issue(&result, "VAST-2.0-macro-uri-unencoded"));
+}
+
+#[test]
+fn macro_rules_ignore_free_text_elements() {
+    // A [TOKEN] in AdTitle (not a URL field) must not be treated as a macro.
+    let xml = r#"<VAST version="4.0">
+    <Ad id="1">
+        <InLine>
+            <AdSystem>Test AdServer</AdSystem>
+            <AdTitle>Buy [FOOBAR] now</AdTitle>
+            <Impression><![CDATA[https://example.com/impression]]></Impression>
+            <Creatives>
+                <Creative>
+                    <Linear>
+                        <Duration>00:00:30</Duration>
+                        <MediaFiles>
+                            <MediaFile delivery="progressive" type="video/mp4" width="640" height="360"><![CDATA[https://example.com/video.mp4]]></MediaFile>
+                        </MediaFiles>
+                    </Linear>
+                </Creative>
+            </Creatives>
+        </InLine>
+    </Ad>
+</VAST>"#;
+    let result = validate(xml);
+    assert!(!has_issue(&result, "VAST-2.0-macro-unknown"));
+}
+
+#[test]
+fn macro_gdpr_is_recognised() {
+    // [GDPR] (binary flag) and [GDPRCONSENT] (string) are both real macros.
+    let xml = inline_with_impression("4.0", "https://e.com/i?g=[GDPR]&c=[GDPRCONSENT]");
+    let result = validate(&xml);
+    assert!(!has_issue(&result, "VAST-2.0-macro-unknown"));
+}
+
+#[test]
+fn macro_errorcode_in_root_error_is_valid_context() {
+    // Root-level <Error> (no-ad response) is a valid context for [ERRORCODE].
+    let xml = r#"<VAST version="4.0">
+    <Error><![CDATA[https://e.com/e?code=[ERRORCODE]]]></Error>
+</VAST>"#;
+    let result = validate(xml);
+    assert!(!has_issue(&result, "VAST-2.0-macro-wrong-context"));
+}
+
+#[test]
+fn macro_unknown_fires_in_root_error() {
+    let xml = r#"<VAST version="4.0">
+    <Error><![CDATA[https://e.com/e?x=[BOGUSMACRO]]]></Error>
+</VAST>"#;
+    let result = validate(xml);
+    assert!(has_issue(&result, "VAST-2.0-macro-unknown"));
+}
+
+#[test]
+fn macro_nested_open_bracket_still_detects_inner_macro() {
+    let xml = inline_with_impression("4.0", "https://e.com/i?x=[[CACHEBUSTING]");
+    let result = validate(&xml);
+    // The inner [CACHEBUSTING] is a known macro, so no unknown warning.
+    assert!(!has_issue(&result, "VAST-2.0-macro-unknown"));
+}
+
+#[test]
+fn macro_unclosed_bracket_does_not_panic_or_flag() {
+    let xml = inline_with_impression("4.0", "https://e.com/i?x=[CACHEBUSTING");
+    let result = validate(&xml);
+    // No closing bracket: not a macro reference, no macro issues.
+    assert!(!has_issue(&result, "VAST-2.0-macro-unknown"));
+    assert!(!has_issue(&result, "VAST-2.0-macro-lowercase"));
+}
+
+#[test]
+fn macro_multibyte_text_does_not_panic() {
+    // Emoji and non-ASCII around a macro must not break byte indexing.
+    let xml = inline_with_impression("4.0", "https://e.com/i?q=café🎬&cb=[CACHEBUSTING]&z=[私]");
+    let result = validate(&xml);
+    // [私] is not a valid ASCII macro token, so it is ignored, not flagged.
+    assert!(!has_issue(&result, "VAST-2.0-macro-unknown"));
+}
+
+#[test]
+fn macro_overlong_bracket_content_is_ignored() {
+    // A 60-char bracketed blob is past MAX_MACRO_LEN and must not be flagged.
+    let long = "A".repeat(60);
+    let xml = inline_with_impression("4.0", &format!("https://e.com/i?x=[{long}]"));
+    let result = validate(&xml);
+    assert!(!has_issue(&result, "VAST-2.0-macro-unknown"));
+}
+
+#[test]
+fn macro_scan_handles_pathological_brackets_quickly() {
+    // Regression guard for the former O(n^2) scan: a large run of unmatched
+    // '[' must still validate. (Correctness, not a hard timing assert.)
+    let brackets = "[".repeat(100_000);
+    let xml = inline_with_impression("4.0", &format!("https://e.com/i?x={brackets}"));
+    let result = validate(&xml);
+    assert!(!has_issue(&result, "VAST-2.0-macro-unknown"));
 }
