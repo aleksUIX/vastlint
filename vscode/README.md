@@ -12,7 +12,7 @@ Supports VAST 2.0 through 4.3 with clean Problems entries, concise hovers, fix g
 - **Multi-block** — validates every `<VAST>...</VAST>` block in a file independently
 - **Live as you type** — re-validates 500 ms after you stop typing, and on every save
 - **CLI backend** — uses the `vastlint` CLI binary when available, falls back to WASM in-process
-- **129 rules** across VAST 2.0–4.3 plus SIMID and OMID validation: required fields, schema structure, URLs, verification semantics, deprecations, and CTV/SSAI advisories
+- **182 rules** across VAST 2.0–4.3 plus SIMID and OMID validation: required fields, schema structure, URLs, verification semantics, deprecations, and CTV/SSAI advisories
 
 ## How it looks
 
@@ -59,7 +59,7 @@ Docs: vastlint.org/docs/rules/VAST-2.0-inline-adsystem
 
 ## Rules
 
-VASTlint checks 179 rules across:
+VASTlint checks 182 rules across:
 - Required elements and attributes (VAST 2.0–4.3)
 - Value formats (durations, URLs, enums)
 - Schema conformance (unknown elements/attributes)
