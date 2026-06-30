@@ -6,6 +6,20 @@ GitHub Releases: <https://github.com/aleksUIX/vastlint/releases>
 
 ---
 
+## [0.7.1] - 2026-06-30
+
+### Security
+
+- **`ws` 8.20.1 → 8.21.0** (GHSA-96hv-2xvq-fx4p): memory-exhaustion DoS from tiny fragments and data chunks. Transitive dev-tooling dependency (jsdom), not shipped in any runtime artifact.
+- **`quinn-proto` 0.11.14 → 0.11.15** (RUSTSEC-2026-0185): transitive dependency advisory.
+
+### Maintenance
+
+- Dependency updates via Dependabot: `rmcp` 1.7.0 → 1.8.0 (MCP server), `@types/node` 26.0.0 → 26.0.1 and `ovsx` 1.0.0 → 1.0.2 (vscode dev dependencies).
+- CI action pins refreshed: `github/codeql-action/upload-sarif` 3.28.18 → 4.36.2, `actions/attest-build-provenance` 4.1.0 → 4.1.1.
+
+---
+
 ## [0.7.0] - 2026-06-27
 
 ### Core validator
