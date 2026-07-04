@@ -95,7 +95,7 @@ enum Command {
         ignore_pattern: Option<String>,
 
         /// Upload the report to vastlint.org and print a shareable URL
-        /// (vastlint.org/r/<id>). Sends the validation result only (rule IDs,
+        /// (vastlint.org/r/`<id>`). Sends the validation result only (rule IDs,
         /// severities, XPath locations) — never the input XML itself.
         #[arg(long)]
         share: bool,
@@ -428,8 +428,12 @@ fn run_check(
         total_inputs += 1;
         if file.starts_with("http://") || file.starts_with("https://") {
             // ── URL mode: fetch + follow wrapper chain ────────────────────────
-            let chain_results =
-                fetch_and_validate_chain(file, max_depth, rule_overrides.clone(), contribute_sample);
+            let chain_results = fetch_and_validate_chain(
+                file,
+                max_depth,
+                rule_overrides.clone(),
+                contribute_sample,
+            );
             for (label, result) in &chain_results {
                 let has_errors = !result.summary.is_valid();
                 let has_warnings = result.summary.warnings > 0;

@@ -9,7 +9,7 @@
 //! The server redacts known PII/tracking identifiers (device IDs, IPs,
 //! consent strings) from the XML before storing it — see scrubVastXml() in
 //! vastlint-infra's worker — and samples are never made public (unlike
-//! shared reports, which get a public vastlint.org/r/<id> page).
+//! shared reports, which get a public vastlint.org/r/`<id>` page).
 //!
 //! Fire-and-forget, like telemetry: runs in a detached thread, does not
 //! block CLI exit, and silently drops on any network error.
