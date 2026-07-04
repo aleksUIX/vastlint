@@ -6,6 +6,15 @@ GitHub Releases: <https://github.com/aleksUIX/vastlint/releases>
 
 ---
 
+## [0.7.2] - 2026-07-04
+
+### CLI
+
+- **`--share`**: uploads a validation report (rule IDs, severities, XPath locations, summary counts) to vastlint.org and prints a public `vastlint.org/r/<id>` link for pasting into Slack/GitHub/PRs. Never sends the input XML.
+- **`--contribute-sample`**: opt-in only, off by default. Sends the tag's raw XML to vastlint.org to help refine rules. Known tracking identifiers (device IDs, IPs, consent strings) are redacted server-side before storage; samples are never made public. Independent of `--share` and `--telemetry`.
+
+---
+
 ## [0.7.1] - 2026-06-30
 
 ### Security
