@@ -14,6 +14,8 @@ use vastlint_core::{
     ValidationContext, ValidationResult, VastVersion,
 };
 
+mod contribute;
+mod share;
 mod telemetry;
 
 // ── CLI definition ────────────────────────────────────────────────────────────
@@ -91,6 +93,19 @@ enum Command {
         /// Applied once to the full XML string before any parsing.
         #[arg(long, value_name = "PATTERN")]
         ignore_pattern: Option<String>,
+
+        /// Upload the report to vastlint.org and print a shareable URL
+        /// (vastlint.org/r/<id>). Sends the validation result only (rule IDs,
+        /// severities, XPath locations) — never the input XML itself.
+        #[arg(long)]
+        share: bool,
+
+        /// Opt in to sending this tag's XML to vastlint.org to help refine
+        /// its rules. Off by default, separate from --share and --telemetry.
+        /// Known tracking identifiers (device IDs, IPs, consent strings) are
+        /// redacted server-side before storage; samples are never public.
+        #[arg(long)]
+        contribute_sample: bool,
     },
     /// List all known rule IDs with their default severity
     Rules,
@@ -178,6 +193,8 @@ fn main() -> ExitCode {
             telemetry,
             vast_version,
             ignore_pattern,
+            share,
+            contribute_sample,
         } => {
             if no_color {
                 std::env::set_var("NO_COLOR", "1");
@@ -194,6 +211,8 @@ fn main() -> ExitCode {
                 telemetry,
                 vast_version,
                 ignore_pattern,
+                share,
+                contribute_sample,
             )
         }
         Command::Rules => {
@@ -366,6 +385,8 @@ fn run_check(
     telemetry_flag: bool,
     vast_version: Option<String>,
     ignore_pattern: Option<String>,
+    share: bool,
+    contribute_sample: bool,
 ) -> ExitCode {
     let forced_version = match parse_vast_version_arg(vast_version) {
         Ok(v) => v,
@@ -398,6 +419,8 @@ fn run_check(
     let mut any_warnings = false;
     // For --summary: accumulate (label, issue) pairs across all inputs.
     let mut all_issues: Vec<(String, vastlint_core::Issue)> = Vec::new();
+    // For --share: accumulate (label, result) pairs to upload once inputs are done.
+    let mut share_entries: Vec<(String, ValidationResult)> = Vec::new();
     let mut total_inputs = 0usize;
     let mut total_valid = 0usize;
 
@@ -405,7 +428,8 @@ fn run_check(
         total_inputs += 1;
         if file.starts_with("http://") || file.starts_with("https://") {
             // ── URL mode: fetch + follow wrapper chain ────────────────────────
-            let chain_results = fetch_and_validate_chain(file, max_depth, rule_overrides.clone());
+            let chain_results =
+                fetch_and_validate_chain(file, max_depth, rule_overrides.clone(), contribute_sample);
             for (label, result) in &chain_results {
                 let has_errors = !result.summary.is_valid();
                 let has_warnings = result.summary.warnings > 0;
@@ -428,6 +452,9 @@ fn run_check(
                     Format::Json => print_json(label, result),
                 }
             }
+            if share {
+                share_entries.extend(chain_results);
+            }
         } else {
             // ── File / stdin mode ─────────────────────────────────────────────
             let raw = match read_input(file) {
@@ -445,6 +472,16 @@ fn run_check(
                 ..Default::default()
             };
             let result = validate_with_context(&input, ctx);
+            if contribute_sample {
+                let version = result.version.best().map(|v| v.as_str().to_owned());
+                contribute::submit(
+                    input.clone(),
+                    version,
+                    result.summary.errors,
+                    result.summary.warnings,
+                    result.summary.infos,
+                );
+            }
             let has_errors = !result.summary.is_valid();
             let has_warnings = result.summary.warnings > 0;
             if has_errors {
@@ -465,11 +502,21 @@ fn run_check(
                 Format::Plain => print_plain(file, &result),
                 Format::Json => print_json(file, &result),
             }
+            if share {
+                share_entries.push((file.clone(), result));
+            }
         }
     }
 
     if summary {
         print_summary(&all_issues, total_inputs, total_valid, &format);
+    }
+
+    if share {
+        match share::upload(&share_entries) {
+            Ok(url) => eprintln!("\nShareable report: {}", url),
+            Err(e) => eprintln!("\nwarning: could not create shareable report: {}", e),
+        }
     }
 
     if telemetry_enabled {
@@ -497,6 +544,7 @@ fn fetch_and_validate_chain(
     url: &str,
     max_depth: u8,
     rule_overrides: Option<std::collections::HashMap<&'static str, vastlint_core::RuleLevel>>,
+    contribute_sample: bool,
 ) -> Vec<(String, ValidationResult)> {
     let mut results = Vec::new();
     let mut current_url = url.to_owned();
@@ -536,6 +584,16 @@ fn fetch_and_validate_chain(
             forced_version: None,
         };
         let result = validate_with_context(&xml, ctx);
+        if contribute_sample {
+            let version = result.version.best().map(|v| v.as_str().to_owned());
+            contribute::submit(
+                xml.clone(),
+                version,
+                result.summary.errors,
+                result.summary.warnings,
+                result.summary.infos,
+            );
+        }
         let next_url = extract_vast_ad_tag_uri(&xml);
         results.push((label, result));
 
@@ -831,42 +889,21 @@ fn print_issue(issue: &Issue) {
 // ── JSON output ───────────────────────────────────────────────────────────────
 
 fn print_json(file: &str, result: &ValidationResult) {
+    println!("{}", result_to_json_object(file, result));
+}
+
+/// Serialize a single file/URL's validation result to a JSON object string.
+/// Shared by `--format json` output and `--share` report uploads.
+pub(crate) fn result_to_json_object(file: &str, result: &ValidationResult) -> String {
     let version_str = result
         .version
         .best()
         .map(|v| v.as_str())
         .unwrap_or("unknown");
 
-    let issues_json: Vec<String> = result
-        .issues
-        .iter()
-        .map(|i| {
-            let path = match &i.path {
-                Some(p) => format!("\"{}\"", json_escape(p)),
-                None => "null".to_owned(),
-            };
-            let line = match i.line {
-                Some(l) => l.to_string(),
-                None => "null".to_owned(),
-            };
-            let col = match i.col {
-                Some(c) => c.to_string(),
-                None => "null".to_owned(),
-            };
-            format!(
-                "{{\"id\":\"{}\",\"severity\":\"{}\",\"message\":\"{}\",\"path\":{},\"spec_ref\":\"{}\",\"line\":{},\"col\":{}}}",
-                i.id,
-                i.severity.as_str(),
-                json_escape(i.message),
-                path,
-                i.spec_ref,
-                line,
-                col,
-            )
-        })
-        .collect();
+    let issues_json: Vec<String> = result.issues.iter().map(issue_to_json).collect();
 
-    println!(
+    format!(
         "{{\"file\":\"{}\",\"document_type\":\"{}\",\"version\":\"{}\",\"valid\":{},\"summary\":{{\"errors\":{},\"warnings\":{},\"infos\":{}}},\"issues\":[{}]}}",
         json_escape(file),
         result.document_type.as_str(),
@@ -876,10 +913,35 @@ fn print_json(file: &str, result: &ValidationResult) {
         result.summary.warnings,
         result.summary.infos,
         issues_json.join(","),
-    );
+    )
 }
 
-fn json_escape(s: &str) -> String {
+fn issue_to_json(i: &Issue) -> String {
+    let path = match &i.path {
+        Some(p) => format!("\"{}\"", json_escape(p)),
+        None => "null".to_owned(),
+    };
+    let line = match i.line {
+        Some(l) => l.to_string(),
+        None => "null".to_owned(),
+    };
+    let col = match i.col {
+        Some(c) => c.to_string(),
+        None => "null".to_owned(),
+    };
+    format!(
+        "{{\"id\":\"{}\",\"severity\":\"{}\",\"message\":\"{}\",\"path\":{},\"spec_ref\":\"{}\",\"line\":{},\"col\":{}}}",
+        i.id,
+        i.severity.as_str(),
+        json_escape(i.message),
+        path,
+        i.spec_ref,
+        line,
+        col,
+    )
+}
+
+pub(crate) fn json_escape(s: &str) -> String {
     s.replace('\\', "\\\\")
         .replace('"', "\\\"")
         .replace('\n', "\\n")

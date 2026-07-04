@@ -48,7 +48,7 @@ How rules are derived: [Rule derivation methodology](https://vastlint.org/docs/m
 
 **Verifiable build provenance.** All release artifacts are signed with [SLSA Build Level 2](https://slsa.dev/spec/v1.0/levels#build-l2) provenance via GitHub's native attestation store. Every binary, library, `.vsix`, and npm package can be verified cryptographically against the exact source commit that produced it. No developer machine is ever involved in producing release artifacts. SLSA L3 (hermetic, isolated signing) is in progress.
 
-**No data retention — and full self-hosting available.** VAST XML submitted to the hosted API or MCP server is validated ephemerally in a Cloudflare Worker and never stored, logged, or transmitted to third parties. The VS Code extension and Chrome extension process all XML locally — nothing leaves the editor. See [PRIVACY.md](PRIVACY.md) for the full policy.
+**No data retention by default — and full self-hosting available.** VAST XML submitted to the hosted API or MCP server is validated ephemerally in a Cloudflare Worker and never stored, logged, or transmitted to third parties. The VS Code extension and Chrome extension process all XML locally — nothing leaves the editor. The one opt-in exception is `--contribute-sample` (see [Telemetry and sample contribution](#telemetry-and-sample-contribution) below), which is off unless explicitly enabled. See [PRIVACY.md](PRIVACY.md) for the full policy.
 
 For teams that require on-premise processing or air-gapped deployments, VASTlint runs entirely self-hosted: the [Docker image](https://hub.docker.com/r/aleksuix/vastlint) (`FROM scratch`, under 5 MB, cold-start under 10 ms) or the pre-built static musl binary can be dropped into any pipeline without external network access. The Rust core has no network code — no callbacks, no telemetry, no license checks.
 
@@ -148,6 +148,10 @@ vastlint check tag.xml --vast-version 4.2
 
 # replace template macros before validation so URL rules don't fire on placeholders
 vastlint check tag.xml --ignore-pattern '\$\{[^}]+\}|%%[^%]+%%'
+
+# upload the report and print a shareable link (vastlint.org/r/<id>) — sends
+# the validation result only (rule IDs, severities, XPath), never the raw XML
+vastlint check tag.xml --share
 
 # list all rules with default severity
 vastlint rules
@@ -517,13 +521,17 @@ Returns the same structured result as the CLI and library: version, issues with 
 
 ## Use from a browser
 
-Paste any VAST tag into the web validator at **[VAST tag validator](https://vastlint.org/validate)** - no install, no account, nothing stored. Runs the same 187 rules as the CLI, entirely in your browser via WebAssembly.
+Paste any VAST tag into the web validator at **[VAST tag validator](https://vastlint.org/validate)** - no install, no account, nothing stored by default. Runs the same 187 rules as the CLI, entirely in your browser via WebAssembly. An optional "contribute this tag" button next to the results is opt-in only — see [Telemetry and sample contribution](#telemetry-and-sample-contribution) below for what it sends.
 
-## Telemetry
+## Telemetry and sample contribution
 
-Off by default. CLI only -- the core library has no network code. Enable with `--telemetry` or `telemetry = true` in `vastlint.toml`.
+Three independent, all opt-in-or-narrowly-scoped mechanisms. None is bundled into another:
 
-Sends one HTTP GET per CLI invocation with: version, OS, anonymous install ID, file count. No file names, no file contents, no personal data. The install ID is a random 128-bit hex value stored in `~/.config/vastlint/id`. The ping fires in a background thread with a 2-second timeout and is silently dropped on any error.
+**Telemetry** — off by default. CLI only -- the core library has no network code. Enable with `--telemetry` or `telemetry = true` in `vastlint.toml`. Sends one HTTP GET per CLI invocation with: version, OS, anonymous install ID, file count. No file names, no file contents, no personal data. The install ID is a random 128-bit hex value stored in `~/.config/vastlint/id`. The ping fires in a background thread with a 2-second timeout and is silently dropped on any error.
+
+**`--share`** — off by default. Uploads the validation *result* (rule IDs, severities, XPath locations, summary counts) to vastlint.org and prints back a public URL (`vastlint.org/r/<id>`) for pasting into Slack/GitHub/PRs. Never sends the input XML itself.
+
+**Sample contribution** — off by default. `vastlint check tag.xml --contribute-sample` on the CLI, or the "contribute this tag" button on the web validator, sends the tag's raw XML to vastlint.org to help refine its rules. Known tracking identifiers (device IDs like `[IFA]`/`[GAID]`, IP addresses, consent strings like `[GDPRCONSENT]`/`us_privacy`) are redacted server-side before storage, regardless of source. Contributed samples are stored privately and kept indefinitely for internal rule-refinement research — they are **never** made public, unlike `--share` reports.
 
 ## Roadmap
 
@@ -597,7 +605,7 @@ See [ROADMAP.md](ROADMAP.md) for the full plan including infrastructure mileston
 - **Zero runtime dependencies** in `vastlint-core` — no CVE surface, no supply chain risk.
 - **Apache 2.0** licensed — no CLA, no dual-license upsell, embeddable in proprietary ad servers.
 - **Self-hostable** — Docker image is `FROM scratch`, under 5 MB, cold-start under 10 ms.
-- **No data retention** — the hosted API and MCP server validate ephemerally in a Cloudflare Worker. Nothing is stored or logged.
+- **No data retention for validation** — the hosted `/validate` API and MCP server validate ephemerally in a Cloudflare Worker; nothing is stored or logged. Separate, off-by-default `--share` (uploads the result, not the XML) and `--contribute-sample` (uploads redacted XML, never public) flags exist — see [Telemetry and sample contribution](#telemetry-and-sample-contribution).
 - **MCP-native.** `vastlint.org/mcp` is a production hosted MCP endpoint. No install needed for agents — add it to any MCP client config.
 - **IAB AAMP compatible.** `vastlint-mcp` is ARTF-compliant and works with IAB Tech Lab AAMP buyer and seller agent SDKs.
 
