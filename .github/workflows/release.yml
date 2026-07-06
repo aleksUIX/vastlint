@@ -1229,20 +1229,31 @@ jobs:
           done
           echo "Bumped all crates to ${VERSION}"
 
+      # cargo publish refuses a dirty working tree, and the bump step above
+      # dirties every Cargo.toml. Commit runner-locally (never pushed) so the
+      # publish runs against a clean tree instead of failing with exit 101.
+      - name: Commit version stamp (runner-local, never pushed)
+        run: |
+          git config user.name "vastlint-release"
+          git config user.email "release@vastlint.org"
+          git commit -am "release: stamp ${GITHUB_REF_NAME#v} crate versions"
+
       - name: Publish vastlint-core
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
           # Use crates.io API to check if this exact version is already published.
+          # This is the only idempotency guard: any cargo publish failure below
+          # must fail the job. (An earlier version treated cargo exit code 101
+          # as "already published", but 101 is cargo's generic error code, so
+          # real failures were silently swallowed for four releases.)
           HTTP=$(curl -s -o /dev/null -w "%{http_code}" \
             "https://crates.io/api/v1/crates/vastlint-core/${VERSION}")
           if [ "$HTTP" = "200" ]; then
-            echo "vastlint-core ${VERSION} already published — skipping"
+            echo "vastlint-core ${VERSION} already published, skipping"
           else
-            # Exit code 101 = crate version already exists; treat as success.
-            cargo publish -p vastlint-core || \
-              { RC=$?; [ $RC -eq 101 ] && echo "already published, skipping" || exit $RC; }
+            cargo publish -p vastlint-core
           fi
 
       # Wait for crates.io to index the core crate before publishing the CLI.
@@ -1257,10 +1268,9 @@ jobs:
           HTTP=$(curl -s -o /dev/null -w "%{http_code}" \
             "https://crates.io/api/v1/crates/vastlint-cli/${VERSION}")
           if [ "$HTTP" = "200" ]; then
-            echo "vastlint-cli ${VERSION} already published — skipping"
+            echo "vastlint-cli ${VERSION} already published, skipping"
           else
-            cargo publish -p vastlint-cli || \
-              { RC=$?; [ $RC -eq 101 ] && echo "already published, skipping" || exit $RC; }
+            cargo publish -p vastlint-cli
           fi
 
   # ── Docker Hub ──────────────────────────────────────────────────────────────

@@ -1,0 +1,84 @@
+# Manual crates.io publish for an existing release tag.
+#
+# Recovery tool: the Release workflow publishes to crates.io on tag push, but
+# if that job is ever skipped or fails (as happened for v0.6.3 through v0.7.2,
+# when a dirty working tree made cargo publish exit 101 and the old workflow
+# misread that as "already published"), this workflow re-publishes the crates
+# for a given tag without re-running the whole release.
+#
+# Usage: Actions tab, "Publish crates (manual)", enter the tag (e.g. v0.7.2),
+# or: gh workflow run publish-crates.yml -f tag=v0.7.2
+
+name: Publish crates (manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to publish (e.g. v0.7.2)"
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    name: Publish to crates.io
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
+        with:
+          ref: ${{ inputs.tag }}
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@67ef31d5b988238dd797d409d6f9574278e20537  # v (pinned SHA)
+        with:
+          toolchain: stable
+
+      # Same stamping as the Release workflow: crate versions always come from
+      # the tag, not from whatever was last committed in Cargo.toml. The commit
+      # is runner-local (never pushed) so cargo publish sees a clean tree.
+      - name: Stamp crate versions from tag
+        env:
+          TAG: ${{ inputs.tag }}
+        run: |
+          VERSION="${TAG#v}"
+          for toml in crates/*/Cargo.toml; do
+            sed -i.bak -E "s/^version = \"[^\"]*\"/version = \"${VERSION}\"/" "$toml"
+            sed -i.bak -E "s/(vastlint-[a-z-]+ = \{[^}]*version = \")[^\"]*(\")/\1${VERSION}\2/g" "$toml"
+            rm "$toml.bak"
+          done
+          git config user.name "vastlint-release"
+          git config user.email "release@vastlint.org"
+          git commit -am "release: stamp ${VERSION} crate versions"
+
+      - name: Publish vastlint-core
+        env:
+          TAG: ${{ inputs.tag }}
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: |
+          VERSION="${TAG#v}"
+          HTTP=$(curl -s -o /dev/null -w "%{http_code}" \
+            "https://crates.io/api/v1/crates/vastlint-core/${VERSION}")
+          if [ "$HTTP" = "200" ]; then
+            echo "vastlint-core ${VERSION} already published, skipping"
+          else
+            cargo publish -p vastlint-core
+          fi
+
+      - name: Wait for crates.io index
+        run: sleep 30
+
+      - name: Publish vastlint-cli
+        env:
+          TAG: ${{ inputs.tag }}
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: |
+          VERSION="${TAG#v}"
+          HTTP=$(curl -s -o /dev/null -w "%{http_code}" \
+            "https://crates.io/api/v1/crates/vastlint-cli/${VERSION}")
+          if [ "$HTTP" = "200" ]; then
+            echo "vastlint-cli ${VERSION} already published, skipping"
+          else
+            cargo publish -p vastlint-cli
+          fi
