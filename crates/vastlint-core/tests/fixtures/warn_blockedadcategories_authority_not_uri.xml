@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- WARNING: VAST-4.1-blockedadcategories-authority-not-uri: <BlockedAdCategories> authority value is not a valid authority URL -->
+<VAST version="4.1">
+  <Ad id="ad-001">
+    <Wrapper>
+      <AdSystem>Test</AdSystem>
+      <Impression><![CDATA[https://track.example.com/impression]]></Impression>
+      <VASTAdTagURI><![CDATA[https://ad.example.com/vast.xml]]></VASTAdTagURI>
+      <BlockedAdCategories authority="Bad Authority!">IAB25 IAB26</BlockedAdCategories>
+    </Wrapper>
+  </Ad>
+</VAST>

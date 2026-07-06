@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- WARNING: VAST-4.0-category-authority-not-uri: <Category> authority value is not a valid authority URL -->
+<VAST version="4.2">
+  <Ad id="ad-001">
+    <InLine>
+      <AdSystem>Test</AdSystem>
+      <AdTitle>Test Ad</AdTitle>
+      <AdServingId>a532d16d-4d7f-4440-bd29-2ec0e693fc80</AdServingId>
+      <Category authority="not a valid url">IAB1-1</Category>
+      <Impression><![CDATA[https://track.example.com/impression]]></Impression>
+      <Creatives>
+        <Creative>
+          <UniversalAdId idRegistry="Ad-ID">CNPA0484000H</UniversalAdId>
+          <Linear>
+            <Duration>00:00:30</Duration>
+            <TrackingEvents>
+              <Tracking event="start"><![CDATA[https://track.example.com/start]]></Tracking>
+              <Tracking event="firstQuartile"><![CDATA[https://track.example.com/q1]]></Tracking>
+              <Tracking event="midpoint"><![CDATA[https://track.example.com/mid]]></Tracking>
+              <Tracking event="thirdQuartile"><![CDATA[https://track.example.com/q3]]></Tracking>
+              <Tracking event="complete"><![CDATA[https://track.example.com/complete]]></Tracking>
+            </TrackingEvents>
+            <MediaFiles>
+              <MediaFile delivery="progressive" type="video/mp4" width="640" height="360"><![CDATA[https://cdn.example.com/video.mp4]]></MediaFile>
+            </MediaFiles>
+          </Linear>
+        </Creative>
+      </Creatives>
+    </InLine>
+  </Ad>
+</VAST>

@@ -2,7 +2,7 @@
 
 **Website & web validator:** [VAST tag validator](https://vastlint.org) Paste a VAST tag and get results in your browser, no install required.
 
-A high-performance VAST XML validator built on a zero-dependency Rust core. Checks ad tags against the IAB Tech Lab VAST specification so you don't have to read it. Over $30 billion in annual CTV and video ad spend flows through VAST XML, and malformed tags are one of the most common causes of lost impressions, broken tracking, and revenue discrepancies between platforms. There is no widely adopted open-source tool that validates VAST XML against the full IAB specification across all published versions.
+A high-performance VAST XML validator built on a pure-Rust core. Checks ad tags against the IAB Tech Lab VAST specification so you don't have to read it. Over $30 billion in annual CTV and video ad spend flows through VAST XML, and malformed tags are one of the most common causes of lost impressions, broken tracking, and revenue discrepancies between platforms. There is no widely adopted open-source tool that validates VAST XML against the full IAB specification across all published versions.
 
 VASTlint ships a native **MCP server** - making VAST validation available as a callable tool from Claude, Cursor, the [AAMP Buyer Agent SDK](https://github.com/IABTechLab/buyer-agent), or any MCP-compatible client. Connect to `vastlint.org/mcp` and call `validate_vast`, `validate_vast_url`, `inspect_vast`, `list_rules`, `explain_rule`, or `fix_vast`. Each tool returns structured JSON with rule IDs, XPath locations, and spec references.
 
@@ -36,7 +36,7 @@ Validates VAST documents against:
 - [IAB Tech Lab SIMID](https://iabtechlab.com/simid/) 1.0, 1.0.1, 1.1, 1.2 — interactive creative validation for `<InteractiveCreativeFile apiFramework="SIMID">` and nonlinear `<IFrameResource>` (the IAB-sanctioned VPAID replacement)
 - [IAB Tech Lab OMID / Open Measurement](https://iabtechlab.com/standards/open-measurement-sdk/) compatibility in VAST `<AdVerifications>` — vendor format, duplicate vendor detection, OMID resource semantics, verification tracking validation, and pre-4.1 extension-carried compatibility blocks
 
-187 rules across required fields, schema validation, structural correctness, security, consistency, deprecated features, ambiguous usage, value formats, SIMID validation, OMID validation, VMAP 1.0, and DAAST 1.0. Rules marked with `$` have direct revenue impact - use `vastlint check --fail-on-warning` in CI to catch them before they reach production. See [common errors](docs/common-errors.md) for the ones that cost real money. New to VASTlint? Start with the [tutorial](docs/tutorial.md).
+191 rules across required fields, schema validation, structural correctness, security, consistency, deprecated features, ambiguous usage, value formats, SIMID validation, OMID validation, VMAP 1.0, and DAAST 1.0. Rules marked with `$` have direct revenue impact - use `vastlint check --fail-on-warning` in CI to catch them before they reach production. See [common errors](docs/common-errors.md) for the ones that cost real money. New to VASTlint? Start with the [tutorial](docs/tutorial.md).
 
 Full rule reference with examples and fix instructions: [VAST error rule reference](https://vastlint.org/docs/rules) · [RULES.md](RULES.md)
 
@@ -322,7 +322,7 @@ The primary use case for VASTlint is **in-process validation inside ad tech infr
 
 A typical OpenRTB bid cycle has 100–300 ms to work with; VASTlint adds less than 2.1% of that budget even on the heaviest 44 KB production tags. An SSAI platform doing 1,000 stitches/sec spends more time on DNS than on VAST validation.
 
-**Rust — `vastlint-core` (zero runtime dependencies):**
+**Rust — `vastlint-core` (pure Rust, three small dependencies):**
 
 ```rust
 use vastlint_core::{validate_with_context, ValidationContext};
@@ -383,7 +383,7 @@ All three bindings share the same compiled Rust core — identical rule enforcem
 
 ## Use from JavaScript / TypeScript
 
-[`vastlint`](https://www.npmjs.com/package/vastlint) is published on npm. Same 187 rules, same core - compiled to WASM.
+[`vastlint`](https://www.npmjs.com/package/vastlint) is published on npm. Same 191 rules, same core - compiled to WASM.
 
 ```sh
 npm install vastlint
@@ -521,7 +521,7 @@ Returns the same structured result as the CLI and library: version, issues with 
 
 ## Use from a browser
 
-Paste any VAST tag into the web validator at **[VAST tag validator](https://vastlint.org/validate)** - no install, no account, nothing stored by default. Runs the same 187 rules as the CLI, entirely in your browser via WebAssembly. An optional "contribute this tag" button next to the results is opt-in only — see [Telemetry and sample contribution](#telemetry-and-sample-contribution) below for what it sends.
+Paste any VAST tag into the web validator at **[VAST tag validator](https://vastlint.org/validate)** - no install, no account, nothing stored by default. Runs the same 191 rules as the CLI, entirely in your browser via WebAssembly. An optional "contribute this tag" button next to the results is opt-in only — see [Telemetry and sample contribution](#telemetry-and-sample-contribution) below for what it sends.
 
 ## Telemetry and sample contribution
 

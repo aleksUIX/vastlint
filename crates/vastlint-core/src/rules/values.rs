@@ -67,6 +67,137 @@ fn check_ad_content(
 
     // Pricing value checks (3.0+).
     check_pricing_values(node, path, v, ctx, issues);
+
+    // IAB Content Taxonomy authority value checks (4.0+).
+    check_taxonomy_authorities(node, path, v, ctx, issues);
+}
+
+// ── IAB Content Taxonomy authority validation (4.0+) ─────────────────────────
+
+/// Authority hosts published by IAB Tech Lab for the Content Taxonomy
+/// registry. Matched after stripping an optional scheme, `www.` prefix, and
+/// any version-qualified path such as `iabtechlab.com/IABTC/2.2`; any
+/// `*.iabtechlab.com` subdomain (e.g. `ads.iabtechlab.com`) is also accepted.
+const KNOWN_TAXONOMY_AUTHORITY_HOSTS: &[&str] = &["iabtechlab.com", "iab.com"];
+
+/// Checks `authority` attribute values on `<Category>` (4.0+) and
+/// `<BlockedAdCategories>` (4.1+).
+///
+/// The presence checks live in `required.rs`; these rules validate the value
+/// when the attribute exists. The spec describes `authority` as a URL for the
+/// organization that maintains the taxonomy, so a value that cannot be read
+/// as one is a Warning. Custom taxonomies are legal, so an authority that is
+/// well-formed but not in the IAB Content Taxonomy registry is only Info.
+fn check_taxonomy_authorities(
+    node: &Node,
+    path: &str,
+    v: Option<&VastVersion>,
+    ctx: &ValidationContext,
+    issues: &mut Vec<Issue>,
+) {
+    if !v.map(|x| x.at_least(&VastVersion::V4_0)).unwrap_or(false) {
+        return;
+    }
+
+    for (i, cat) in node.children_named("Category").enumerate() {
+        if let Some(authority) = cat.attr("authority") {
+            check_authority_value(
+                authority,
+                &format!("{}/Category[{}][@authority]", path, i),
+                "VAST-4.0-category-authority-not-uri",
+                "VAST-4.0-category-authority-unknown",
+                "IAB VAST 4.0 §2.3.3",
+                cat,
+                ctx,
+                issues,
+            );
+        }
+    }
+
+    if v.map(|x| x.at_least(&VastVersion::V4_1)).unwrap_or(false) {
+        for (i, bac) in node.children_named("BlockedAdCategories").enumerate() {
+            if let Some(authority) = bac.attr("authority") {
+                check_authority_value(
+                    authority,
+                    &format!("{}/BlockedAdCategories[{}][@authority]", path, i),
+                    "VAST-4.1-blockedadcategories-authority-not-uri",
+                    "VAST-4.1-blockedadcategories-authority-unknown",
+                    "IAB VAST 4.1 §2.3.2",
+                    bac,
+                    ctx,
+                    issues,
+                );
+            }
+        }
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn check_authority_value(
+    value: &str,
+    attr_path: &str,
+    not_uri_id: &'static str,
+    unknown_id: &'static str,
+    spec_ref: &'static str,
+    node: &Node,
+    ctx: &ValidationContext,
+    issues: &mut Vec<Issue>,
+) {
+    match taxonomy_authority_host(value) {
+        None => emit(
+            ctx,
+            issues,
+            not_uri_id,
+            Severity::Warning,
+            "authority attribute is not a valid authority URL (expected a domain such as \"iabtechlab.com\")",
+            Some(attr_path.to_owned()),
+            spec_ref,
+            Some(node),
+        ),
+        Some(host) => {
+            let known = KNOWN_TAXONOMY_AUTHORITY_HOSTS.contains(&host.as_str())
+                || host.ends_with(".iabtechlab.com");
+            if !known {
+                emit(
+                    ctx,
+                    issues,
+                    unknown_id,
+                    Severity::Info,
+                    "authority is not a recognised IAB Content Taxonomy authority; players cannot map these category codes to a shared taxonomy",
+                    Some(attr_path.to_owned()),
+                    "IAB Tech Lab Content Taxonomy",
+                    Some(node),
+                )
+            }
+        }
+    }
+}
+
+/// Extracts the host from a taxonomy authority value, accepting either a bare
+/// domain (`iabtechlab.com`), a scheme-qualified URL, or either form with a
+/// path. Returns `None` when the value cannot be read as an authority URL.
+fn taxonomy_authority_host(value: &str) -> Option<String> {
+    let trimmed = value.trim();
+    let rest = trimmed
+        .strip_prefix("https://")
+        .or_else(|| trimmed.strip_prefix("http://"))
+        .unwrap_or(trimmed);
+    let host = rest.split(['/', '?', '#']).next().unwrap_or("");
+    let host = host.strip_prefix("www.").unwrap_or(host);
+
+    let well_formed = host.contains('.')
+        && !host.starts_with('.')
+        && !host.ends_with('.')
+        && !host.contains("..")
+        && host
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '.');
+
+    if well_formed {
+        Some(host.to_ascii_lowercase())
+    } else {
+        None
+    }
 }
 
 fn check_creative(

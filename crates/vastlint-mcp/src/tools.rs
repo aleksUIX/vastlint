@@ -763,6 +763,10 @@ fn explain_hint(rule_id: &str) -> &'static str {
         "VAST-4.1-adservingid-missing"   => "Add an <AdServingId> element inside <InLine>. Required in VAST 4.1+. Use a UUID or your ad server's impression ID.",
         "VAST-4.0-universaladid-missing" => "Add a <UniversalAdId> element inside <Creative> with idRegistry attribute and the registered creative ID.",
         "VAST-4.2-mezzanine-missing"     => "Add a <Mezzanine> element for CTV delivery. Required for server-side ad insertion environments.",
+        "VAST-4.0-category-authority-not-uri" => "Set the authority attribute to the taxonomy URL, e.g. authority=\"iabtechlab.com\" for the IAB Content Taxonomy.",
+        "VAST-4.0-category-authority-unknown" => "Use a registered IAB Content Taxonomy authority such as iabtechlab.com, or keep the custom authority only if every party in the chain can resolve it.",
+        "VAST-4.1-blockedadcategories-authority-not-uri" => "Set the authority attribute to the taxonomy URL, e.g. authority=\"iabtechlab.com\" for the IAB Content Taxonomy.",
+        "VAST-4.1-blockedadcategories-authority-unknown" => "Use a registered IAB Content Taxonomy authority such as iabtechlab.com, or keep the custom authority only if every party in the chain can resolve it.",
         _                                => "Refer to the IAB VAST specification for fix guidance. Call list_rules to confirm the rule ID is correct.",
     }
 }

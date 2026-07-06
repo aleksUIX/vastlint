@@ -12,7 +12,7 @@ Supports VAST 2.0 through 4.3 with clean Problems entries, concise hovers, fix g
 - **Multi-block** — validates every `<VAST>...</VAST>` block in a file independently
 - **Live as you type** — re-validates 500 ms after you stop typing, and on every save
 - **CLI backend** — uses the `vastlint` CLI binary when available, falls back to WASM in-process
-- **187 rules** across VAST 2.0–4.3 plus SIMID and OMID validation: required fields, schema structure, URLs, verification semantics, deprecations, and CTV/SSAI advisories
+- **191 rules** across VAST 2.0–4.3 plus SIMID and OMID validation: required fields, schema structure, URLs, verification semantics, deprecations, and CTV/SSAI advisories
 
 ## How it looks
 
@@ -59,7 +59,7 @@ Docs: vastlint.org/docs/rules/VAST-2.0-inline-adsystem
 
 ## Rules
 
-VASTlint checks 187 rules across:
+VASTlint checks 191 rules across:
 - Required elements and attributes (VAST 2.0–4.3)
 - Value formats (durations, URLs, enums)
 - Schema conformance (unknown elements/attributes)
@@ -80,7 +80,7 @@ Canonical rule catalog:
 - [vastlint.org/docs/rules](https://vastlint.org/docs/rules/) for the hosted per-rule pages
 
 <details>
-<summary>All 187 rules</summary>
+<summary>All 191 rules</summary>
 
 ### VAST 2.0
 
@@ -181,6 +181,8 @@ Canonical rule catalog:
 | [VAST-4.0-universaladid-idregistry](https://vastlint.org/docs/rules/VAST-4.0-universaladid-idregistry/) | error | `<UniversalAdId>` must have an `idRegistry` attribute |
 | [VAST-4.0-universaladid-idvalue](https://vastlint.org/docs/rules/VAST-4.0-universaladid-idvalue/) | error | `<UniversalAdId>` missing required `idValue` attribute (VAST 4.0) |
 | [VAST-4.0-category-authority](https://vastlint.org/docs/rules/VAST-4.0-category-authority/) | error | `<Category>` missing required `authority` attribute |
+| [VAST-4.0-category-authority-not-uri](https://vastlint.org/docs/rules/VAST-4.0-category-authority-not-uri/) | warning | `<Category>` `authority` attribute is not a valid authority URL |
+| [VAST-4.0-category-authority-unknown](https://vastlint.org/docs/rules/VAST-4.0-category-authority-unknown/) | info | `<Category>` `authority` is not a recognised IAB Content Taxonomy authority |
 | [VAST-4.0-companion-clicktracking-id](https://vastlint.org/docs/rules/VAST-4.0-companion-clicktracking-id/) | error | `<CompanionClickTracking>` missing required `id` attribute |
 | [VAST-4.0-wrapper-clickthrough](https://vastlint.org/docs/rules/VAST-4.0-wrapper-clickthrough/) | warning | `<ClickThrough>` inside Wrapper `<VideoClicks>` was removed in VAST 4.0 |
 | [VAST-4.0-conditionalad](https://vastlint.org/docs/rules/VAST-4.0-conditionalad/) | warning | `conditionalAd` attribute is deprecated as of VAST 4.1 |
@@ -221,6 +223,8 @@ Canonical rule catalog:
 | [VAST-4.1-exec-resource-type](https://vastlint.org/docs/rules/VAST-4.1-exec-resource-type/) | error | `<ExecutableResource>` missing required `type` attribute |
 | [VAST-4.1-exec-resource-https](https://vastlint.org/docs/rules/VAST-4.1-exec-resource-https/) | warning | OMID `<ExecutableResource>` reference should use HTTPS when it is a URL |
 | [VAST-4.1-blockedadcategories-no-authority](https://vastlint.org/docs/rules/VAST-4.1-blockedadcategories-no-authority/) | warning | `<BlockedAdCategories>` should have an `authority` attribute |
+| [VAST-4.1-blockedadcategories-authority-not-uri](https://vastlint.org/docs/rules/VAST-4.1-blockedadcategories-authority-not-uri/) | warning | `<BlockedAdCategories>` `authority` attribute is not a valid authority URL |
+| [VAST-4.1-blockedadcategories-authority-unknown](https://vastlint.org/docs/rules/VAST-4.1-blockedadcategories-authority-unknown/) | info | `<BlockedAdCategories>` `authority` is not a recognised IAB Content Taxonomy authority |
 | [VAST-4.1-tracking-event-value](https://vastlint.org/docs/rules/VAST-4.1-tracking-event-value/) | error | `event` attribute not in the valid set for this VAST version |
 | [VAST-4.1-companion-renderingmode-value](https://vastlint.org/docs/rules/VAST-4.1-companion-renderingmode-value/) | warning | `renderingMode` must be `default`, `end-card`, or `concurrent` |
 

@@ -2100,7 +2100,7 @@ fn linear_with_quartile_tracking_does_not_fire() {
 fn all_rules_catalog_has_expected_count() {
     assert_eq!(
         vastlint_core::all_rules().len(),
-        187,
+        191,
         "catalog count changed — update this assertion and bump RULES.md"
     );
 }
@@ -2544,4 +2544,132 @@ fn macro_scan_handles_pathological_brackets_quickly() {
     let xml = inline_with_impression("4.0", &format!("https://e.com/i?x={brackets}"));
     let result = validate(&xml);
     assert!(!has_issue(&result, "VAST-2.0-macro-unknown"));
+}
+
+// ── IAB Content Taxonomy authority validation ────────────────────────────────
+
+#[test]
+fn category_authority_recognised_forms_pass() {
+    let result = validate(&load("valid_category_authority_iabtc.xml"));
+    assert!(
+        !has_issue(&result, "VAST-4.0-category-authority-not-uri"),
+        "expected no not-uri issue, got: {:#?}",
+        result.issues
+    );
+    assert!(!has_issue(&result, "VAST-4.0-category-authority-unknown"));
+}
+
+#[test]
+fn category_authority_garbage_fires_not_uri() {
+    let result = validate(&load("warn_category_authority_not_uri.xml"));
+    assert!(
+        has_issue(&result, "VAST-4.0-category-authority-not-uri"),
+        "expected VAST-4.0-category-authority-not-uri, got: {:#?}",
+        result.issues
+    );
+    assert!(!has_issue(&result, "VAST-4.0-category-authority-unknown"));
+}
+
+#[test]
+fn category_authority_empty_fires_not_uri() {
+    let xml = minimal_valid_inline_xml("4.2", r#"<Category authority="">IAB1</Category>"#, "");
+    let result = validate(&xml);
+    assert!(has_issue(&result, "VAST-4.0-category-authority-not-uri"));
+}
+
+#[test]
+fn category_authority_custom_taxonomy_fires_unknown_info() {
+    let result = validate(&load("info_category_authority_unknown.xml"));
+    assert!(
+        has_issue(&result, "VAST-4.0-category-authority-unknown"),
+        "expected VAST-4.0-category-authority-unknown, got: {:#?}",
+        result.issues
+    );
+    assert!(!has_issue(&result, "VAST-4.0-category-authority-not-uri"));
+    let info = result
+        .issues
+        .iter()
+        .find(|i| i.id == "VAST-4.0-category-authority-unknown")
+        .unwrap();
+    assert_eq!(info.severity, Severity::Info);
+}
+
+#[test]
+fn category_authority_iab_com_passes() {
+    let xml = minimal_valid_inline_xml(
+        "4.2",
+        r#"<Category authority="https://www.iab.com">IAB1</Category>"#,
+        "",
+    );
+    let result = validate(&xml);
+    assert!(!has_issue(&result, "VAST-4.0-category-authority-not-uri"));
+    assert!(!has_issue(&result, "VAST-4.0-category-authority-unknown"));
+}
+
+#[test]
+fn category_authority_value_not_checked_before_4_0() {
+    let xml = minimal_valid_inline_xml("3.0", r#"<Category authority="???">IAB1</Category>"#, "");
+    let result = validate(&xml);
+    assert!(!has_issue(&result, "VAST-4.0-category-authority-not-uri"));
+    assert!(!has_issue(&result, "VAST-4.0-category-authority-unknown"));
+}
+
+#[test]
+fn blockedadcategories_authority_garbage_fires_not_uri() {
+    let result = validate(&load("warn_blockedadcategories_authority_not_uri.xml"));
+    assert!(
+        has_issue(&result, "VAST-4.1-blockedadcategories-authority-not-uri"),
+        "expected VAST-4.1-blockedadcategories-authority-not-uri, got: {:#?}",
+        result.issues
+    );
+    assert!(!has_issue(
+        &result,
+        "VAST-4.1-blockedadcategories-authority-unknown"
+    ));
+}
+
+#[test]
+fn blockedadcategories_authority_recognised_passes() {
+    let xml = r#"<VAST version="4.1">
+  <Ad id="ad-001">
+    <Wrapper>
+      <AdSystem>Test</AdSystem>
+      <Impression><![CDATA[https://track.example.com/impression]]></Impression>
+      <VASTAdTagURI><![CDATA[https://ad.example.com/vast.xml]]></VASTAdTagURI>
+      <BlockedAdCategories authority="iabtechlab.com">IAB25 IAB26</BlockedAdCategories>
+    </Wrapper>
+  </Ad>
+</VAST>"#;
+    let result = validate(xml);
+    assert!(!has_issue(
+        &result,
+        "VAST-4.1-blockedadcategories-authority-not-uri"
+    ));
+    assert!(!has_issue(
+        &result,
+        "VAST-4.1-blockedadcategories-authority-unknown"
+    ));
+}
+
+#[test]
+fn blockedadcategories_custom_authority_fires_unknown() {
+    let xml = r#"<VAST version="4.1">
+  <Ad id="ad-001">
+    <Wrapper>
+      <AdSystem>Test</AdSystem>
+      <Impression><![CDATA[https://track.example.com/impression]]></Impression>
+      <VASTAdTagURI><![CDATA[https://ad.example.com/vast.xml]]></VASTAdTagURI>
+      <BlockedAdCategories authority="blocklist.example.org">IAB25</BlockedAdCategories>
+    </Wrapper>
+  </Ad>
+</VAST>"#;
+    let result = validate(xml);
+    assert!(has_issue(
+        &result,
+        "VAST-4.1-blockedadcategories-authority-unknown"
+    ));
+    assert!(!has_issue(
+        &result,
+        "VAST-4.1-blockedadcategories-authority-not-uri"
+    ));
 }
