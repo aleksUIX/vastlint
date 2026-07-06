@@ -6,6 +6,19 @@ GitHub Releases: <https://github.com/aleksUIX/vastlint/releases>
 
 ---
 
+## [0.8.0] - 2026-07-05
+
+### Core
+
+- **IAB Content Taxonomy authority validation** (4 new rules, catalog now 191): `authority` attribute values on `<Category>` (4.0+) and `<BlockedAdCategories>` (4.1+) are validated for URL well-formedness (`VAST-4.0-category-authority-not-uri`, `VAST-4.1-blockedadcategories-authority-not-uri`, Warning) and recognition against the IAB Content Taxonomy registry hosts, `iabtechlab.com` and subdomains plus `iab.com`, including version-qualified forms such as `iabtechlab.com/IABTC/2.2` (`VAST-4.0-category-authority-unknown`, `VAST-4.1-blockedadcategories-authority-unknown`, Info). Custom taxonomies stay legal; only malformed values warn.
+
+### Project
+
+- New `GOVERNANCE.md`, `CODE_OF_CONDUCT.md` (Contributor Covenant 2.1), rewritten `CONTRIBUTING.md` (DCO, coding standards, test policy), and a SECURITY.md assurance case, as part of OpenSSF Best Practices Silver work.
+- Release workflow: crates.io publish failures are no longer silently swallowed (v0.6.3 through v0.7.2 never reached crates.io; re-published via the new `publish-crates.yml` recovery workflow).
+
+---
+
 ## [0.7.2] - 2026-07-04
 
 ### CLI
