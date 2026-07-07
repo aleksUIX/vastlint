@@ -6,6 +6,20 @@ GitHub Releases: <https://github.com/aleksUIX/vastlint/releases>
 
 ---
 
+## [0.8.1] - 2026-07-06
+
+### Security
+
+- **`crossbeam-epoch` 0.9.18 → 0.9.20** (RUSTSEC-2026-0204): the `fmt::Pointer`/`fmt::Display` impl for `Atomic`/`Shared` dereferenced the underlying pointer, causing an invalid dereference when that pointer was null. Transitive dependency via `rayon` (used by the Erlang NIF); not reachable at runtime, patched in the lockfile.
+
+### Maintenance
+
+- **`rmcp` 1.8.0 → 2.1.0** (MCP server): upgrade to the 2.x line of the Rust MCP SDK. MCP smoke tests (initialize, tools/list, and tools/call across validate_vast, fix_vast, list_rules, explain_rule) pass unchanged.
+- Dependency update via Dependabot: `@types/node` 26.0.1 → 26.1.0 (vscode dev dependency).
+- CI action pins refreshed: `docker/build-push-action` 7.2.0 → 7.3.0, `docker/setup-qemu-action` 4.1.0 → 4.2.0, `docker/setup-buildx-action` 4.1.0 → 4.2.0, `docker/login-action` 4.2.0 → 4.4.0, `github/codeql-action/upload-sarif` 4.36.2 → 4.36.3, and `dtolnay/rust-toolchain` pinned commit refreshed.
+
+---
+
 ## [0.8.0] - 2026-07-05
 
 ### Core
