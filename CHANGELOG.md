@@ -6,6 +6,14 @@ GitHub Releases: <https://github.com/aleksUIX/vastlint/releases>
 
 ---
 
+## [0.8.4] - 2026-07-16
+
+### Fixed
+
+- **VS Code extension build broken by TypeScript 7**: `vscode/tsconfig.json` set `moduleResolution: "node"` (alias for `node10`), an option TypeScript 7.0 removed outright (`error TS5108`). Introduced by the `typescript` 6.0.3 → 7.0.2 dependabot bump in v0.8.2; PR CI didn't catch it because the VS Code build only runs inside the release workflow's smoke-test job, not the PR CI matrix, so it surfaced as two failed release runs (v0.8.2, v0.8.3) instead. Removed the explicit option; `tsc` infers the equivalent resolution from `module: "commonjs"`.
+
+---
+
 ## [0.8.3] - 2026-07-16
 
 ### Security
