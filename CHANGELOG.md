@@ -6,6 +6,17 @@ GitHub Releases: <https://github.com/aleksUIX/vastlint/releases>
 
 ---
 
+## [0.8.3] - 2026-07-16
+
+### Security
+
+- **`quick-xml` 0.40.1 → 0.41.0 in `fuzz/Cargo.lock`** (RUSTSEC-2026-0194, quadratic-time duplicate-attribute check; RUSTSEC-2026-0195, unbounded namespace-declaration allocation). `fuzz/` is excluded from the main workspace and resolves independently; its lockfile had drifted behind the root `Cargo.lock`, which has carried the patched version since v0.8.1.
+- **Removed `crates/vastlint-nif/Cargo.lock`.** `vastlint-nif` is a workspace member, so real builds (including the release workflow's `cargo build -p vastlint_nif`) always resolve against the root `Cargo.lock`. This nested lockfile was orphaned since Release 0.4.24, still pinned `crossbeam-epoch 0.9.18` / `quick-xml 0.40.1`, and was never consumed by any actual build — but Scorecard's OSV scan reads every `Cargo.lock` in the repo regardless of whether cargo would use it, which is why alert #11 (RUSTSEC-2026-0194/0195/0204) kept reappearing across releases going back to April despite the real, shipped artifacts never being affected.
+
+No source or runtime behavior changes; both fixes are lockfile-only.
+
+---
+
 ## [0.8.2] - 2026-07-15
 
 ### Maintenance
