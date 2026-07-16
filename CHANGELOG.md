@@ -6,6 +6,21 @@ GitHub Releases: <https://github.com/aleksUIX/vastlint/releases>
 
 ---
 
+## [0.8.2] - 2026-07-15
+
+### Maintenance
+
+- **`regex`** 1.12.4 → 1.13.0.
+- **`rmcp`** 2.1.0 → 2.2.0 (MCP server).
+- **`@types/node`** 26.1.0 → 26.1.1 (vscode dev dependency).
+- **`typescript`** 6.0.3 → 7.0.2 (vscode dev dependency).
+- CI action pin refreshed: `github/codeql-action/upload-sarif` 4.36.3 → 4.37.0.
+- Fixed a stale branch-protection configuration on `main`: required status check contexts referenced CI jobs (`CI / Clippy`, `CI / Test (*)`) from before the CI workflow consolidated clippy into the `test` job, which was blocking every PR merge regardless of actual CI result. Updated to the current job names (`Test (ubuntu-latest)`, `Test (macos-latest)`, `Test (windows-latest)`, `Security audit`).
+
+No source or behavior changes; dependency and infra maintenance only. `cargo audit` clean (0 vulnerabilities), 0 open Dependabot security alerts.
+
+---
+
 ## [0.8.1] - 2026-07-06
 
 ### Security
