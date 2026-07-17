@@ -12,7 +12,7 @@ Supports VAST 2.0 through 4.3 with clean Problems entries, concise hovers, fix g
 - **Multi-block** — validates every `<VAST>...</VAST>` block in a file independently
 - **Live as you type** — re-validates 500 ms after you stop typing, and on every save
 - **CLI backend** — uses the `vastlint` CLI binary when available, falls back to WASM in-process
-- **191 rules** across VAST 2.0–4.3 plus SIMID and OMID validation: required fields, schema structure, URLs, verification semantics, deprecations, and CTV/SSAI advisories
+- **195 rules** across VAST 2.0–4.3 plus SIMID and OMID validation: required fields, schema structure, URLs, verification semantics, deprecations, and CTV/SSAI advisories
 
 ## How it looks
 
@@ -59,7 +59,7 @@ Docs: vastlint.org/docs/rules/VAST-2.0-inline-adsystem
 
 ## Rules
 
-VASTlint checks 191 rules across:
+VASTlint checks 195 rules across:
 - Required elements and attributes (VAST 2.0–4.3)
 - Value formats (durations, URLs, enums)
 - Schema conformance (unknown elements/attributes)
@@ -80,7 +80,7 @@ Canonical rule catalog:
 - [vastlint.org/docs/rules](https://vastlint.org/docs/rules/) for the hosted per-rule pages
 
 <details>
-<summary>All 191 rules</summary>
+<summary>All 195 rules</summary>
 
 ### VAST 2.0
 
@@ -145,6 +145,9 @@ Canonical rule catalog:
 | [VAST-2.0-macro-lowercase](https://vastlint.org/docs/rules/VAST-2.0-macro-lowercase/) | warning | Recognised macro is not uppercase — players match macro names case-sensitively |
 | [VAST-2.0-macro-wrong-context](https://vastlint.org/docs/rules/VAST-2.0-macro-wrong-context/) | info | Context-restricted macro (`[ERRORCODE]`/`[REASON]`) used where it has no defined value |
 | [VAST-2.0-macro-uri-unencoded](https://vastlint.org/docs/rules/VAST-2.0-macro-uri-unencoded/) | warning | Macro-bearing URL contains characters that must be percent-encoded per RFC 3986 |
+| [VAST-2.0-adtitle-quality](https://vastlint.org/docs/rules/VAST-2.0-adtitle-quality/) | warning | `<AdTitle>` value is a known placeholder string; the creative cannot be identified in reporting |
+| [VAST-2.0-adsystem-quality](https://vastlint.org/docs/rules/VAST-2.0-adsystem-quality/) | info | `<AdSystem>` value is a known placeholder string; the tag cannot be traced to its serving system |
+| [VAST-2.0-adsystem-no-version](https://vastlint.org/docs/rules/VAST-2.0-adsystem-no-version/) | info | `<AdSystem>` has no `version` attribute; provenance is harder to trace in partner debugging |
 
 ### VAST 3.0
 
@@ -278,6 +281,7 @@ Canonical rule catalog:
 | [VMAP-1.0-error-tracking-macro](https://vastlint.org/docs/rules/VMAP-1.0-error-tracking-macro/) | info | VMAP error tracking URI should include the [ERROR_CODE] macro |
 | [VMAP-1.0-tracking-url-empty](https://vastlint.org/docs/rules/VMAP-1.0-tracking-url-empty/) | error | VMAP `<Tracking>` element does not contain a tracking URI |
 | [VMAP-1.0-repeatafter-conflict](https://vastlint.org/docs/rules/VMAP-1.0-repeatafter-conflict/) | warning | repeatAfter has no effect when timeOffset is `"start"` or `"end"` |
+| [VMAP-1.0-display-break-no-companions](https://vastlint.org/docs/rules/VMAP-1.0-display-break-no-companions/) | info | breakType includes `"display"` but the inline VAST has no `<CompanionAds>` to fill the break |
 | [DAAST-1.0-root-version](https://vastlint.org/docs/rules/DAAST-1.0-root-version/) | error | Root `<DAAST>` element must have a version attribute |
 | [DAAST-1.0-root-version-value](https://vastlint.org/docs/rules/DAAST-1.0-root-version-value/) | warning | `<DAAST>` version attribute must be a recognised version string (1.0 or 1.1) |
 | [DAAST-1.0-root-has-ad-or-error](https://vastlint.org/docs/rules/DAAST-1.0-root-has-ad-or-error/) | error | `<DAAST>` must contain at least one `<Ad>` or `<Error>` |

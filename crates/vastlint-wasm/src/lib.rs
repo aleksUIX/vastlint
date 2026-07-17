@@ -45,6 +45,7 @@ struct JsSummary {
 
 #[derive(Serialize)]
 struct JsValidationResult {
+    document_type: &'static str,
     version: Option<String>,
     issues: Vec<JsIssue>,
     summary: JsSummary,
@@ -104,6 +105,7 @@ struct JsInspectDocumentResult {
 /// Returns a plain JavaScript object shaped like:
 /// ```ts
 /// {
+///   document_type: "VAST" | "VMAP" | "DAAST",
 ///   version: string | null,
 ///   issues: Array<{
 ///     id: string,
@@ -348,6 +350,7 @@ fn to_js(result: vastlint_core::ValidationResult) -> Result<JsValue, JsValue> {
         valid: result.summary.is_valid(),
     };
     let js_result = JsValidationResult {
+        document_type: result.document_type.as_str(),
         version,
         issues,
         summary,

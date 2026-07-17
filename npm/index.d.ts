@@ -25,6 +25,8 @@ export interface Summary {
 }
 
 export interface ValidationResult {
+  /** Detected document type: plain VAST, a VMAP playlist, or a DAAST audio ad. */
+  document_type: 'VAST' | 'VMAP' | 'DAAST';
   /** Detected VAST version string (e.g. "4.2"), or null if unknown. */
   version: string | null;
   issues: Issue[];

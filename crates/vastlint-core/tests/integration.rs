@@ -46,8 +46,8 @@ fn minimal_valid_inline_xml(
         r#"<VAST version="{declared_version}">
     <Ad id="1">
         <InLine>
-            <AdSystem>Test AdServer</AdSystem>
-            <AdTitle>Test Ad</AdTitle>
+            <AdSystem version="1.0">Test AdServer</AdSystem>
+            <AdTitle>Acme Spring Sale 30s</AdTitle>
             {inline_extra}
             <Impression><![CDATA[https://example.com/impression]]></Impression>
             <Creatives>
@@ -130,9 +130,11 @@ fn assert_large_publica_warning_fixture(name: &str) {
         "expected VAST-3.0-pricing-model-case for {name}, got: {:#?}",
         result.issues
     );
+    // 11 warnings: the tag's `AdID` (VAST 2.0 creative-id casing) is no longer
+    // false-flagged as an unknown attribute.
     assert_eq!(
-        result.summary.warnings, 12,
-        "expected 12 warnings for {name}, got {}: {:#?}",
+        result.summary.warnings, 11,
+        "expected 11 warnings for {name}, got {}: {:#?}",
         result.summary.warnings, result.issues
     );
     assert!(result.summary.is_valid());
@@ -2100,7 +2102,7 @@ fn linear_with_quartile_tracking_does_not_fire() {
 fn all_rules_catalog_has_expected_count() {
     assert_eq!(
         vastlint_core::all_rules().len(),
-        191,
+        195,
         "catalog count changed — update this assertion and bump RULES.md"
     );
 }
@@ -2672,4 +2674,142 @@ fn blockedadcategories_custom_authority_fires_unknown() {
         &result,
         "VAST-4.1-blockedadcategories-authority-not-uri"
     ));
+}
+
+// ── unknown-attribute false positives (namespaced attrs + VAST 2.0 AdID) ──────
+
+#[test]
+fn xsi_and_xmlns_attributes_do_not_trigger_unknown_attribute() {
+    // A schema-annotated, namespaced-but-compliant tag: the xsi:* and xmlns*
+    // attributes belong to foreign namespaces and must not be flagged.
+    let xml = r#"<VAST version="4.1"
+    xmlns="http://www.iab.com/VAST"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:noNamespaceSchemaLocation="vast.xsd">
+    <Ad id="1">
+        <InLine>
+            <AdSystem version="1.0">Test AdServer</AdSystem>
+            <AdTitle>Test Ad</AdTitle>
+            <AdServingId>a532</AdServingId>
+            <Impression><![CDATA[https://example.com/impression]]></Impression>
+            <Creatives>
+                <Creative xsi:type="LinearCreativeType">
+                    <UniversalAdId idRegistry="ad-id.org">UID-1</UniversalAdId>
+                    <Linear>
+                        <Duration>00:00:30</Duration>
+                        <MediaFiles>
+                            <MediaFile delivery="progressive" type="video/mp4" width="640" height="360"><![CDATA[https://example.com/video.mp4]]></MediaFile>
+                        </MediaFiles>
+                    </Linear>
+                </Creative>
+            </Creatives>
+        </InLine>
+    </Ad>
+</VAST>"#;
+    let result = validate(xml);
+    let unknown_attrs: Vec<_> = result
+        .issues
+        .iter()
+        .filter(|i| i.id == "VAST-2.0-unknown-attribute")
+        .map(|i| i.path.clone().unwrap_or_default())
+        .collect();
+    assert!(
+        unknown_attrs.is_empty(),
+        "namespaced attributes should not be flagged, got: {unknown_attrs:?}"
+    );
+}
+
+#[test]
+fn vast_2_0_adid_casing_not_flagged_but_bogus_attr_still_is() {
+    // `AdID` is the VAST 2.0 Creative casing — accepted. A genuinely unknown
+    // attribute on the same element must still fire.
+    let good = minimal_valid_inline_xml("2.0", "", "");
+    let good = good.replace("<Creative>", r#"<Creative AdID="12345">"#);
+    let result = validate(&good);
+    assert!(
+        !has_issue(&result, "VAST-2.0-unknown-attribute"),
+        "AdID (VAST 2.0 casing) must not be flagged"
+    );
+
+    let bad = minimal_valid_inline_xml("2.0", "", "");
+    let bad = bad.replace("<Creative>", r#"<Creative totallyBogus="x">"#);
+    let result = validate(&bad);
+    assert!(
+        has_issue(&result, "VAST-2.0-unknown-attribute"),
+        "a non-namespaced unknown attribute must still fire"
+    );
+}
+
+// ── quality rules ─────────────────────────────────────────────────────────────
+
+#[test]
+fn adtitle_placeholder_fires_quality_warning() {
+    for title in ["test", "Test Ad", "UNKNOWN", "Ad 1", "untitled", "  "] {
+        let xml = minimal_valid_inline_xml("4.0", "", "").replace(
+            "<AdTitle>Acme Spring Sale 30s</AdTitle>",
+            &format!("<AdTitle>{title}</AdTitle>"),
+        );
+        let result = validate(&xml);
+        assert!(
+            has_issue(&result, "VAST-2.0-adtitle-quality"),
+            "expected VAST-2.0-adtitle-quality for AdTitle {title:?}"
+        );
+    }
+}
+
+#[test]
+fn real_adtitle_does_not_fire_quality_warning() {
+    let result = validate(&minimal_valid_inline_xml("4.0", "", ""));
+    assert!(
+        !has_issue(&result, "VAST-2.0-adtitle-quality"),
+        "a real AdTitle must not be flagged, got: {:#?}",
+        result.issues
+    );
+}
+
+#[test]
+fn adsystem_placeholder_fires_quality_info() {
+    for system in ["AdSystem", "unknown", "test", ""] {
+        let xml = minimal_valid_inline_xml("4.0", "", "").replace(
+            r#"<AdSystem version="1.0">Test AdServer</AdSystem>"#,
+            &format!(r#"<AdSystem version="1.0">{system}</AdSystem>"#),
+        );
+        let result = validate(&xml);
+        assert!(
+            has_issue(&result, "VAST-2.0-adsystem-quality"),
+            "expected VAST-2.0-adsystem-quality for AdSystem {system:?}"
+        );
+    }
+}
+
+#[test]
+fn adsystem_without_version_fires_info() {
+    let xml = minimal_valid_inline_xml("4.0", "", "").replace(
+        r#"<AdSystem version="1.0">Test AdServer</AdSystem>"#,
+        "<AdSystem>Test AdServer</AdSystem>",
+    );
+    let result = validate(&xml);
+    assert!(has_issue(&result, "VAST-2.0-adsystem-no-version"));
+
+    let with_version = validate(&minimal_valid_inline_xml("4.0", "", ""));
+    assert!(
+        !has_issue(&with_version, "VAST-2.0-adsystem-no-version"),
+        "AdSystem with a version attribute must not be flagged"
+    );
+}
+
+#[test]
+fn quality_rules_fire_on_wrapper_adsystem() {
+    let xml = r#"<VAST version="3.0">
+    <Ad id="1">
+        <Wrapper>
+            <AdSystem>test</AdSystem>
+            <VASTAdTagURI><![CDATA[https://example.com/vast.xml]]></VASTAdTagURI>
+            <Impression><![CDATA[https://example.com/impression]]></Impression>
+        </Wrapper>
+    </Ad>
+</VAST>"#;
+    let result = validate(xml);
+    assert!(has_issue(&result, "VAST-2.0-adsystem-quality"));
+    assert!(has_issue(&result, "VAST-2.0-adsystem-no-version"));
 }

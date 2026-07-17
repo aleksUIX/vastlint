@@ -14,6 +14,7 @@ pub mod ctv;
 pub mod daast;
 pub mod deprecated;
 pub mod macros;
+pub mod quality;
 pub mod required;
 pub mod schema;
 pub mod security;
@@ -72,6 +73,7 @@ pub fn run(
     ctv::check(doc, version, ctx, issues);
     simid::check(doc, version, ctx, issues);
     macros::check(doc, version, ctx, issues);
+    quality::check(doc, version, ctx, issues);
 }
 
 // ── Helper: emit an issue respecting rule overrides ───────────────────────────
@@ -267,6 +269,10 @@ pub static CATALOG: &[RuleMeta] = &[
     RuleMeta { id: "VAST-4.1-macro-deprecated",               default_severity: Severity::Info,    description: "[CONTENTPLAYHEAD]/[MEDIAPLAYHEAD] are deprecated as of VAST 4.1 — use [ADPLAYHEAD]",      source: VastSpec },
     RuleMeta { id: "VAST-2.0-macro-wrong-context",            default_severity: Severity::Info,    description: "Context-restricted macro ([ERRORCODE]/[REASON]) used where it has no defined value",      source: VastSpec },
     RuleMeta { id: "VAST-2.0-macro-uri-unencoded",            default_severity: Severity::Warning, description: "Macro-bearing URL contains characters that must be percent-encoded per RFC 3986",         source: Rfc3986  },
+    // quality.rs
+    RuleMeta { id: "VAST-2.0-adtitle-quality",                default_severity: Severity::Warning, description: "<AdTitle> value is a known placeholder string; reporting and ops tooling cannot identify the creative",  source: IndustryBestPractice },
+    RuleMeta { id: "VAST-2.0-adsystem-quality",               default_severity: Severity::Info,    description: "<AdSystem> value is a known placeholder string; the tag cannot be traced back to its serving system",    source: IndustryBestPractice },
+    RuleMeta { id: "VAST-2.0-adsystem-no-version",            default_severity: Severity::Info,    description: "<AdSystem> has no version attribute; provenance is harder to trace in partner discrepancy debugging",    source: IndustryBestPractice },
     // vmap.rs
     RuleMeta { id: "VMAP-1.0-root-version",                   default_severity: Severity::Error,   description: "Root <VMAP> element must have a version attribute",                                      source: VmapSpec },
     RuleMeta { id: "VMAP-1.0-root-version-value",             default_severity: Severity::Warning, description: "<VMAP> version attribute should be \"1.0\" — the only published VMAP version",            source: VmapSpec },
@@ -292,6 +298,7 @@ pub static CATALOG: &[RuleMeta] = &[
     RuleMeta { id: "VMAP-1.0-error-tracking-macro",           default_severity: Severity::Info,    description: "VMAP error tracking URI should include the [ERROR_CODE] macro",                          source: VmapSpec },
     RuleMeta { id: "VMAP-1.0-tracking-url-empty",             default_severity: Severity::Error,   description: "VMAP <Tracking> element does not contain a tracking URI",                                source: VmapSpec },
     RuleMeta { id: "VMAP-1.0-repeatafter-conflict",           default_severity: Severity::Warning, description: "repeatAfter has no effect when timeOffset is \"start\" or \"end\"",                        source: VmapSpec },
+    RuleMeta { id: "VMAP-1.0-display-break-no-companions",    default_severity: Severity::Info,    description: "breakType includes \"display\" but the inline VAST has no <CompanionAds> to fill the break", source: Inferred },
     // daast.rs
     RuleMeta { id: "DAAST-1.0-root-version",                  default_severity: Severity::Error,   description: "Root <DAAST> element must have a version attribute",                                     source: DaastSpec },
     RuleMeta { id: "DAAST-1.0-root-version-value",            default_severity: Severity::Warning, description: "<DAAST> version attribute must be a recognised version string (1.0 or 1.1)",             source: DaastXsd },

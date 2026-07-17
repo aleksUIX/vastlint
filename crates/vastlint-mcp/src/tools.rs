@@ -767,6 +767,10 @@ fn explain_hint(rule_id: &str) -> &'static str {
         "VAST-4.0-category-authority-unknown" => "Use a registered IAB Content Taxonomy authority such as iabtechlab.com, or keep the custom authority only if every party in the chain can resolve it.",
         "VAST-4.1-blockedadcategories-authority-not-uri" => "Set the authority attribute to the taxonomy URL, e.g. authority=\"iabtechlab.com\" for the IAB Content Taxonomy.",
         "VAST-4.1-blockedadcategories-authority-unknown" => "Use a registered IAB Content Taxonomy authority such as iabtechlab.com, or keep the custom authority only if every party in the chain can resolve it.",
+        "VAST-2.0-adtitle-quality"       => "Replace the placeholder <AdTitle> with a descriptive creative name, e.g. <AdTitle>Acme Spring Sale 30s</AdTitle>. Ops and reporting tools use this value to identify the creative.",
+        "VAST-2.0-adsystem-quality"      => "Replace the placeholder <AdSystem> with the real serving system name so a bad tag can be traced to its source, e.g. <AdSystem version=\"2.1\">MyAdServer</AdSystem>.",
+        "VAST-2.0-adsystem-no-version"   => "Add a version attribute to <AdSystem>, e.g. <AdSystem version=\"2.1\">MyAdServer</AdSystem>. It helps trace provenance when debugging partner discrepancies.",
+        "VMAP-1.0-display-break-no-companions" => "A breakType containing \"display\" expects companion/display ads. Add <CompanionAds> to the inline VAST, or change breakType if the break is video-only.",
         _                                => "Refer to the IAB VAST specification for fix guidance. Call list_rules to confirm the rule ID is correct.",
     }
 }

@@ -158,7 +158,9 @@ fn check_creative(node: &Node, path: &str, ctx: &ValidationContext, issues: &mut
     check_attrs(
         node,
         path,
-        &["id", "adId", "sequence", "apiFramework"],
+        // `AdID` is the VAST 2.0 casing of the creative ID attribute; VAST 3.0+
+        // renamed it to `adId`. Accept both so compliant 2.0 tags are not flagged.
+        &["id", "adId", "AdID", "sequence", "apiFramework"],
         ctx,
         issues,
     );
@@ -854,6 +856,12 @@ fn check_attrs(
     issues: &mut Vec<Issue>,
 ) {
     for attr in &node.attrs {
+        // Foreign-namespace attributes (xsi:*, xmlns, xmlns:*, vendor prefixes)
+        // are not governed by VAST's per-element allowlists — skip them so
+        // schema-annotated, spec-compliant tags stay clean.
+        if attr.namespaced {
+            continue;
+        }
         if !allowed.contains(&attr.name.as_str()) {
             emit(
                 ctx,

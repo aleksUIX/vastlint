@@ -11,8 +11,8 @@ fn issue_ids(result: &vastlint_core::ValidationResult) -> Vec<&'static str> {
 const VALID_VAST_3_0: &str = r#"<VAST version="3.0">
   <Ad id="1">
     <InLine>
-      <AdSystem>Demo</AdSystem>
-      <AdTitle>Ad</AdTitle>
+      <AdSystem version="1.0">DemoServe</AdSystem>
+      <AdTitle>Acme Spring Sale 15s</AdTitle>
       <Impression><![CDATA[https://t.example.com/imp]]></Impression>
       <Creatives>
         <Creative>
@@ -356,4 +356,65 @@ fn unknown_root_is_treated_as_invalid_vast() {
     let result = validate("<html><body/></html>");
     assert_eq!(result.document_type, DocumentType::Vast);
     assert!(issue_ids(&result).contains(&"VAST-2.0-root-element"));
+}
+
+#[test]
+fn display_break_without_companions_fires_advisory() {
+    let xml = vmap_with(
+        &format!(
+            r#"<vmap:AdSource id="1">
+      <vmap:VASTAdData>{VALID_VAST_3_0}</vmap:VASTAdData>
+    </vmap:AdSource>"#
+        ),
+        r#"breakType="linear,display" breakId="mid" timeOffset="00:05:00.000""#,
+    );
+    let result = validate(&xml);
+    assert!(
+        issue_ids(&result).contains(&"VMAP-1.0-display-break-no-companions"),
+        "expected display-break advisory, got: {:?}",
+        issue_ids(&result)
+    );
+}
+
+#[test]
+fn display_break_with_companions_does_not_fire_advisory() {
+    let vast_with_companions = VALID_VAST_3_0.replace(
+        "</Creative>",
+        r#"</Creative>
+        <Creative>
+          <CompanionAds>
+            <Companion width="300" height="250">
+              <StaticResource creativeType="image/png"><![CDATA[https://cdn.example.com/banner.png]]></StaticResource>
+            </Companion>
+          </CompanionAds>
+        </Creative>"#,
+    );
+    let xml = vmap_with(
+        &format!(
+            r#"<vmap:AdSource id="1">
+      <vmap:VASTAdData>{vast_with_companions}</vmap:VASTAdData>
+    </vmap:AdSource>"#
+        ),
+        r#"breakType="display" breakId="mid" timeOffset="00:05:00.000""#,
+    );
+    let result = validate(&xml);
+    assert!(
+        !issue_ids(&result).contains(&"VMAP-1.0-display-break-no-companions"),
+        "advisory must not fire when companions are present, got: {:?}",
+        issue_ids(&result)
+    );
+}
+
+#[test]
+fn linear_break_without_companions_does_not_fire_display_advisory() {
+    let xml = vmap_with(
+        &format!(
+            r#"<vmap:AdSource id="1">
+      <vmap:VASTAdData>{VALID_VAST_3_0}</vmap:VASTAdData>
+    </vmap:AdSource>"#
+        ),
+        r#"breakType="linear" breakId="pre" timeOffset="start""#,
+    );
+    let result = validate(&xml);
+    assert!(!issue_ids(&result).contains(&"VMAP-1.0-display-break-no-companions"));
 }

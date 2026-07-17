@@ -2,7 +2,7 @@
 
 Full reference documentation for every rule is at **[vastlint.org/docs/rules](https://vastlint.org/docs/rules/)**.
 
-191 rules across IAB VAST 2.0 – 4.3, VMAP 1.0, DAAST 1.0, and SIMID 1.0 – 1.1. Each rule has a stable ID, a default severity (`error` / `warning` / `info`), and a dedicated docs page with the spec reference, examples, and fix guidance.
+195 rules across IAB VAST 2.0 – 4.3, VMAP 1.0, DAAST 1.0, and SIMID 1.0 – 1.1. Each rule has a stable ID, a default severity (`error` / `warning` / `info`), and a dedicated docs page with the spec reference, examples, and fix guidance.
 
 ---
 
@@ -69,6 +69,9 @@ Full reference documentation for every rule is at **[vastlint.org/docs/rules](ht
 | [VAST-2.0-macro-lowercase](https://vastlint.org/docs/rules/VAST-2.0-macro-lowercase/) | warning | Recognised macro is not uppercase — players match macro names case-sensitively |
 | [VAST-2.0-macro-wrong-context](https://vastlint.org/docs/rules/VAST-2.0-macro-wrong-context/) | info | Context-restricted macro (`[ERRORCODE]`/`[REASON]`) used where it has no defined value |
 | [VAST-2.0-macro-uri-unencoded](https://vastlint.org/docs/rules/VAST-2.0-macro-uri-unencoded/) | warning | Macro-bearing URL contains characters that must be percent-encoded per RFC 3986 |
+| [VAST-2.0-adtitle-quality](https://vastlint.org/docs/rules/VAST-2.0-adtitle-quality/) | warning | `<AdTitle>` value is a known placeholder string; the creative cannot be identified in reporting |
+| [VAST-2.0-adsystem-quality](https://vastlint.org/docs/rules/VAST-2.0-adsystem-quality/) | info | `<AdSystem>` value is a known placeholder string; the tag cannot be traced to its serving system |
+| [VAST-2.0-adsystem-no-version](https://vastlint.org/docs/rules/VAST-2.0-adsystem-no-version/) | info | `<AdSystem>` has no `version` attribute; provenance is harder to trace in partner debugging |
 
 ---
 
@@ -225,6 +228,7 @@ Full docs, examples, and fix guidance: **[vastlint.org/docs/rules](https://vastl
 | [VMAP-1.0-error-tracking-macro](https://vastlint.org/docs/rules/VMAP-1.0-error-tracking-macro/) | info | VMAP error tracking URI should include the [ERROR_CODE] macro |
 | [VMAP-1.0-tracking-url-empty](https://vastlint.org/docs/rules/VMAP-1.0-tracking-url-empty/) | error | VMAP `<Tracking>` element does not contain a tracking URI |
 | [VMAP-1.0-repeatafter-conflict](https://vastlint.org/docs/rules/VMAP-1.0-repeatafter-conflict/) | warning | repeatAfter has no effect when timeOffset is `"start"` or `"end"` |
+| [VMAP-1.0-display-break-no-companions](https://vastlint.org/docs/rules/VMAP-1.0-display-break-no-companions/) | info | breakType includes `"display"` but the inline VAST has no `<CompanionAds>` to fill the break |
 
 ---
 

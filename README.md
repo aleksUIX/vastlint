@@ -36,7 +36,7 @@ Validates VAST documents against:
 - [IAB Tech Lab SIMID](https://iabtechlab.com/simid/) 1.0, 1.0.1, 1.1, 1.2 — interactive creative validation for `<InteractiveCreativeFile apiFramework="SIMID">` and nonlinear `<IFrameResource>` (the IAB-sanctioned VPAID replacement)
 - [IAB Tech Lab OMID / Open Measurement](https://iabtechlab.com/standards/open-measurement-sdk/) compatibility in VAST `<AdVerifications>` — vendor format, duplicate vendor detection, OMID resource semantics, verification tracking validation, and pre-4.1 extension-carried compatibility blocks
 
-191 rules across required fields, schema validation, structural correctness, security, consistency, deprecated features, ambiguous usage, value formats, SIMID validation, OMID validation, VMAP 1.0, and DAAST 1.0. Rules marked with `$` have direct revenue impact - use `vastlint check --fail-on-warning` in CI to catch them before they reach production. See [common errors](docs/common-errors.md) for the ones that cost real money. New to VASTlint? Start with the [tutorial](docs/tutorial.md).
+195 rules across required fields, schema validation, structural correctness, security, consistency, deprecated features, ambiguous usage, value formats, SIMID validation, OMID validation, VMAP 1.0, and DAAST 1.0. Rules marked with `$` have direct revenue impact - use `vastlint check --fail-on-warning` in CI to catch them before they reach production. See [common errors](docs/common-errors.md) for the ones that cost real money. New to VASTlint? Start with the [tutorial](docs/tutorial.md).
 
 Full rule reference with examples and fix instructions: [VAST error rule reference](https://vastlint.org/docs/rules) · [RULES.md](RULES.md)
 
@@ -218,7 +218,12 @@ Not every rule is auto-fixable - some require human judgment (e.g. choosing the 
 
 ## Config file
 
-Create `vastlint.toml` anywhere in your project tree. vastlint searches up from the current directory and uses the first one it finds.
+Create `vastlint.toml` anywhere in your project tree. vastlint searches up from the current directory and uses the first one it finds. `vastlint init` generates a starter file with every rule listed at its default severity, commented out:
+
+```console
+$ vastlint init
+wrote vastlint.toml (195 rules, all commented out at defaults)
+```
 
 ```toml
 [rules]
@@ -383,7 +388,7 @@ All three bindings share the same compiled Rust core — identical rule enforcem
 
 ## Use from JavaScript / TypeScript
 
-[`vastlint`](https://www.npmjs.com/package/vastlint) is published on npm. Same 191 rules, same core - compiled to WASM.
+[`vastlint`](https://www.npmjs.com/package/vastlint) is published on npm. Same 195 rules, same core - compiled to WASM.
 
 ```sh
 npm install vastlint
@@ -521,7 +526,7 @@ Returns the same structured result as the CLI and library: version, issues with 
 
 ## Use from a browser
 
-Paste any VAST tag into the web validator at **[VAST tag validator](https://vastlint.org/validate)** - no install, no account, nothing stored by default. Runs the same 191 rules as the CLI, entirely in your browser via WebAssembly. An optional "contribute this tag" button next to the results is opt-in only — see [Telemetry and sample contribution](#telemetry-and-sample-contribution) below for what it sends.
+Paste any VAST tag into the web validator at **[VAST tag validator](https://vastlint.org/validate)** - no install, no account, nothing stored by default. Runs the same 195 rules as the CLI, entirely in your browser via WebAssembly. An optional "contribute this tag" button next to the results is opt-in only — see [Telemetry and sample contribution](#telemetry-and-sample-contribution) below for what it sends.
 
 ## Telemetry and sample contribution
 

@@ -153,7 +153,7 @@ Exit code 0. The remaining info is advisory and doesn't affect validity.
 
 ## Suppressing rules
 
-If a rule doesn't apply to your use case, create `vastlint.toml` in your project root:
+If a rule doesn't apply to your use case, create `vastlint.toml` in your project root (`vastlint init` generates a starter file with every rule commented out at its default severity):
 
 ```toml
 [rules]
@@ -235,7 +235,7 @@ fn main() {
 vastlint rules
 ```
 
-Prints all 191 rules with their default severity and a short description. Rules marked `$` have direct revenue impact. Use the rule IDs in your `vastlint.toml` to customize behavior.
+Prints all 195 rules with their default severity and a short description. Rules marked `$` have direct revenue impact. Use the rule IDs in your `vastlint.toml` to customize behavior.
 
 ## Next steps
 

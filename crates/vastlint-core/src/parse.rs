@@ -5,15 +5,32 @@
 //! is skipped. No allocations are made for content we never inspect.
 
 use quick_xml::events::Event;
+use quick_xml::name::QName;
 use quick_xml::Reader;
+
+/// True when an attribute belongs to a foreign namespace and is therefore not
+/// governed by VAST's per-element attribute allowlists: either it carries a
+/// namespace prefix (`xsi:type`, `xlink:href`) or it is a namespace declaration
+/// (`xmlns` or `xmlns:foo`). The parser stores only local names, so this must be
+/// computed from the full qualified name before the prefix is discarded.
+fn is_namespaced(key: &QName) -> bool {
+    key.prefix().is_some() || key.as_ref() == b"xmlns"
+}
 
 // ── Internal document model ───────────────────────────────────────────────────
 
 /// A parsed attribute: both name and value as owned strings.
 #[derive(Debug, Clone)]
 pub struct Attr {
+    /// Local attribute name with any namespace prefix stripped (e.g. `xsi:type`
+    /// is stored as `type`).
     pub name: String,
     pub value: String,
+    /// True when the attribute carried a namespace prefix (`xsi:type`,
+    /// `xlink:href`) or is a namespace declaration (`xmlns`, `xmlns:foo`).
+    /// Such attributes belong to a foreign namespace and are not governed by
+    /// VAST's own per-element attribute allowlists.
+    pub namespaced: bool,
 }
 
 /// A node in the VAST document tree. Only elements are materialised; text
@@ -208,6 +225,7 @@ pub fn parse(input: &str) -> VastDocument {
                         .unwrap_or("")
                         .to_owned();
                     attrs.push(Attr {
+                        namespaced: is_namespaced(&attr.key),
                         name: key,
                         value: val,
                     });
@@ -243,6 +261,7 @@ pub fn parse(input: &str) -> VastDocument {
                         .unwrap_or("")
                         .to_owned();
                     attrs.push(Attr {
+                        namespaced: is_namespaced(&attr.key),
                         name: key,
                         value: val,
                     });

@@ -211,6 +211,34 @@ fn check_adbreak(adbreak: &Node, path: &str, ctx: &ValidationContext, issues: &m
     }
     if let Some(ad_source) = ad_sources.first() {
         check_adsource(ad_source, &format!("{}/AdSource", path), ctx, issues);
+
+        // VMAP-1.0-display-break-no-companions: breakType "display" requests
+        // display/companion ads, which VAST carries in <CompanionAds>. Inline
+        // VAST with no companions cannot fill the break. Only checkable for
+        // <VASTAdData>; an <AdTagURI> source would require a fetch.
+        let is_display_break = adbreak
+            .attr("breakType")
+            .map(|bt| bt.split(',').any(|part| part.trim() == "display"))
+            .unwrap_or(false);
+        if is_display_break {
+            if let Some(vast) = ad_source
+                .child("VASTAdData")
+                .and_then(|data| data.child("VAST"))
+            {
+                if !vast.has_descendant("CompanionAds") {
+                    emit(
+                        ctx,
+                        issues,
+                        "VMAP-1.0-display-break-no-companions",
+                        Severity::Info,
+                        "breakType includes \"display\" but the inline VAST contains no <CompanionAds>; the break has nothing to display",
+                        Some(format!("{}/AdSource/VASTAdData", path)),
+                        "IAB VMAP 1.0.1 §2.3.1",
+                        Some(ad_source),
+                    )
+                }
+            }
+        }
     }
 
     for te in adbreak.children_named("TrackingEvents") {

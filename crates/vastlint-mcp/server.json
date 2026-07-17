@@ -2,7 +2,7 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.aleksUIX/vastlint",
   "title": "VASTlint",
-  "description": "Validate VAST, VMAP, and DAAST ad tags against IAB specs. 191 rules, pure Rust core.",
+  "description": "Validate VAST, VMAP, and DAAST ad tags against IAB specs. 195 rules, pure Rust core.",
   "homepage": "https://vastlint.org",
   "repository": {
     "url": "https://github.com/aleksUIX/vastlint",

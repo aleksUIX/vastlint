@@ -6,6 +6,24 @@ GitHub Releases: <https://github.com/aleksUIX/vastlint/releases>
 
 ---
 
+## [Unreleased]
+
+## [0.9.0] - 2026-07-16
+
+### Added
+
+- **Content quality rules** (`quality.rs`, new rule category): `VAST-2.0-adtitle-quality` (warning) flags known placeholder `<AdTitle>` values (`test`, `Ad 1`, `untitled`, empty, ...); `VAST-2.0-adsystem-quality` (info) flags placeholder `<AdSystem>` values; `VAST-2.0-adsystem-no-version` (info) flags `<AdSystem>` without a `version` attribute. Conservative placeholder lists (phf sets) keep false positives near zero; all three can be disabled per-rule in `vastlint.toml`. Catalog: 191 → 195 rules.
+- **`VMAP-1.0-display-break-no-companions`** (info): an `<AdBreak>` whose `breakType` includes `display` but whose inline `<VASTAdData>` VAST contains no `<CompanionAds>` has nothing to display. `<AdTagURI>` sources are not checked (zero-I/O core).
+- **`vastlint init`**: generates a starter `vastlint.toml` with every rule listed at its default severity, commented out. `--out <path>` and `--force` flags; refuses to overwrite without `--force` (exit 2).
+- **Criterion benchmark** (`cargo bench -p vastlint-core`): validation throughput per fixture plus a 10-ad pod. Confirms the sub-1ms ARCHITECTURE.md target with wide margin (7-16 µs typical, ~140 µs for the pod).
+- **WASM: `document_type` in validation results**: `validate()`/`validateWithOptions()` now return `document_type: "VAST" | "VMAP" | "DAAST"`, matching the CLI and MCP surfaces. npm TypeScript definitions updated.
+
+### Fixed
+
+- **Namespace-prefixed attributes no longer false-flag as `VAST-2.0-unknown-attribute`**: attributes in a foreign namespace (`xsi:type`, `xsi:schemaLocation`, `xmlns`, `xmlns:*`, vendor prefixes) are not governed by VAST's per-element attribute allowlists and are now skipped. Schema-annotated, spec-compliant tags stay clean. Separately, `AdID` (the VAST 2.0 casing of the `<Creative>` creative-id attribute, renamed `adId` in 3.0+) is now accepted on `<Creative>`. Both were false positives flagged on real-world compliant tags.
+
+---
+
 ## [0.8.4] - 2026-07-16
 
 ### Fixed
