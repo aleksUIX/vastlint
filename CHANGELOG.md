@@ -8,6 +8,14 @@ GitHub Releases: <https://github.com/aleksUIX/vastlint/releases>
 
 ## [Unreleased]
 
+## [0.9.1] - 2026-07-20
+
+### Maintenance
+
+- Dependency updates via Dependabot: `tokio` 1.52.3 → 1.53.0, `criterion` 0.7.0 → 0.8.2 (dev-dependency, benches), `serde` 1.0.228 → 1.0.229, `serde_json` 1.0.150 → 1.0.151, `toml` 1.1.2+spec-1.1.0 → 1.1.3+spec-1.1.0, `regex` 1.13.0 → 1.13.1, `clap` 4.6.1 → 4.6.2.
+- CI action pins refreshed: `softprops/action-gh-release` 3.0.1 → 3.0.2, `github/codeql-action/upload-sarif` 4.37.0 → 4.37.1, `dtolnay/rust-toolchain` pinned commit refreshed, `taiki-e/setup-cross-toolchain-action` 1.41.0 → 1.42.0, `actions/setup-node` 6.4.0 → 7.0.0.
+- `cargo audit`: no known vulnerabilities.
+
 ## [0.9.0] - 2026-07-16
 
 ### Added
