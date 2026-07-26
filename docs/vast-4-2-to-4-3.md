@@ -119,4 +119,4 @@ The checklist is minimal:
 
 ---
 
-*Validate your VAST 4.3 documents at [vastlint.org](https://vastlint.org). See the [full rule reference](https://vastlint.org/docs/rules/) or go back to the [VAST 4.1 to 4.2 migration guide](./vast-4-1-to-4-2.md).*
+*Validate your VAST 4.3 documents at [vastlint.org](https://vastlint.org). See the [full rule reference](https://vastlint.org/docs/rules/), continue to the [VAST 4.3 to 4.4 changes](./vast-4-3-to-4-4.md), or go back to the [VAST 4.1 to 4.2 migration guide](./vast-4-1-to-4-2.md).*

@@ -249,7 +249,7 @@ pub struct InspectVastOutput {
 #[tool_router]
 impl VastlintServer {
     #[tool(
-        description = "Validate an IAB ad tag XML document. Accepts VAST 2.0-4.3, VMAP 1.0, and \
+        description = "Validate an IAB ad tag XML document. Accepts VAST 2.0-4.4, VMAP 1.0, and \
         DAAST 1.0/1.1. The document type is auto-detected from the root element. \
         Returns all issues found with severity, rule ID, location, and spec reference. \
         A document is valid when errors == 0, regardless of warning or info count. \
@@ -302,7 +302,7 @@ impl VastlintServer {
 
     #[tool(
         description = "Fetch an IAB ad tag XML document from a URL and validate it. \
-        Accepts VAST 2.0-4.3, VMAP 1.0, and DAAST 1.0/1.1 (auto-detected). \
+        Accepts VAST 2.0-4.4, VMAP 1.0, and DAAST 1.0/1.1 (auto-detected). \
         Handles redirects. Use max_depth to control how deep VAST wrapper chains are followed \
         (default 5, per IAB VAST 4.x recommendation). \
         AI agents typically receive VAST URLs rather than raw XML — use this tool for that case.",
@@ -485,7 +485,7 @@ impl VastlintServer {
 
     #[tool(
         description = "List the full catalog of validation rules available in vastlint. \
-        Covers VAST 2.0-4.3, VMAP 1.0, and DAAST 1.0/1.1. \
+        Covers VAST 2.0-4.4, VMAP 1.0, and DAAST 1.0/1.1. \
         Returns rule IDs, default severities, descriptions, and the external standard each rule \
         is derived from (e.g. \"VAST spec\", \"VAST XSD\", \"IAB VMAP\", \"IAB DAAST\", \"RFC 3986\", \"inferred\"). \
         Call this once and cache the result — the catalog is static. \
@@ -735,7 +735,7 @@ impl ServerHandler for VastlintServer {
         ServerInfo::new(ServerCapabilities::builder().enable_tools().build())
             .with_server_info(Implementation::new("vastlint", env!("CARGO_PKG_VERSION")))
             .with_instructions(
-                "IAB ad tag XML validation and inspection tools. Supports VAST 2.0-4.3, VMAP 1.0, and DAAST 1.0/1.1. \
+                "IAB ad tag XML validation and inspection tools. Supports VAST 2.0-4.4, VMAP 1.0, and DAAST 1.0/1.1. \
                  Use validate_vast to check a VAST, VMAP, or DAAST document for spec violations (auto-detected). \
                  Use validate_vast_url to validate a tag fetched from a URL. \
                  Use inspect_vast to follow a VAST wrapper chain hop-by-hop, returning creative \

@@ -68,7 +68,7 @@ fn check_inline(
             let lp = format!("{}/Linear", cp);
             if let Some(mf) = linear.child("MediaFiles") {
                 let mf_path = format!("{}/MediaFiles", lp);
-                check_interactive_creative_files(mf, &mf_path, &lp, linear, ctx, issues);
+                check_interactive_creative_files(mf, &mf_path, &lp, linear, true, ctx, issues);
             }
         }
 
@@ -90,14 +90,32 @@ fn check_nonlinear_ads(
     for (ni, nl) in nl_ads.children_named("NonLinear").enumerate() {
         let nl_path = format!("{}/NonLinearAds/NonLinear[{}]", cp, ni);
 
+        // Pattern C (VAST 4.4 CTV Ad Portfolio): <InteractiveCreativeFile
+        // apiFramework="SIMID"> inside a NonLinear <MediaFiles>. The signaling
+        // guidance calls this "the preferred VAST 4.4 pattern for secure
+        // interactive NonLinear creative" and deprecates the IFrameResource
+        // form. Same file-level rules as Linear SIMID, minus the media-fallback
+        // requirement.
+        let nonlinear_media_files = nl.child("MediaFiles");
+        if let Some(mf) = nonlinear_media_files {
+            let mf_path = format!("{}/MediaFiles", nl_path);
+            check_interactive_creative_files(mf, &mf_path, &nl_path, nl, false, ctx, issues);
+        }
+        let has_interactive_simid = nonlinear_media_files.is_some_and(|mf| {
+            mf.children_named("InteractiveCreativeFile")
+                .any(|icf| icf.attr("apiFramework") == Some("SIMID"))
+        });
+
         // Pattern A (per VAST XSD + SIMID prose): apiFramework on <NonLinear>
         let nl_api = nl.attr("apiFramework").unwrap_or("");
         if nl_api == "SIMID" {
             // SIMID-1.1-nonlinear-simid-no-iframe
             // SIMID §3.5.1: nonlinear SIMID creative must be delivered via
             // <IFrameResource> — it is the SIMID iframe URL container.
+            // Suppressed when the creative already uses the preferred 4.4
+            // <InteractiveCreativeFile> form, which satisfies the same intent.
             let has_iframe = nl.children_named("IFrameResource").next().is_some();
-            if !has_iframe {
+            if !has_iframe && !has_interactive_simid {
                 emit(
                     ctx,
                     issues,
@@ -133,11 +151,19 @@ fn check_nonlinear_ads(
 
 /// Check all `<InteractiveCreativeFile>` elements within a `<MediaFiles>` node
 /// that have `apiFramework="SIMID"`.
+///
+/// `require_media_fallback` gates `SIMID-1.0-simid-mediafile-required`, which is
+/// a Linear-only rule: SIMID §3.4 requires the media asset because the player is
+/// mid-roll and must have something to play. The VAST 4.4 CTV Ad Portfolio
+/// pattern puts `<InteractiveCreativeFile>` inside a NonLinear `<MediaFiles>`
+/// too, where a static resource is an equally valid fallback and the equivalent
+/// check lives in `ctv_portfolio::VAST-4.4-nonlinear-no-renderable-asset`.
 fn check_interactive_creative_files(
     mf_node: &Node,
     mf_path: &str,
     linear_path: &str,
     linear_node: &Node,
+    require_media_fallback: bool,
     ctx: &ValidationContext,
     issues: &mut Vec<Issue>,
 ) {
@@ -240,7 +266,7 @@ fn check_interactive_creative_files(
     // SIMID §3.4: "SIMID cannot be used to decide which media to show on the
     // client pre-impression. This is because the media file must be present
     // alongside the SIMID creative and delivered via the VAST MediaFile node."
-    if has_simid && !has_video_mediafile {
+    if require_media_fallback && has_simid && !has_video_mediafile {
         emit(
             ctx,
             issues,

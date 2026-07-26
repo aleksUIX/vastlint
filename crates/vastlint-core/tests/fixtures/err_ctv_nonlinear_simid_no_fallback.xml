@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  NonLinear carrying only a SIMID InteractiveCreativeFile: no <MediaFile>, no
+  static resource. Any CTV player without SIMID support renders nothing and
+  fires the error URI.
+  Fires VAST-4.4-nonlinear-no-renderable-asset (warning).
+  Must NOT fire SIMID-1.0-simid-mediafile-required, which is Linear-only.
+-->
+<VAST version="4.2">
+  <Ad id="nofallback-001">
+    <InLine>
+      <AdSystem version="1.0">ExampleAdServer</AdSystem>
+      <AdTitle>Squeezeback Interactive - No Fallback</AdTitle>
+      <Impression><![CDATA[https://track.example.com/imp?id=002]]></Impression>
+      <AdServingId>ServerName-nofallback-0001</AdServingId>
+      <Creatives>
+        <Creative id="creative-002" adId="AD-ID-002">
+          <UniversalAdId idRegistry="ad-id.org">CNPA0484000H</UniversalAdId>
+          <NonLinearAds>
+            <NonLinear width="1920" height="300">
+              <Duration>00:00:15</Duration>
+              <MediaFiles>
+                <InteractiveCreativeFile type="text/html" apiFramework="SIMID"><![CDATA[https://cdn.example.com/ad/simid-only.html]]></InteractiveCreativeFile>
+              </MediaFiles>
+              <NonLinearClickThrough><![CDATA[https://brand.example.com/landing]]></NonLinearClickThrough>
+            </NonLinear>
+          </NonLinearAds>
+        </Creative>
+      </Creatives>
+    </InLine>
+  </Ad>
+</VAST>

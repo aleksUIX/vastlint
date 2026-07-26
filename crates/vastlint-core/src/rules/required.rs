@@ -75,7 +75,10 @@ fn check_root(
     // An unrecognised value likely indicates a typo or a future version this
     // tool does not yet understand; we warn rather than error.
     if let Some(ver_str) = doc.root.attr("version") {
-        const KNOWN: &[&str] = &["2.0", "2.0.1", "3.0", "4.0", "4.1", "4.2", "4.3"];
+        // 4.4 is recognised even though it is only a working-group draft: a tag
+        // declaring it should be told that the draft status is the concern
+        // (VAST-4.4-version-attribute), not that the string is gibberish.
+        const KNOWN: &[&str] = &["2.0", "2.0.1", "3.0", "4.0", "4.1", "4.2", "4.3", "4.4"];
         if !KNOWN.contains(&ver_str) {
             emit(
                 ctx,
@@ -1341,9 +1344,16 @@ fn check_nonlinear_resource(
     ctx: &ValidationContext,
     issues: &mut Vec<Issue>,
 ) {
+    // VAST 4.4 / CTV Ad Portfolio: <MediaFiles> is the fourth way to carry a
+    // NonLinear asset, and it is the only one Pause, Screensaver, Overlay,
+    // Squeezeback and In-Scene video creative uses. A <MediaFiles> container
+    // that is itself empty is caught by
+    // ctv_portfolio::VAST-4.4-nonlinear-mediafiles-empty, so accepting its
+    // presence here does not open a hole.
     let has_resource = nl.has_child("StaticResource")
         || nl.has_child("IFrameResource")
-        || nl.has_child("HTMLResource");
+        || nl.has_child("HTMLResource")
+        || nl.has_child("MediaFiles");
     if !has_resource {
         emit(
             ctx,

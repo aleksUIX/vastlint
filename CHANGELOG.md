@@ -8,6 +8,25 @@ GitHub Releases: <https://github.com/aleksUIX/vastlint/releases>
 
 ## [Unreleased]
 
+### Added
+
+- **VAST 4.4 and the IAB CTV Ad Portfolio** (`ctv_portfolio.rs`, new rule category). IAB Tech Lab finalised the CTV Ad Portfolio signaling guidance on 2026-07-22 and landed `vast_4.4.xsd` in the VAST repo on 2026-07-17. vastlint now recognises `version="4.4"`, accepts the new content model, and adds 17 rules for it. Catalog: 195 → 212 rules.
+
+  The two sources are at different stages of the same process and vastlint weights them accordingly. The **signaling guidance is final**, so rules derived from it (`RuleSource::CtvAdPortfolio`, new) carry normal weight. The **4.4 XSD is a working-group draft** by its own annotation, so schema-only findings stay at warning or info rather than getting ahead of the working group. The only errors are constructs malformed under any version: a non-integer AdCOM payload, a QR position in pixels.
+
+  New content model accepted on **any VAST 4.x document**, not just 4.4: `<MediaFiles>`, `<Duration>` and `<NonLinearCustomClick>` under `<NonLinear>`, and `<Icons>` under `<NonLinearAds>`. This is deliberate: every VAST example in IAB's final guidance declares `version="4.2"` while using these constructs, so gating on 4.4 would have rejected conforming CTV traffic. `VAST-2.0-nonlinear-resource` now accepts `<MediaFiles>` as a fourth resource form. VAST 3.0 and below are unchanged; a regression fixture guards this.
+
+  Rules: `VAST-4.4-version-attribute` (info, flags the draft status), `VAST-4.4-nonlinear-no-renderable-asset`, `VAST-4.4-nonlinear-mediafiles-empty`, `VAST-4.4-nonlinear-simid-iframe`, `VAST-4.4-nonlinear-video-no-duration`, `VAST-4.4-adcom-extension-unknown-signal`, `VAST-4.4-adcom-extension-type-mismatch`, `VAST-4.4-adcom-signal-not-integer`, `VAST-4.4-adcom-plcmt-value`, `VAST-4.4-adcom-playbackmethod-value`, `VAST-4.4-adcom-pos-value`, `VAST-4.4-adcom-attr-not-motion`, `VAST-4.4-qrcode-position-attrs`, `VAST-4.4-qrcode-position-percent`, `VAST-4.4-qrcode-size-attr`, `VAST-4.4-qrcode-size-percent`, `VAST-4.4-qrcode-missing-scan-url`.
+
+- **SIMID in NonLinear `<MediaFiles>`**: the CTV Ad Portfolio guidance names `<InteractiveCreativeFile apiFramework="SIMID">` inside the NonLinear `<MediaFiles>` container "the preferred VAST 4.4 pattern" and deprecates `<IFrameResource apiFramework="SIMID">`. The existing SIMID type/URL/HTTPS/variableDuration rules now apply there. `SIMID-1.0-simid-mediafile-required` stays Linear-only (`VAST-4.4-nonlinear-no-renderable-asset` covers the NonLinear case, where a static resource is an equally valid fallback), and `SIMID-1.1-nonlinear-simid-no-iframe` no longer fires when the creative already uses the preferred form.
+
+- **`specs/vast_4.4_reference.md`**: the delta against 4.3, the full AdCOM signal tables (plcmt 5–9, playbackmethod 8–11, pos to 17, attr 21–23), and two things worth knowing before trusting the draft schema. The draft is **scoped to the CTV work**: `AltText`, `BlockedAdCategories`, `Expires` and `IconClickFallbackImage(s)` are not carried over, and since nothing in the guidance touches them, vastlint reads that as scope rather than deprecation and models 4.4 as 4.3 plus the additions. The draft is also stricter on `Extension` than 4.2 (`@type` required, custom children restricted to `##other`), which would flag a lot of deployed tags, so vastlint waits for the schema to settle before enforcing either.
+
+### Changed
+
+- `--vast-version` accepts `4.4`. `VAST-2.0-root-version-value` recognises `4.4` so a 4.4 tag is told about the draft status rather than that its version string is unrecognised.
+- `RuleSource` gains `CtvAdPortfolio` for rules sourced from the finalised signaling guidance, distinct from `VastXsd` for rules sourced from the draft schema.
+
 ## [0.9.1] - 2026-07-20
 
 ### Maintenance

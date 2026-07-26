@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  QR code CreativeExtension with pixel coordinates instead of percentages, a
+  size missing its attribute, and no <QrCodeScanUrl>.
+  QrCodePosition/QrCodeSize are typed vastPercent_type, unlike <Icon>'s
+  xPosition/yPosition which accept bare pixels — a very easy mistake to carry
+  over from icon markup.
+  Fires: qrcode-position-percent (x2), qrcode-size-attr, qrcode-missing-scan-url.
+-->
+<VAST version="4.4">
+  <Ad id="qr-bad-001">
+    <InLine>
+      <AdSystem version="1.0">ExampleAdServer</AdSystem>
+      <AdTitle>Pause Ad With Broken QR Geometry</AdTitle>
+      <Impression><![CDATA[https://track.example.com/imp?id=004]]></Impression>
+      <AdServingId>ServerName-qr-bad-001</AdServingId>
+      <Creatives>
+        <Creative id="creative-004" adId="AD-ID-004">
+          <UniversalAdId idRegistry="ad-id.org">CNPA0484000H</UniversalAdId>
+          <NonLinearAds>
+            <NonLinear width="1920" height="1080">
+              <StaticResource creativeType="image/jpeg"><![CDATA[https://cdn.example.com/pause-qr.jpg]]></StaticResource>
+            </NonLinear>
+          </NonLinearAds>
+          <CreativeExtensions>
+            <CreativeExtension type="tl_qrcode">
+              <QrCodePosition xPosition="120" yPosition="840"/>
+              <QrCodeSize/>
+            </CreativeExtension>
+          </CreativeExtensions>
+        </Creative>
+      </Creatives>
+    </InLine>
+  </Ad>
+</VAST>

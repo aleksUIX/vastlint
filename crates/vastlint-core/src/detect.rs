@@ -56,6 +56,7 @@ fn parse_version_str(s: &str) -> Option<VastVersion> {
         "4.1" => Some(VastVersion::V4_1),
         "4.2" => Some(VastVersion::V4_2),
         "4.3" => Some(VastVersion::V4_3),
+        "4.4" => Some(VastVersion::V4_4),
         _ => None,
     }
 }
@@ -71,12 +72,18 @@ fn parse_version_str(s: &str) -> Option<VastVersion> {
 ///   Pricing present              → 3.0+
 ///   Icons present                → 3.0+
 ///   MediaFile present            → 2.0+  (but all versions have this)
+///
+/// Deliberately no 4.4 discriminator. The CTV Ad Portfolio constructs that the
+/// 4.4 draft schema introduces (`MediaFiles`/`Duration` under `NonLinear`,
+/// `Icons` under `NonLinearAds`, AdCOM `Extension` payloads) ship on tags that
+/// declare `version="4.2"` in IAB's own final signaling examples. Inferring 4.4
+/// from them would mark every conforming CTV tag as version-inconsistent.
 fn infer_version(doc: &VastDocument) -> Option<VastVersion> {
     let root = doc.vast_root()?;
 
     // 4.1+ discriminators
     if root.has_descendant("AdServingId") {
-        // Could be 4.1, 4.2, or 4.3 — return 4.1 as the floor.
+        // Could be 4.1 through 4.4 — return 4.1 as the floor.
         return Some(VastVersion::V4_1);
     }
 

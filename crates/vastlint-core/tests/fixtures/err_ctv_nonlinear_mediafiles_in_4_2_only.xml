@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Regression guard: the CTV Ad Portfolio NonLinear content model is gated on
+  4.x. On a VAST 3.0 document, <MediaFiles> and <Duration> under <NonLinear>
+  and <Icons> under <NonLinearAds> are still unrecognised children and must
+  still fire VAST-2.0-nonlinear-unknown-child / -nonlinearads-unknown-child.
+-->
+<VAST version="3.0">
+  <Ad id="nl-3-0-001">
+    <InLine>
+      <AdSystem version="1.0">ExampleAdServer</AdSystem>
+      <AdTitle>NonLinear On VAST 3.0</AdTitle>
+      <Impression><![CDATA[https://track.example.com/imp?id=005]]></Impression>
+      <Creatives>
+        <Creative id="creative-005">
+          <NonLinearAds>
+            <NonLinear width="480" height="70">
+              <Duration>00:00:15</Duration>
+              <MediaFiles>
+                <MediaFile delivery="progressive" type="video/mp4" width="480" height="70"><![CDATA[https://cdn.example.com/overlay.mp4]]></MediaFile>
+              </MediaFiles>
+              <StaticResource creativeType="image/jpeg"><![CDATA[https://cdn.example.com/overlay.jpg]]></StaticResource>
+            </NonLinear>
+            <Icons>
+              <Icon program="AdChoices" width="60" height="60" xPosition="right" yPosition="top">
+                <StaticResource creativeType="image/png"><![CDATA[https://cdn.example.com/adchoices.png]]></StaticResource>
+              </Icon>
+            </Icons>
+          </NonLinearAds>
+        </Creative>
+      </Creatives>
+    </InLine>
+  </Ad>
+</VAST>

@@ -1,6 +1,6 @@
 # vastlint
 
-VAST XML linter for JavaScript and TypeScript. Validates ad tags against IAB Tech Lab VAST 2.0 through 4.3, SIMID 1.0–1.2 interactive creatives, and VPAID detection. Powered by a Rust/WASM core.
+VAST XML linter for JavaScript and TypeScript. Validates ad tags against IAB Tech Lab VAST 2.0 through 4.4, SIMID 1.0–1.2 interactive creatives, and VPAID detection. Powered by a Rust/WASM core.
 
 **Use this package when you need to:**
 - Validate VAST XML in Node.js, Vite, Webpack, Rollup, or Deno

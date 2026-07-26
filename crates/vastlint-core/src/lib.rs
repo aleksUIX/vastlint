@@ -108,7 +108,15 @@ use std::collections::HashMap;
 /// The VAST version as declared in the `version` attribute or inferred from
 /// document structure.
 ///
-/// Covers all versions published by IAB Tech Lab: 2.0 through 4.3.
+/// Covers all versions published by IAB Tech Lab: 2.0 through 4.3, plus the
+/// 4.4 working draft.
+///
+/// 4.4 is not a published spec. `vast_4.4.xsd` landed in the IAB VAST repo on
+/// 2026-07-17 alongside the CTV Ad Portfolio work and its own annotation reads
+/// "DRAFT for working group discussion". vastlint recognises the version so
+/// that tags declaring it validate rather than falling through as unknown, but
+/// 4.4-only findings are reported at warning or info severity. See
+/// `specs/vast_4.4_reference.md`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum VastVersion {
     V2_0,
@@ -117,6 +125,7 @@ pub enum VastVersion {
     V4_1,
     V4_2,
     V4_3,
+    V4_4,
 }
 
 impl VastVersion {
@@ -128,6 +137,7 @@ impl VastVersion {
             VastVersion::V4_1 => "4.1",
             VastVersion::V4_2 => "4.2",
             VastVersion::V4_3 => "4.3",
+            VastVersion::V4_4 => "4.4",
         }
     }
 
@@ -135,8 +145,22 @@ impl VastVersion {
     pub fn is_v4(&self) -> bool {
         matches!(
             self,
-            VastVersion::V4_0 | VastVersion::V4_1 | VastVersion::V4_2 | VastVersion::V4_3
+            VastVersion::V4_0
+                | VastVersion::V4_1
+                | VastVersion::V4_2
+                | VastVersion::V4_3
+                | VastVersion::V4_4
         )
+    }
+
+    /// Returns true if this version is a working draft rather than a published
+    /// IAB Tech Lab specification.
+    ///
+    /// Only 4.4 qualifies today. Callers use this to soften severities: a
+    /// construct that only the draft schema blesses should not be reported as
+    /// an error against a spec that may still change.
+    pub fn is_draft(&self) -> bool {
+        matches!(self, VastVersion::V4_4)
     }
 
     /// Returns true if this version is at least the given version.
@@ -152,6 +176,7 @@ impl VastVersion {
             VastVersion::V4_1 => 3,
             VastVersion::V4_2 => 4,
             VastVersion::V4_3 => 5,
+            VastVersion::V4_4 => 6,
         }
     }
 }
@@ -503,6 +528,11 @@ pub enum RuleSource {
     /// Industry best practice derived from real-world ad serving patterns;
     /// violation has a direct revenue or measurement impact.
     IndustryBestPractice,
+    /// IAB Tech Lab CTV Ad Portfolio signaling guidance (finalised 2026-07-22).
+    /// Distinct from [`RuleSource::VastXsd`] because the guidance is a published
+    /// final standard while the accompanying `vast_4.4.xsd` is still a
+    /// working-group draft.
+    CtvAdPortfolio,
 }
 
 impl RuleSource {
@@ -522,6 +552,7 @@ impl RuleSource {
             RuleSource::DaastSpec => "IAB DAAST",
             RuleSource::DaastXsd => "DAAST XSD",
             RuleSource::IndustryBestPractice => "revenue impact",
+            RuleSource::CtvAdPortfolio => "IAB CTV Ad Portfolio",
         }
     }
 }

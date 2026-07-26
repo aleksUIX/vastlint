@@ -11,6 +11,7 @@
 pub mod ambiguous;
 pub mod consistency;
 pub mod ctv;
+pub mod ctv_portfolio;
 pub mod daast;
 pub mod deprecated;
 pub mod macros;
@@ -30,8 +31,8 @@ use crate::{
     DetectedVersion, DocumentType, Issue, RuleMeta, RuleSource, Severity, ValidationContext,
 };
 use RuleSource::{
-    DaastSpec, DaastXsd, IanaMediaTypes, IndustryBestPractice, Inferred, Iso4217, Rfc3986,
-    SimidSpec, VastSpec, VastXsd, VmapSpec, Xml,
+    CtvAdPortfolio, DaastSpec, DaastXsd, IanaMediaTypes, IndustryBestPractice, Inferred, Iso4217,
+    Rfc3986, SimidSpec, VastSpec, VastXsd, VmapSpec, Xml,
 };
 
 /// Run all applicable rules against the document and collect issues.
@@ -71,6 +72,7 @@ pub fn run(
     ambiguous::check(doc, version, ctx, issues);
     values::check(doc, version, ctx, issues);
     ctv::check(doc, version, ctx, issues);
+    ctv_portfolio::check(doc, version, ctx, issues);
     simid::check(doc, version, ctx, issues);
     macros::check(doc, version, ctx, issues);
     quality::check(doc, version, ctx, issues);
@@ -253,6 +255,24 @@ pub static CATALOG: &[RuleMeta] = &[
     RuleMeta { id: "VAST-4.1-mezzanine-recommended",          default_severity: Severity::Info,    description: "<MediaFiles> has no <Mezzanine> — ad-stitching servers may reject in CTV/SSAI contexts",  source: IndustryBestPractice },
     RuleMeta { id: "VAST-4.1-vpaid-in-interactive-context",   default_severity: Severity::Warning, description: "VPAID MediaFile alongside InteractiveCreativeFile — VPAID unsupported in CTV, zero fill",  source: IndustryBestPractice },
     RuleMeta { id: "VAST-4.1-ad-serving-id-empty",            default_severity: Severity::Warning, description: "<AdServingId> is present but empty",                                                     source: Inferred },
+    // ctv_portfolio.rs — IAB CTV Ad Portfolio (final 2026-07-22) + VAST 4.4 draft schema
+    RuleMeta { id: "VAST-4.4-version-attribute",              default_severity: Severity::Info,    description: "Document declares VAST 4.4, a working-group draft rather than a published spec",         source: VastXsd },
+    RuleMeta { id: "VAST-4.4-nonlinear-no-renderable-asset",  default_severity: Severity::Warning, description: "<NonLinear> has a SIMID interactive file but no renderable fallback asset",              source: CtvAdPortfolio },
+    RuleMeta { id: "VAST-4.4-nonlinear-mediafiles-empty",     default_severity: Severity::Error,   description: "<NonLinear> <MediaFiles> contains no renderable or interactive asset",                   source: CtvAdPortfolio },
+    RuleMeta { id: "VAST-4.4-nonlinear-simid-iframe",         default_severity: Severity::Info,    description: "<IFrameResource apiFramework=\"SIMID\"> is superseded by <InteractiveCreativeFile> in NonLinear", source: CtvAdPortfolio },
+    RuleMeta { id: "VAST-4.4-nonlinear-video-no-duration",    default_severity: Severity::Warning, description: "<NonLinear> delivers video but has no <Duration> — quartile tracking cannot fire",       source: CtvAdPortfolio },
+    RuleMeta { id: "VAST-4.4-adcom-extension-unknown-signal", default_severity: Severity::Warning, description: "<Extension ext=\"adcom\"> type is not plcmt, pos, playbackmethod or attr",                source: CtvAdPortfolio },
+    RuleMeta { id: "VAST-4.4-adcom-extension-type-mismatch",  default_severity: Severity::Warning, description: "<Extension> type attribute and AdCOM payload element name disagree",                     source: CtvAdPortfolio },
+    RuleMeta { id: "VAST-4.4-adcom-signal-not-integer",       default_severity: Severity::Error,   description: "AdCOM signal payload in <Extension> is not an integer",                                  source: CtvAdPortfolio },
+    RuleMeta { id: "VAST-4.4-adcom-plcmt-value",              default_severity: Severity::Warning, description: "AdCOM plcmt outside the Plcmt Subtypes (Video) range 1-9",                               source: CtvAdPortfolio },
+    RuleMeta { id: "VAST-4.4-adcom-playbackmethod-value",     default_severity: Severity::Warning, description: "AdCOM playbackmethod outside the Playback Methods range 1-11",                            source: CtvAdPortfolio },
+    RuleMeta { id: "VAST-4.4-adcom-pos-value",                default_severity: Severity::Warning, description: "AdCOM pos outside the Placement Positions range 0-17",                                   source: CtvAdPortfolio },
+    RuleMeta { id: "VAST-4.4-adcom-attr-not-motion",          default_severity: Severity::Info,    description: "AdCOM attr is not a CTV motion attribute (21 static, 22 cinemagraph, 23 full-motion)",    source: CtvAdPortfolio },
+    RuleMeta { id: "VAST-4.4-qrcode-position-attrs",          default_severity: Severity::Error,   description: "<QrCodePosition> requires both xPosition and yPosition",                                 source: VastXsd },
+    RuleMeta { id: "VAST-4.4-qrcode-position-percent",        default_severity: Severity::Error,   description: "<QrCodePosition> coordinates must be percentages, not pixels",                           source: VastXsd },
+    RuleMeta { id: "VAST-4.4-qrcode-size-attr",               default_severity: Severity::Error,   description: "<QrCodeSize> requires a size attribute",                                                 source: VastXsd },
+    RuleMeta { id: "VAST-4.4-qrcode-size-percent",            default_severity: Severity::Error,   description: "<QrCodeSize> size must be a percentage",                                                 source: VastXsd },
+    RuleMeta { id: "VAST-4.4-qrcode-missing-scan-url",        default_severity: Severity::Warning, description: "QR code geometry declared without a <QrCodeScanUrl> destination",                        source: CtvAdPortfolio },
     // simid.rs
     RuleMeta { id: "SIMID-1.0-simid-type-required",           default_severity: Severity::Error,   description: "<InteractiveCreativeFile apiFramework=\"SIMID\"> must have type=\"text/html\"",           source: SimidSpec },
     RuleMeta { id: "SIMID-1.0-simid-url-empty",               default_severity: Severity::Error,   description: "<InteractiveCreativeFile apiFramework=\"SIMID\"> must contain a non-empty URL",           source: SimidSpec },

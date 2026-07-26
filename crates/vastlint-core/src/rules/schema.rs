@@ -9,7 +9,19 @@
 
 use super::emit;
 use crate::parse::{Node, VastDocument};
-use crate::{DetectedVersion, Issue, Severity, ValidationContext};
+use crate::{DetectedVersion, Issue, Severity, ValidationContext, VastVersion};
+
+/// Whether the document may use the CTV Ad Portfolio content model that the
+/// VAST 4.4 draft schema introduces: `<MediaFiles>` and `<Duration>` under
+/// `<NonLinear>`, and `<Icons>` under `<NonLinearAds>`.
+///
+/// Gated on 4.x rather than on 4.4 alone. Every VAST example in the final CTV
+/// Ad Portfolio signaling guidance declares `version="4.2"` while using these
+/// constructs, so restricting them to `version="4.4"` would reject the
+/// ecosystem's actual conforming traffic. See `specs/vast_4.4_reference.md`.
+fn allows_ctv_nonlinear(version: Option<VastVersion>) -> bool {
+    version.map(|v| v.is_v4()).unwrap_or(false)
+}
 
 pub fn check(
     doc: &VastDocument,
@@ -48,17 +60,25 @@ fn check_ad(
         check_inline(inline, &format!("{}/InLine", path), version, ctx, issues);
     }
     if let Some(wrapper) = ad.child("Wrapper") {
-        check_wrapper(wrapper, &format!("{}/Wrapper", path), ctx, issues);
+        check_wrapper(
+            wrapper,
+            &format!("{}/Wrapper", path),
+            version.best().copied(),
+            ctx,
+            issues,
+        );
     }
 }
 
 fn check_inline(
     node: &Node,
     path: &str,
-    _version: &DetectedVersion,
+    version: &DetectedVersion,
     ctx: &ValidationContext,
     issues: &mut Vec<Issue>,
 ) {
+    let v = version.best().copied();
+
     // <InLine> has no attributes in the spec.
     check_attrs(node, path, &[], ctx, issues);
 
@@ -74,7 +94,7 @@ fn check_inline(
             "Pricing" => check_text_only(child, &child_path, &["model", "currency"], ctx, issues),
             "Impression" => check_text_only(child, &child_path, &["id"], ctx, issues),
             "Error" => check_text_only(child, &child_path, &[], ctx, issues),
-            "Creatives" => check_creatives(child, &child_path, ctx, issues),
+            "Creatives" => check_creatives(child, &child_path, v, ctx, issues),
             "Extensions" => check_extensions(child, &child_path, ctx, issues),
             "Survey" => check_text_only(child, &child_path, &["type"], ctx, issues),
             // AdVerifications, Verification, ViewableImpression, Category —
@@ -94,7 +114,13 @@ fn check_inline(
     }
 }
 
-fn check_wrapper(node: &Node, path: &str, ctx: &ValidationContext, issues: &mut Vec<Issue>) {
+fn check_wrapper(
+    node: &Node,
+    path: &str,
+    version: Option<VastVersion>,
+    ctx: &ValidationContext,
+    issues: &mut Vec<Issue>,
+) {
     // <Wrapper> allows followAdditionalWrappers, allowMultipleAds, fallbackOnNoAd.
     check_attrs(
         node,
@@ -115,7 +141,7 @@ fn check_wrapper(node: &Node, path: &str, ctx: &ValidationContext, issues: &mut 
             "VASTAdTagURI" => check_text_only(child, &child_path, &[], ctx, issues),
             "Impression" => check_text_only(child, &child_path, &["id"], ctx, issues),
             "Error" => check_text_only(child, &child_path, &[], ctx, issues),
-            "Creatives" => check_creatives(child, &child_path, ctx, issues),
+            "Creatives" => check_creatives(child, &child_path, version, ctx, issues),
             "Extensions" => check_extensions(child, &child_path, ctx, issues),
             "BlockedAdCategories" | "AdVerifications" | "ViewableImpression" => {}
             other => emit(
@@ -132,7 +158,13 @@ fn check_wrapper(node: &Node, path: &str, ctx: &ValidationContext, issues: &mut 
     }
 }
 
-fn check_creatives(node: &Node, path: &str, ctx: &ValidationContext, issues: &mut Vec<Issue>) {
+fn check_creatives(
+    node: &Node,
+    path: &str,
+    version: Option<VastVersion>,
+    ctx: &ValidationContext,
+    issues: &mut Vec<Issue>,
+) {
     check_attrs(node, path, &[], ctx, issues);
 
     for (i, child) in node.children.iter().enumerate() {
@@ -149,12 +181,18 @@ fn check_creatives(node: &Node, path: &str, ctx: &ValidationContext, issues: &mu
                 Some(child),
             );
         } else {
-            check_creative(child, &child_path, ctx, issues);
+            check_creative(child, &child_path, version, ctx, issues);
         }
     }
 }
 
-fn check_creative(node: &Node, path: &str, ctx: &ValidationContext, issues: &mut Vec<Issue>) {
+fn check_creative(
+    node: &Node,
+    path: &str,
+    version: Option<VastVersion>,
+    ctx: &ValidationContext,
+    issues: &mut Vec<Issue>,
+) {
     check_attrs(
         node,
         path,
@@ -169,7 +207,7 @@ fn check_creative(node: &Node, path: &str, ctx: &ValidationContext, issues: &mut
         let child_path = format!("{}/{}", path, child.name);
         match child.name.as_str() {
             "Linear" => check_linear(child, &child_path, ctx, issues),
-            "NonLinearAds" => check_non_linear_ads(child, &child_path, ctx, issues),
+            "NonLinearAds" => check_non_linear_ads(child, &child_path, version, ctx, issues),
             "CompanionAds" => check_companion_ads(child, &child_path, ctx, issues),
             "UniversalAdId" => {
                 check_text_only(child, &child_path, &["idRegistry", "idValue"], ctx, issues)
@@ -409,14 +447,25 @@ fn check_video_clicks(node: &Node, path: &str, ctx: &ValidationContext, issues: 
     }
 }
 
-fn check_non_linear_ads(node: &Node, path: &str, ctx: &ValidationContext, issues: &mut Vec<Issue>) {
+fn check_non_linear_ads(
+    node: &Node,
+    path: &str,
+    version: Option<VastVersion>,
+    ctx: &ValidationContext,
+    issues: &mut Vec<Issue>,
+) {
     check_attrs(node, path, &[], ctx, issues);
 
     for child in &node.children {
         let child_path = format!("{}/{}", path, child.name);
         match child.name.as_str() {
             "TrackingEvents" => check_tracking_events(child, &child_path, ctx, issues),
-            "NonLinear" => check_non_linear(child, &child_path, ctx, issues),
+            "NonLinear" => check_non_linear(child, &child_path, version, ctx, issues),
+            // VAST 4.4 draft: <Icons> moved under <NonLinearAds> so CTV Ad
+            // Portfolio placements can carry an ad-choices icon.
+            "Icons" if allows_ctv_nonlinear(version) => {
+                check_icons(child, &child_path, ctx, issues)
+            }
             other => emit(
                 ctx,
                 issues,
@@ -431,7 +480,13 @@ fn check_non_linear_ads(node: &Node, path: &str, ctx: &ValidationContext, issues
     }
 }
 
-fn check_non_linear(node: &Node, path: &str, ctx: &ValidationContext, issues: &mut Vec<Issue>) {
+fn check_non_linear(
+    node: &Node,
+    path: &str,
+    version: Option<VastVersion>,
+    ctx: &ValidationContext,
+    issues: &mut Vec<Issue>,
+) {
     check_attrs(
         node,
         path,
@@ -459,6 +514,20 @@ fn check_non_linear(node: &Node, path: &str, ctx: &ValidationContext, issues: &m
             "AdParameters" => check_text_only(child, &child_path, &["xmlEncoded"], ctx, issues),
             "NonLinearClickThrough" => check_text_only(child, &child_path, &[], ctx, issues),
             "NonLinearClickTracking" => check_text_only(child, &child_path, &["id"], ctx, issues),
+            // VAST 4.4 draft: the CTV Ad Portfolio content model. <MediaFiles>
+            // brings the Linear delivery model to NonLinear (video and
+            // cinemagraph assets, plus SIMID via <InteractiveCreativeFile>),
+            // <Duration> enables quartile tracking, and <NonLinearCustomClick>
+            // returns to the XSD after being absent since VAST 3.0.
+            "MediaFiles" if allows_ctv_nonlinear(version) => {
+                check_media_files(child, &child_path, ctx, issues)
+            }
+            "Duration" if allows_ctv_nonlinear(version) => {
+                check_text_only(child, &child_path, &[], ctx, issues)
+            }
+            "NonLinearCustomClick" if allows_ctv_nonlinear(version) => {
+                check_text_only(child, &child_path, &["id"], ctx, issues)
+            }
             other => emit(
                 ctx,
                 issues,

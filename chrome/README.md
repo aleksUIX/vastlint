@@ -1,6 +1,6 @@
 # VASTlint - Chrome Extension
 
-Detects VAST XML anywhere on a page and displays inline validation errors, warnings, and info messages powered by the **VASTlint WASM core**. Covers IAB VAST 2.0–4.3, SIMID interactive creatives, and VPAID detection.
+Detects VAST XML anywhere on a page and displays inline validation errors, warnings, and info messages powered by the **VASTlint WASM core**. Covers IAB VAST 2.0–4.4, SIMID interactive creatives, and VPAID detection.
 
 Full documentation, web validator, and rule reference: [vastlint.org](https://vastlint.org) · [vastlint.org/docs/rules](https://vastlint.org/docs/rules/)
 

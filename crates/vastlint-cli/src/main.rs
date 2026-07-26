@@ -83,7 +83,7 @@ enum Command {
         /// Treat the input as this VAST spec version regardless of the version
         /// attribute declared in the XML. Useful for templates or tags where the
         /// version attribute is absent, wrong, or not yet set.
-        /// Accepted values: 2.0, 3.0, 4.0, 4.1, 4.2, 4.3
+        /// Accepted values: 2.0, 3.0, 4.0, 4.1, 4.2, 4.3, 4.4 (draft)
         #[arg(long, value_name = "VERSION")]
         vast_version: Option<String>,
 
@@ -156,7 +156,7 @@ enum Command {
 
         /// Treat the input as this VAST spec version regardless of the version
         /// attribute declared in the XML.
-        /// Accepted values: 2.0, 3.0, 4.0, 4.1, 4.2, 4.3
+        /// Accepted values: 2.0, 3.0, 4.0, 4.1, 4.2, 4.3, 4.4 (draft)
         #[arg(long, value_name = "VERSION")]
         vast_version: Option<String>,
 
@@ -1269,8 +1269,9 @@ fn parse_vast_version_arg(s: Option<String>) -> Result<Option<VastVersion>, Stri
         Some("4.1") => Ok(Some(VastVersion::V4_1)),
         Some("4.2") => Ok(Some(VastVersion::V4_2)),
         Some("4.3") => Ok(Some(VastVersion::V4_3)),
+        Some("4.4") => Ok(Some(VastVersion::V4_4)),
         Some(other) => Err(format!(
-            "--vast-version \"{other}\" is not a recognised VAST version — accepted: 2.0, 3.0, 4.0, 4.1, 4.2, 4.3"
+            "--vast-version \"{other}\" is not a recognised VAST version — accepted: 2.0, 3.0, 4.0, 4.1, 4.2, 4.3, 4.4 (draft)"
         )),
     }
 }

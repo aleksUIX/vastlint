@@ -2102,7 +2102,7 @@ fn linear_with_quartile_tracking_does_not_fire() {
 fn all_rules_catalog_has_expected_count() {
     assert_eq!(
         vastlint_core::all_rules().len(),
-        195,
+        212,
         "catalog count changed — update this assertion and bump RULES.md"
     );
 }
@@ -2812,4 +2812,201 @@ fn quality_rules_fire_on_wrapper_adsystem() {
     let result = validate(xml);
     assert!(has_issue(&result, "VAST-2.0-adsystem-quality"));
     assert!(has_issue(&result, "VAST-2.0-adsystem-no-version"));
+}
+
+// ── CTV Ad Portfolio / VAST 4.4 ───────────────────────────────────────────────
+
+#[test]
+fn ctv_pause_static_on_4_2_validates_clean() {
+    // The IAB signaling guidance ships every CTV Ad Portfolio example as a
+    // version="4.2" tag. If vastlint gated the new content model on 4.4 this
+    // fixture would be full of unknown-child errors.
+    let result = validate(&load("ok_ctv_pause_static_4_2.xml"));
+    assert!(
+        issues_with_severity(&result, Severity::Error).is_empty(),
+        "IAB's own Pause example must validate without errors: {:#?}",
+        result.issues
+    );
+    assert!(!has_issue(&result, "VAST-4.4-version-attribute"));
+}
+
+#[test]
+fn ctv_overlay_simid_on_4_4_validates_clean_apart_from_draft_notice() {
+    let result = validate(&load("ok_ctv_overlay_simid_4_4.xml"));
+    assert!(
+        issues_with_severity(&result, Severity::Error).is_empty(),
+        "full 4.4 CTV content model must validate without errors: {:#?}",
+        result.issues
+    );
+
+    // 4.4 is a working-group draft; say so, at info.
+    assert!(has_issue(&result, "VAST-4.4-version-attribute"));
+
+    // The new SIMID location must not trip the Linear-only fallback rule or
+    // the superseded-IFrameResource advice.
+    assert!(!has_issue(&result, "SIMID-1.0-simid-mediafile-required"));
+    assert!(!has_issue(&result, "SIMID-1.1-nonlinear-simid-no-iframe"));
+    assert!(!has_issue(&result, "VAST-4.4-nonlinear-simid-iframe"));
+    assert!(!has_issue(
+        &result,
+        "VAST-4.4-nonlinear-no-renderable-asset"
+    ));
+    assert!(!has_issue(&result, "VAST-4.4-nonlinear-video-no-duration"));
+    assert!(!has_issue(&result, "VAST-4.4-qrcode-missing-scan-url"));
+}
+
+#[test]
+fn ctv_version_4_4_is_recognised_not_unknown() {
+    let result = validate(&load("ok_ctv_overlay_simid_4_4.xml"));
+    assert!(
+        !has_issue(&result, "VAST-2.0-root-version-value"),
+        "4.4 must parse as a known version, not fall through as unrecognised"
+    );
+    assert_eq!(result.version.best().map(|v| v.as_str()), Some("4.4"));
+}
+
+#[test]
+fn ctv_nonlinear_simid_without_fallback_fires_warning() {
+    let result = validate(&load("err_ctv_nonlinear_simid_no_fallback.xml"));
+    assert!(has_issue(&result, "VAST-4.4-nonlinear-no-renderable-asset"));
+    assert!(
+        !has_issue(&result, "SIMID-1.0-simid-mediafile-required"),
+        "the Linear-only media fallback rule must not fire on NonLinear"
+    );
+}
+
+#[test]
+fn ctv_adcom_signal_defects_all_fire() {
+    let result = validate(&load("err_ctv_adcom_signal_values.xml"));
+    assert!(has_issue(&result, "VAST-4.4-adcom-plcmt-value"));
+    assert!(has_issue(&result, "VAST-4.4-adcom-pos-value"));
+    assert!(has_issue(&result, "VAST-4.4-adcom-playbackmethod-value"));
+    assert!(has_issue(&result, "VAST-4.4-adcom-attr-not-motion"));
+    assert!(has_issue(
+        &result,
+        "VAST-4.4-adcom-extension-unknown-signal"
+    ));
+    assert!(has_issue(&result, "VAST-4.4-adcom-extension-type-mismatch"));
+    assert!(has_issue(&result, "VAST-4.4-adcom-signal-not-integer"));
+}
+
+#[test]
+fn ctv_adcom_valid_signals_stay_quiet() {
+    let result = validate(&load("ok_ctv_overlay_simid_4_4.xml"));
+    for id in [
+        "VAST-4.4-adcom-plcmt-value",
+        "VAST-4.4-adcom-pos-value",
+        "VAST-4.4-adcom-playbackmethod-value",
+        "VAST-4.4-adcom-attr-not-motion",
+        "VAST-4.4-adcom-extension-unknown-signal",
+        "VAST-4.4-adcom-extension-type-mismatch",
+        "VAST-4.4-adcom-signal-not-integer",
+    ] {
+        assert!(
+            !has_issue(&result, id),
+            "{id} must not fire on valid signals"
+        );
+    }
+}
+
+#[test]
+fn ctv_non_adcom_extension_is_not_inspected() {
+    // A vendor Extension that happens to carry a <pos> child is none of our
+    // business unless it declares ext="adcom".
+    let xml = minimal_valid_inline_xml("4.2", "", "").replace(
+        "</InLine>",
+        r#"<Extensions><Extension type="vendor-thing"><vendorPos>99</vendorPos></Extension></Extensions></InLine>"#,
+    );
+    let result = validate(&xml);
+    assert!(!has_issue(
+        &result,
+        "VAST-4.4-adcom-extension-unknown-signal"
+    ));
+    assert!(!has_issue(&result, "VAST-4.4-adcom-pos-value"));
+}
+
+#[test]
+fn ctv_qrcode_geometry_defects_fire() {
+    let result = validate(&load("err_ctv_qrcode_geometry.xml"));
+    assert!(has_issue(&result, "VAST-4.4-qrcode-position-percent"));
+    assert!(has_issue(&result, "VAST-4.4-qrcode-size-attr"));
+    assert!(has_issue(&result, "VAST-4.4-qrcode-missing-scan-url"));
+}
+
+#[test]
+fn ctv_creative_extension_without_qr_is_untouched() {
+    // Only CreativeExtensions carrying QR elements are inspected.
+    let xml = minimal_valid_inline_xml("4.2", "", "").replace(
+        "</Creative>",
+        r#"<CreativeExtensions><CreativeExtension type="vendor"><thing>1</thing></CreativeExtension></CreativeExtensions></Creative>"#,
+    );
+    let result = validate(&xml);
+    assert!(!has_issue(&result, "VAST-4.4-qrcode-missing-scan-url"));
+    assert!(!has_issue(&result, "VAST-4.4-qrcode-position-attrs"));
+}
+
+#[test]
+fn ctv_nonlinear_content_model_still_rejected_below_4_0() {
+    // Regression guard: relaxing NonLinear for 4.x must not relax it for 3.0.
+    let result = validate(&load("err_ctv_nonlinear_mediafiles_in_4_2_only.xml"));
+    assert!(
+        has_issue(&result, "VAST-2.0-nonlinear-unknown-child"),
+        "MediaFiles/Duration under NonLinear must still error on VAST 3.0: {:#?}",
+        result.issues
+    );
+    assert!(
+        has_issue(&result, "VAST-2.0-nonlinearads-unknown-child"),
+        "Icons under NonLinearAds must still error on VAST 3.0: {:#?}",
+        result.issues
+    );
+}
+
+#[test]
+fn ctv_nonlinear_video_without_duration_fires_warning() {
+    let xml = load("ok_ctv_overlay_simid_4_4.xml").replace("<Duration>00:00:15</Duration>", "");
+    let result = validate(&xml);
+    assert!(has_issue(&result, "VAST-4.4-nonlinear-video-no-duration"));
+}
+
+#[test]
+fn ctv_nonlinear_simid_iframe_pattern_flagged_as_superseded() {
+    let xml = r#"<VAST version="4.2">
+    <Ad id="1">
+        <InLine>
+            <AdSystem version="1.0">Test AdServer</AdSystem>
+            <AdTitle>Overlay SIMID legacy pattern</AdTitle>
+            <Impression><![CDATA[https://example.com/impression]]></Impression>
+            <AdServingId>abc-123</AdServingId>
+            <Creatives>
+                <Creative id="1" adId="1">
+                    <UniversalAdId idRegistry="ad-id.org">CNPA0484000H</UniversalAdId>
+                    <NonLinearAds>
+                        <NonLinear width="480" height="70">
+                            <IFrameResource apiFramework="SIMID" type="text/html"><![CDATA[https://example.com/simid.html]]></IFrameResource>
+                            <MediaFiles>
+                                <MediaFile delivery="progressive" type="image/jpeg" width="480" height="70"><![CDATA[https://example.com/overlay.jpg]]></MediaFile>
+                            </MediaFiles>
+                        </NonLinear>
+                    </NonLinearAds>
+                </Creative>
+            </Creatives>
+        </InLine>
+    </Ad>
+</VAST>"#;
+    let result = validate(xml);
+    assert!(has_issue(&result, "VAST-4.4-nonlinear-simid-iframe"));
+}
+
+#[test]
+fn ctv_portfolio_rules_do_not_fire_on_vast_2_0() {
+    let xml = load("err_ctv_adcom_signal_values.xml")
+        .replace(r#"<VAST version="4.2">"#, r#"<VAST version="2.0">"#);
+    let result = validate(&xml);
+    for issue in &result.issues {
+        assert!(
+            !issue.id.starts_with("VAST-4.4-"),
+            "no 4.4 rule may fire on a 2.0 document, got {}",
+            issue.id
+        );
+    }
 }

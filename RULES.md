@@ -2,7 +2,7 @@
 
 Full reference documentation for every rule is at **[vastlint.org/docs/rules](https://vastlint.org/docs/rules/)**.
 
-195 rules across IAB VAST 2.0 – 4.3, VMAP 1.0, DAAST 1.0, and SIMID 1.0 – 1.1. Each rule has a stable ID, a default severity (`error` / `warning` / `info`), and a dedicated docs page with the spec reference, examples, and fix guidance.
+212 rules across IAB VAST 2.0 – 4.4, VMAP 1.0, DAAST 1.0, and SIMID 1.0 – 1.1. Each rule has a stable ID, a default severity (`error` / `warning` / `info`), and a dedicated docs page with the spec reference, examples, and fix guidance.
 
 ---
 
@@ -177,6 +177,34 @@ Full reference documentation for every rule is at **[vastlint.org/docs/rules](ht
 | Rule | Severity | Description |
 |------|----------|-------------|
 | [VAST-4.3-js-resource-browser-optional](https://vastlint.org/docs/rules/VAST-4.3-js-resource-browser-optional/) | warning | `<JavaScriptResource>` should have a `browserOptional` attribute |
+
+---
+
+## VAST 4.4 rules (CTV Ad Portfolio)
+
+VAST 4.4 is a working-group draft, not a published spec. The CTV Ad Portfolio signaling guidance it accompanies **is** final (2026-07-22), so rules derived from the guidance carry more weight than rules derived from the draft schema. Nothing here errors unless the markup is malformed under any version.
+
+The NonLinear content model these rules cover is accepted on any VAST 4.x document, not only on `version="4.4"`, because every example in IAB's final guidance ships it on a 4.2 tag.
+
+| Rule | Severity | Description |
+|------|----------|-------------|
+| [VAST-4.4-version-attribute](https://vastlint.org/docs/rules/VAST-4.4-version-attribute/) | info | Document declares VAST 4.4, a working-group draft rather than a published spec |
+| [VAST-4.4-nonlinear-no-renderable-asset](https://vastlint.org/docs/rules/VAST-4.4-nonlinear-no-renderable-asset/) | warning | `<NonLinear>` has a SIMID interactive file but no renderable fallback asset |
+| [VAST-4.4-nonlinear-mediafiles-empty](https://vastlint.org/docs/rules/VAST-4.4-nonlinear-mediafiles-empty/) | error | `<NonLinear>` `<MediaFiles>` contains no renderable or interactive asset |
+| [VAST-4.4-nonlinear-simid-iframe](https://vastlint.org/docs/rules/VAST-4.4-nonlinear-simid-iframe/) | info | `<IFrameResource apiFramework="SIMID">` is superseded by `<InteractiveCreativeFile>` in NonLinear |
+| [VAST-4.4-nonlinear-video-no-duration](https://vastlint.org/docs/rules/VAST-4.4-nonlinear-video-no-duration/) | warning | `<NonLinear>` delivers video but has no `<Duration>`: quartile tracking cannot fire |
+| [VAST-4.4-adcom-extension-unknown-signal](https://vastlint.org/docs/rules/VAST-4.4-adcom-extension-unknown-signal/) | warning | `<Extension ext="adcom">` type is not `plcmt`, `pos`, `playbackmethod` or `attr` |
+| [VAST-4.4-adcom-extension-type-mismatch](https://vastlint.org/docs/rules/VAST-4.4-adcom-extension-type-mismatch/) | warning | `<Extension>` type attribute and AdCOM payload element name disagree |
+| [VAST-4.4-adcom-signal-not-integer](https://vastlint.org/docs/rules/VAST-4.4-adcom-signal-not-integer/) | error | AdCOM signal payload in `<Extension>` is not an integer |
+| [VAST-4.4-adcom-plcmt-value](https://vastlint.org/docs/rules/VAST-4.4-adcom-plcmt-value/) | warning | AdCOM `plcmt` outside the Plcmt Subtypes (Video) range 1–9 |
+| [VAST-4.4-adcom-playbackmethod-value](https://vastlint.org/docs/rules/VAST-4.4-adcom-playbackmethod-value/) | warning | AdCOM `playbackmethod` outside the Playback Methods range 1–11 |
+| [VAST-4.4-adcom-pos-value](https://vastlint.org/docs/rules/VAST-4.4-adcom-pos-value/) | warning | AdCOM `pos` outside the Placement Positions range 0–17 |
+| [VAST-4.4-adcom-attr-not-motion](https://vastlint.org/docs/rules/VAST-4.4-adcom-attr-not-motion/) | info | AdCOM `attr` is not a CTV motion attribute (21 static, 22 cinemagraph, 23 full-motion) |
+| [VAST-4.4-qrcode-position-attrs](https://vastlint.org/docs/rules/VAST-4.4-qrcode-position-attrs/) | error | `<QrCodePosition>` requires both `xPosition` and `yPosition` |
+| [VAST-4.4-qrcode-position-percent](https://vastlint.org/docs/rules/VAST-4.4-qrcode-position-percent/) | error | `<QrCodePosition>` coordinates must be percentages, not pixels |
+| [VAST-4.4-qrcode-size-attr](https://vastlint.org/docs/rules/VAST-4.4-qrcode-size-attr/) | error | `<QrCodeSize>` requires a `size` attribute |
+| [VAST-4.4-qrcode-size-percent](https://vastlint.org/docs/rules/VAST-4.4-qrcode-size-percent/) | error | `<QrCodeSize>` `size` must be a percentage |
+| [VAST-4.4-qrcode-missing-scan-url](https://vastlint.org/docs/rules/VAST-4.4-qrcode-missing-scan-url/) | warning | QR code geometry declared without a `<QrCodeScanUrl>` destination |
 
 ---
 

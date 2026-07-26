@@ -1,7 +1,7 @@
 # VASTlint - VAST XML Validator for VS Code
 
 Inline linting for [IAB VAST](https://iabtechlab.com/standards/vast/) ad tags directly in VS Code.
-Supports VAST 2.0 through 4.3 with clean Problems entries, concise hovers, fix guidance, and direct docs links. Web validator and full documentation: [vastlint.org](https://vastlint.org)
+Supports VAST 2.0 through 4.4 with clean Problems entries, concise hovers, fix guidance, and direct docs links. Web validator and full documentation: [vastlint.org](https://vastlint.org)
 
 ## Features
 
@@ -12,7 +12,7 @@ Supports VAST 2.0 through 4.3 with clean Problems entries, concise hovers, fix g
 - **Multi-block** — validates every `<VAST>...</VAST>` block in a file independently
 - **Live as you type** — re-validates 500 ms after you stop typing, and on every save
 - **CLI backend** — uses the `vastlint` CLI binary when available, falls back to WASM in-process
-- **195 rules** across VAST 2.0–4.3 plus SIMID and OMID validation: required fields, schema structure, URLs, verification semantics, deprecations, and CTV/SSAI advisories
+- **212 rules** across VAST 2.0–4.4 plus SIMID and OMID validation: required fields, schema structure, URLs, verification semantics, deprecations, and CTV/SSAI advisories
 
 ## How it looks
 
@@ -59,8 +59,8 @@ Docs: vastlint.org/docs/rules/VAST-2.0-inline-adsystem
 
 ## Rules
 
-VASTlint checks 195 rules across:
-- Required elements and attributes (VAST 2.0–4.3)
+VASTlint checks 212 rules across:
+- Required elements and attributes (VAST 2.0–4.4)
 - Value formats (durations, URLs, enums)
 - Schema conformance (unknown elements/attributes)
 - Deprecation warnings ([VPAID](https://vastlint.org/guides/vast-vpaid-migration), Flash, Survey, conditionalAd)
@@ -80,7 +80,7 @@ Canonical rule catalog:
 - [vastlint.org/docs/rules](https://vastlint.org/docs/rules/) for the hosted per-rule pages
 
 <details>
-<summary>All 195 rules</summary>
+<summary>All 212 rules</summary>
 
 ### VAST 2.0
 
@@ -244,7 +244,35 @@ Canonical rule catalog:
 |------|----------|-------------|
 | [VAST-4.3-js-resource-browser-optional](https://vastlint.org/docs/rules/VAST-4.3-js-resource-browser-optional/) | warning | `<JavaScriptResource>` should have a `browserOptional` attribute |
 
-### SIMID rules
+### VAST 4.4 rules (CTV Ad Portfolio)
+
+VAST 4.4 is a working-group draft, not a published spec. The CTV Ad Portfolio signaling guidance it accompanies **is** final (2026-07-22), so rules derived from the guidance carry more weight than rules derived from the draft schema. Nothing here errors unless the markup is malformed under any version.
+
+The NonLinear content model these rules cover is accepted on any VAST 4.x document, not only on `version="4.4"`, because every example in IAB's final guidance ships it on a 4.2 tag.
+
+| Rule | Severity | Description |
+|------|----------|-------------|
+| [VAST-4.4-version-attribute](https://vastlint.org/docs/rules/VAST-4.4-version-attribute/) | info | Document declares VAST 4.4, a working-group draft rather than a published spec |
+| [VAST-4.4-nonlinear-no-renderable-asset](https://vastlint.org/docs/rules/VAST-4.4-nonlinear-no-renderable-asset/) | warning | `<NonLinear>` has a SIMID interactive file but no renderable fallback asset |
+| [VAST-4.4-nonlinear-mediafiles-empty](https://vastlint.org/docs/rules/VAST-4.4-nonlinear-mediafiles-empty/) | error | `<NonLinear>` `<MediaFiles>` contains no renderable or interactive asset |
+| [VAST-4.4-nonlinear-simid-iframe](https://vastlint.org/docs/rules/VAST-4.4-nonlinear-simid-iframe/) | info | `<IFrameResource apiFramework="SIMID">` is superseded by `<InteractiveCreativeFile>` in NonLinear |
+| [VAST-4.4-nonlinear-video-no-duration](https://vastlint.org/docs/rules/VAST-4.4-nonlinear-video-no-duration/) | warning | `<NonLinear>` delivers video but has no `<Duration>` — quartile tracking cannot fire |
+| [VAST-4.4-adcom-extension-unknown-signal](https://vastlint.org/docs/rules/VAST-4.4-adcom-extension-unknown-signal/) | warning | `<Extension ext="adcom">` type is not `plcmt`, `pos`, `playbackmethod` or `attr` |
+| [VAST-4.4-adcom-extension-type-mismatch](https://vastlint.org/docs/rules/VAST-4.4-adcom-extension-type-mismatch/) | warning | `<Extension>` type attribute and AdCOM payload element name disagree |
+| [VAST-4.4-adcom-signal-not-integer](https://vastlint.org/docs/rules/VAST-4.4-adcom-signal-not-integer/) | error | AdCOM signal payload in `<Extension>` is not an integer |
+| [VAST-4.4-adcom-plcmt-value](https://vastlint.org/docs/rules/VAST-4.4-adcom-plcmt-value/) | warning | AdCOM `plcmt` outside the Plcmt Subtypes (Video) range 1–9 |
+| [VAST-4.4-adcom-playbackmethod-value](https://vastlint.org/docs/rules/VAST-4.4-adcom-playbackmethod-value/) | warning | AdCOM `playbackmethod` outside the Playback Methods range 1–11 |
+| [VAST-4.4-adcom-pos-value](https://vastlint.org/docs/rules/VAST-4.4-adcom-pos-value/) | warning | AdCOM `pos` outside the Placement Positions range 0–17 |
+| [VAST-4.4-adcom-attr-not-motion](https://vastlint.org/docs/rules/VAST-4.4-adcom-attr-not-motion/) | info | AdCOM `attr` is not a CTV motion attribute (21 static, 22 cinemagraph, 23 full-motion) |
+| [VAST-4.4-qrcode-position-attrs](https://vastlint.org/docs/rules/VAST-4.4-qrcode-position-attrs/) | error | `<QrCodePosition>` requires both `xPosition` and `yPosition` |
+| [VAST-4.4-qrcode-position-percent](https://vastlint.org/docs/rules/VAST-4.4-qrcode-position-percent/) | error | `<QrCodePosition>` coordinates must be percentages, not pixels |
+| [VAST-4.4-qrcode-size-attr](https://vastlint.org/docs/rules/VAST-4.4-qrcode-size-attr/) | error | `<QrCodeSize>` requires a `size` attribute |
+| [VAST-4.4-qrcode-size-percent](https://vastlint.org/docs/rules/VAST-4.4-qrcode-size-percent/) | error | `<QrCodeSize>` `size` must be a percentage |
+| [VAST-4.4-qrcode-missing-scan-url](https://vastlint.org/docs/rules/VAST-4.4-qrcode-missing-scan-url/) | warning | QR code geometry declared without a `<QrCodeScanUrl>` destination |
+
+---
+
+## SIMID rules
 
 | Rule | Severity | Description |
 |------|----------|-------------|

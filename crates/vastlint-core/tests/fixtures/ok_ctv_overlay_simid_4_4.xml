@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  CTV Ad Portfolio Overlay ad declaring version="4.4", exercising the full new
+  content model: NonLinear <MediaFiles> with a renderable fallback plus a SIMID
+  <InteractiveCreativeFile>, <Duration> for quartile tracking, <Icons> under
+  <NonLinearAds>, and the AdCOM signal round-trip.
+
+  Expected: clean apart from VAST-4.4-version-attribute (info), which flags that
+  4.4 is a working-group draft.
+-->
+<VAST version="4.4">
+  <Ad id="overlay-simid-001">
+    <InLine>
+      <AdSystem version="2.1">ExampleAdServer</AdSystem>
+      <AdTitle>Brand Y Overlay - Interactive</AdTitle>
+      <Impression><![CDATA[https://track.example.com/imp?id=440]]></Impression>
+      <AdServingId>ServerName-44aa-bb11-cc22</AdServingId>
+      <Creatives>
+        <Creative id="creative-overlay-440" adId="AD-ID-440">
+          <UniversalAdId idRegistry="ad-id.org">CNPA0484000H</UniversalAdId>
+          <NonLinearAds>
+            <NonLinear id="nl_overlay_440" width="1400" height="400" scalable="true" maintainAspectRatio="true" minSuggestedDuration="00:00:10">
+              <Duration>00:00:15</Duration>
+              <MediaFiles>
+                <MediaFile delivery="progressive" type="video/mp4" width="1400" height="400"><![CDATA[https://cdn.example.com/ad/nonlinear-fallback.mp4]]></MediaFile>
+                <InteractiveCreativeFile type="text/html" apiFramework="SIMID"><![CDATA[https://cdn.example.com/ad/nonlinear-simid.html]]></InteractiveCreativeFile>
+              </MediaFiles>
+              <NonLinearClickThrough><![CDATA[https://brand-y.example.com/landing]]></NonLinearClickThrough>
+              <NonLinearClickTracking><![CDATA[https://track.example.com/click?id=440]]></NonLinearClickTracking>
+              <NonLinearCustomClick><![CDATA[https://track.example.com/custom?id=440]]></NonLinearCustomClick>
+            </NonLinear>
+            <Icons>
+              <Icon program="AdChoices" width="60" height="60" xPosition="right" yPosition="top">
+                <StaticResource creativeType="image/png"><![CDATA[https://cdn.example.com/adchoices.png]]></StaticResource>
+                <IconClicks>
+                  <IconClickThrough><![CDATA[https://info.evidon.com/]]></IconClickThrough>
+                </IconClicks>
+              </Icon>
+            </Icons>
+            <TrackingEvents>
+              <Tracking event="creativeView"><![CDATA[https://track.example.com/creativeView?id=440]]></Tracking>
+              <Tracking event="overlayViewDuration"><![CDATA[https://track.example.com/overlayView?id=440]]></Tracking>
+            </TrackingEvents>
+          </NonLinearAds>
+          <CreativeExtensions>
+            <CreativeExtension type="tl_qrcode">
+              <QrCodeScanUrl><![CDATA[https://brand-y.example.com/qr]]></QrCodeScanUrl>
+              <QrCodeImageUrl><![CDATA[https://cdn.example.com/qr/brand-y.png]]></QrCodeImageUrl>
+              <QrCodePosition xPosition="10%" yPosition="70%"/>
+              <QrCodeSize size="15%"/>
+            </CreativeExtension>
+          </CreativeExtensions>
+        </Creative>
+      </Creatives>
+      <Extensions>
+        <Extension type="plcmt" ext="adcom"><plcmt>7</plcmt></Extension>
+        <Extension type="pos" ext="adcom"><pos>14</pos></Extension>
+        <Extension type="playbackmethod" ext="adcom"><playbackmethod>2</playbackmethod></Extension>
+        <Extension type="attr" ext="adcom"><attr>23</attr></Extension>
+      </Extensions>
+    </InLine>
+  </Ad>
+</VAST>
