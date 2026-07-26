@@ -8,6 +8,8 @@ GitHub Releases: <https://github.com/aleksUIX/vastlint/releases>
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-07-25
+
 ### Added
 
 - **VAST 4.4 and the IAB CTV Ad Portfolio** (`ctv_portfolio.rs`, new rule category). IAB Tech Lab finalised the CTV Ad Portfolio signaling guidance on 2026-07-22 and landed `vast_4.4.xsd` in the VAST repo on 2026-07-17. vastlint now recognises `version="4.4"`, accepts the new content model, and adds 17 rules for it. Catalog: 195 → 212 rules.
@@ -26,6 +28,7 @@ GitHub Releases: <https://github.com/aleksUIX/vastlint/releases>
 
 - `--vast-version` accepts `4.4`. `VAST-2.0-root-version-value` recognises `4.4` so a 4.4 tag is told about the draft status rather than that its version string is unrecognised.
 - `RuleSource` gains `CtvAdPortfolio` for rules sourced from the finalised signaling guidance, distinct from `VastXsd` for rules sourced from the draft schema.
+- VS Code extension 0.9.0 and Chrome extension 0.8.0 pick up the 4.4 rule set. `chrome/package.json` and `chrome/manifest.json` are unified on one version number.
 
 ## [0.9.1] - 2026-07-20
 

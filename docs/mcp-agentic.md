@@ -93,7 +93,7 @@ Listed as **`io.github.aleksUIX/vastlint`** on the [MCP Registry](https://regist
 |---|---|
 | `validate_vast` | Raw XML in, issues array out. Use when you have the tag in memory. |
 | `validate_vast_url` | Fetch-and-validate a VAST URL. Follows wrapper chains up to the configured depth. |
-| `list_rules` | Returns all 195 rule IDs with severities and descriptions. Cache this - it's static. |
+| `list_rules` | Returns all 212 rule IDs with severities and descriptions. Cache this - it's static. |
 | `explain_rule` | Full details, spec reference, and fix guidance for a specific rule ID. |
 | `fix_vast` | Auto-applies all deterministic safe fixes (HTTP→HTTPS upgrades, deprecated attribute removal). Returns patched XML plus a diff of what changed. |
 
