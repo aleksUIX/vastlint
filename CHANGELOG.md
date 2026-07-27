@@ -8,6 +8,17 @@ GitHub Releases: <https://github.com/aleksUIX/vastlint/releases>
 
 ## [Unreleased]
 
+## [0.10.1] - 2026-07-26
+
+### Security
+
+- Cleared all six open Dependabot alerts. Every one is a transitive dev-dependency of the build tooling, so none of them ship in the CLI, the WASM package, the published extensions, or any other runtime artifact.
+- VS Code extension build chain (transitive under the `@vscode/vsce` dev-dependency): `brace-expansion` 5.0.7 → 5.0.8 (GHSA-mh99-v99m-4gvg, unbounded expansion length causing an out-of-memory crash), `fast-uri` 3.1.2 → 3.1.4 (GHSA-4c8g-83qw-93j6 host confusion via failed IDN canonicalization, GHSA-v2hh-gcrm-f6hx host confusion via a literal backslash authority delimiter), `linkify-it` 5.0.1 → 5.0.2 (GHSA-v245-v573-v5vm, quadratic-complexity DoS in the `mailto:` validator scan-loop).
+- Example apps `vastlint-client-browser`, `vastlint-client-react-scratch` and `vastlint-react-demo` (transitive under `vite`): `postcss` 8.5.15 → 8.5.23 (GHSA-r28c-9q8g-f849, path traversal in previous-source-map auto-loading via `sourceMappingURL` leading to arbitrary `.map` file disclosure).
+- The `brace-expansion` 5.0.7 pin from 0.9.1 was superseded by a new advisory a week after it landed. 5.0.8 raises its floor to Node 20.
+- All four fixes resolved in-range, so no `overrides` entries were added and no `package.json` changed. Lockfile-only.
+- `npm audit`: 0 vulnerabilities in the root workspace, `npm/`, `vscode/`, `chrome/` and all three example apps. `cargo audit`: no known vulnerabilities across 248 crates.
+
 ## [0.10.0] - 2026-07-25
 
 ### Added
