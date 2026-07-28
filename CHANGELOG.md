@@ -8,6 +8,14 @@ GitHub Releases: <https://github.com/aleksUIX/vastlint/releases>
 
 ## [Unreleased]
 
+## [0.10.2] - 2026-07-27
+
+### Maintenance
+
+- Dependency updates via Dependabot: `tokio` 1.53.0 → 1.53.1, `clap` 4.6.2 → 4.6.4 (`clap_derive` 4.6.1 → 4.6.4, which moves its macro backend to `syn` 3). Both are semver-compatible inside the existing `tokio = "1"` and `clap = "4"` ranges, so the change is lockfile-only.
+- CI action pins refreshed: `actions/checkout` 7.0.0 → 7.0.1, `github/codeql-action/upload-sarif` 4.37.1 → 4.37.3, `docker/login-action` 4.4.0 → 4.5.1, `ossf/scorecard-action` 2.4.3 → 2.4.4.
+- `cargo audit`: no known vulnerabilities. `npm audit`: 0 vulnerabilities, unchanged since 0.10.1.
+
 ## [0.10.1] - 2026-07-26
 
 ### Security
