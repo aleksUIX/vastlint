@@ -23,7 +23,7 @@ jobs:
 
     steps:
       - name: Checkout fixtures
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Valid fixture should pass
         uses: aleksUIX/vastlint-action@4fdc6d48830825458c018a943d8bb74e54cd6dd3  # v1
