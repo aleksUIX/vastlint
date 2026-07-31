@@ -2102,7 +2102,7 @@ fn linear_with_quartile_tracking_does_not_fire() {
 fn all_rules_catalog_has_expected_count() {
     assert_eq!(
         vastlint_core::all_rules().len(),
-        212,
+        218,
         "catalog count changed — update this assertion and bump RULES.md"
     );
 }
@@ -2997,6 +2997,9 @@ fn ctv_nonlinear_simid_iframe_pattern_flagged_as_superseded() {
     assert!(has_issue(&result, "VAST-4.4-nonlinear-simid-iframe"));
 }
 
+/// The per-signal `ext="adcom"` shape is defined by the 4.x guidance. A 2.0
+/// document signals through `<Extension type="ctv_ad_portfolio">` instead, so
+/// none of the 4.x extension-shape or NonLinear content-model rules apply.
 #[test]
 fn ctv_portfolio_rules_do_not_fire_on_vast_2_0() {
     let xml = load("err_ctv_adcom_signal_values.xml")
@@ -3009,4 +3012,131 @@ fn ctv_portfolio_rules_do_not_fire_on_vast_2_0() {
             issue.id
         );
     }
+}
+
+/// IAB's own conforming example from extensions/ctv_qrcode.md. The whole point
+/// of the 2.0 extension path is that a tag like this is correct, so it must not
+/// collect findings, and in particular must not be told its MediaFiles are
+/// misplaced or its version inconsistent.
+#[test]
+fn ctv_portfolio_vast_2_0_example_is_clean() {
+    let result = validate(&load("ok_ctv_portfolio_vast_2_0.xml"));
+
+    for id in [
+        "VAST-2.0-extension-misplaced-element",
+        "VAST-2.0-version-mismatch",
+        "VAST-2.0-creative-extension-misplaced-element",
+    ] {
+        assert!(
+            !has_issue(&result, id),
+            "{} must not fire on a conforming VAST 2.0 CTV Ad Portfolio tag",
+            id
+        );
+    }
+
+    assert!(
+        result.issues.iter().all(|i| i.severity != Severity::Error),
+        "unexpected errors: {:?}",
+        result.issues
+    );
+}
+
+/// The 2.0 container has its own failure modes, and the binding one is the
+/// dangerous one: without CreativeId the extension silently attaches to
+/// whichever creative the platform picks.
+#[test]
+fn ctv_portfolio_vast_2_0_binding_and_media_defects() {
+    let result = validate(&load("err_ctv_portfolio_vast_2_0_binding.xml"));
+
+    assert!(has_issue(
+        &result,
+        "VAST-2.0-ctv-portfolio-creative-id-required"
+    ));
+    assert!(has_issue(
+        &result,
+        "VAST-2.0-ctv-portfolio-creative-id-unmatched"
+    ));
+    assert!(has_issue(
+        &result,
+        "VAST-2.0-ctv-portfolio-no-renderable-asset"
+    ));
+    assert!(has_issue(&result, "VAST-2.0-ctv-portfolio-no-duration"));
+    // Value checks are container-neutral and keep their single id.
+    assert!(has_issue(&result, "VAST-4.4-adcom-plcmt-value"));
+}
+
+/// Nothing renders: the container carries no media and the creative has no
+/// native `<NonLinear>` resource to fall back to.
+#[test]
+fn ctv_portfolio_vast_2_0_requires_media_files() {
+    let xml = r#"<?xml version="1.0" encoding="UTF-8"?>
+<VAST version="2.0">
+  <Ad id="a">
+    <InLine>
+      <AdSystem version="1.0">ExampleAdServer</AdSystem>
+      <AdTitle>Pause</AdTitle>
+      <Impression><![CDATA[https://track.example.com/imp]]></Impression>
+      <Creatives>
+        <Creative id="c1">
+          <NonLinearAds>
+            <NonLinear id="nl" width="1920" height="1080">
+              <NonLinearClickThrough><![CDATA[https://advertiser.example.com/landing]]></NonLinearClickThrough>
+            </NonLinear>
+          </NonLinearAds>
+        </Creative>
+      </Creatives>
+      <Extensions>
+        <Extension type="ctv_ad_portfolio">
+          <plcmt>5</plcmt>
+        </Extension>
+      </Extensions>
+    </InLine>
+  </Ad>
+</VAST>"#;
+
+    let result = validate(xml);
+    assert!(has_issue(
+        &result,
+        "VAST-2.0-ctv-portfolio-mediafiles-required"
+    ));
+}
+
+/// The mirror case: signalling-only use of the container is conforming when the
+/// creative renders from a native VAST 2.0 resource, which is the shape of
+/// IAB's own pause example.
+#[test]
+fn ctv_portfolio_vast_2_0_allows_signalling_only_container() {
+    let xml = r#"<?xml version="1.0" encoding="UTF-8"?>
+<VAST version="2.0">
+  <Ad id="a">
+    <InLine>
+      <AdSystem version="1.0">ExampleAdServer</AdSystem>
+      <AdTitle>Pause</AdTitle>
+      <Impression><![CDATA[https://track.example.com/imp]]></Impression>
+      <Creatives>
+        <Creative id="c1">
+          <NonLinearAds>
+            <NonLinear id="nl" width="1920" height="1080">
+              <StaticResource creativeType="image/png"><![CDATA[https://cdn.example.com/a.png]]></StaticResource>
+            </NonLinear>
+          </NonLinearAds>
+        </Creative>
+      </Creatives>
+      <Extensions>
+        <Extension type="ctv_ad_portfolio">
+          <plcmt>5</plcmt>
+          <attr>19</attr>
+        </Extension>
+      </Extensions>
+    </InLine>
+  </Ad>
+</VAST>"#;
+
+    let result = validate(xml);
+    assert!(!has_issue(
+        &result,
+        "VAST-2.0-ctv-portfolio-mediafiles-required"
+    ));
+    // 19 is a CTV Ad Portfolio attribute as of AdCOM 1.0-202607.
+    assert!(!has_issue(&result, "VAST-4.4-adcom-attr-not-motion"));
 }

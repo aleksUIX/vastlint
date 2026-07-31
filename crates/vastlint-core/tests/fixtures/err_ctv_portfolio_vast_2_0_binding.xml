@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  VAST 2.0 CTV Ad Portfolio defects that nothing else catches:
+    two <Creative> elements and no <CreativeId>, so the extension has no
+      binding to the creative it describes
+    the second container declares a <CreativeId> that matches no Creative id
+    a SIMID InteractiveCreativeFile with no MediaFile fallback
+    a timed asset with no <Duration>
+    plcmt=12, outside the Plcmt Subtypes (Video) range
+-->
+<VAST version="2.0">
+  <Ad id="portfolio-bad-001">
+    <InLine>
+      <AdSystem version="1.0">ExampleAdServer</AdSystem>
+      <AdTitle>Squeezeback and Overlay</AdTitle>
+      <Impression><![CDATA[https://track.example.com/imp?id=bad001]]></Impression>
+      <Creatives>
+        <Creative id="creative-a">
+          <NonLinearAds>
+            <NonLinear id="nl_a" width="1920" height="1080">
+              <StaticResource creativeType="image/png"><![CDATA[https://cdn.example.com/a.png]]></StaticResource>
+            </NonLinear>
+          </NonLinearAds>
+        </Creative>
+        <Creative id="creative-b">
+          <NonLinearAds>
+            <NonLinear id="nl_b" width="1920" height="1080">
+              <StaticResource creativeType="image/png"><![CDATA[https://cdn.example.com/b.png]]></StaticResource>
+            </NonLinear>
+          </NonLinearAds>
+        </Creative>
+      </Creatives>
+      <Extensions>
+        <Extension type="ctv_ad_portfolio">
+          <plcmt>12</plcmt>
+          <MediaFiles>
+            <InteractiveCreativeFile type="text/html" apiFramework="SIMID">
+              <![CDATA[https://cdn.example.com/squeezeback-simid.html]]>
+            </InteractiveCreativeFile>
+          </MediaFiles>
+        </Extension>
+        <Extension type="ctv_ad_portfolio">
+          <CreativeId>creative-does-not-exist</CreativeId>
+          <plcmt>7</plcmt>
+          <MediaFiles>
+            <MediaFile delivery="progressive" type="image/png" width="1920" height="324">
+              <![CDATA[https://cdn.example.com/overlay.png]]>
+            </MediaFile>
+          </MediaFiles>
+        </Extension>
+      </Extensions>
+    </InLine>
+  </Ad>
+</VAST>

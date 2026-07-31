@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Conforming VAST 2.0 CTV Ad Portfolio pause ad, adapted from the example in
+  IAB's extensions/ctv_qrcode.md (merged 2026-07-17).
+
+  Exercises the whole 2.0 path: the ctv_ad_portfolio container carrying the
+  AdCOM signals and its MediaFiles, and the tl_qrcode CreativeExtension in its
+  preferred placement under Creative/CreativeExtensions. Single creative, so
+  CreativeId is optional; it is present anyway because the document prefers it.
+-->
+<VAST version="2.0">
+  <Ad id="pause-qr-001">
+    <InLine>
+      <AdSystem version="1.0">ExampleAdServer</AdSystem>
+      <AdTitle>Pause Ad with QR Code</AdTitle>
+      <Impression><![CDATA[https://track.example.com/imp?id=pauseqr001]]></Impression>
+      <Creatives>
+        <Creative id="creative-pause-qr-001" AdID="AD-ID-PAUSE-QR-001">
+          <NonLinearAds>
+            <TrackingEvents>
+              <Tracking event="creativeView"><![CDATA[https://track.example.com/creativeView?id=pauseqr001]]></Tracking>
+            </TrackingEvents>
+            <NonLinear id="nl_pause_qr_001" width="1920" height="1080" scalable="true" maintainAspectRatio="true">
+              <StaticResource creativeType="image/jpeg">
+                <![CDATA[https://cdn.example.com/pause/brand_qr_1920x1080.jpg]]>
+              </StaticResource>
+              <NonLinearClickThrough><![CDATA[https://advertiser.example.com/landing]]></NonLinearClickThrough>
+            </NonLinear>
+          </NonLinearAds>
+          <CreativeExtensions>
+            <CreativeExtension type="tl_qrcode">
+              <QrCodeScanUrl><![CDATA[https://advertiser.example.com/code]]></QrCodeScanUrl>
+              <QrCodeImageUrl><![CDATA[https://cdn.example.com/qr/brand_qr.png]]></QrCodeImageUrl>
+              <QrCodePosition xPosition="10.0%" yPosition="10.0%"/>
+              <QrCodeSize size="15.0%"/>
+            </CreativeExtension>
+          </CreativeExtensions>
+        </Creative>
+      </Creatives>
+      <Extensions>
+        <Extension type="ctv_ad_portfolio">
+          <CreativeId>creative-pause-qr-001</CreativeId>
+          <plcmt>5</plcmt>
+          <pos>7</pos>
+          <playbackmethod>9</playbackmethod>
+          <attr>19</attr>
+          <attr>21</attr>
+          <MediaFiles>
+            <MediaFile delivery="progressive" type="image/jpeg" width="1920" height="1080">
+              <![CDATA[https://cdn.example.com/pause/brand_qr_1920x1080.jpg]]>
+            </MediaFile>
+          </MediaFiles>
+        </Extension>
+      </Extensions>
+    </InLine>
+  </Ad>
+</VAST>

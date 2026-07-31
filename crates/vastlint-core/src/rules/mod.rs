@@ -273,6 +273,13 @@ pub static CATALOG: &[RuleMeta] = &[
     RuleMeta { id: "VAST-4.4-qrcode-size-attr",               default_severity: Severity::Error,   description: "<QrCodeSize> requires a size attribute",                                                 source: VastXsd },
     RuleMeta { id: "VAST-4.4-qrcode-size-percent",            default_severity: Severity::Error,   description: "<QrCodeSize> size must be a percentage",                                                 source: VastXsd },
     RuleMeta { id: "VAST-4.4-qrcode-missing-scan-url",        default_severity: Severity::Warning, description: "QR code geometry declared without a <QrCodeScanUrl> destination",                        source: CtvAdPortfolio },
+    // ctv_portfolio.rs — the VAST 2.0 extension path (extensions/ctv_ad_portfolio.md, 2026-07-17)
+    RuleMeta { id: "VAST-2.0-ctv-portfolio-creative-id-required",  default_severity: Severity::Error,   description: "<Extension type=\"ctv_ad_portfolio\"> needs <CreativeId> when the ad has multiple creatives", source: CtvAdPortfolio },
+    RuleMeta { id: "VAST-2.0-ctv-portfolio-creative-id-unmatched", default_severity: Severity::Error,   description: "<Extension type=\"ctv_ad_portfolio\"> <CreativeId> matches no <Creative> id in the ad",       source: CtvAdPortfolio },
+    RuleMeta { id: "VAST-2.0-ctv-portfolio-mediafiles-required",   default_severity: Severity::Error,   description: "<Extension type=\"ctv_ad_portfolio\"> carries no <MediaFiles>",                              source: CtvAdPortfolio },
+    RuleMeta { id: "VAST-2.0-ctv-portfolio-mediafiles-empty",      default_severity: Severity::Error,   description: "<Extension type=\"ctv_ad_portfolio\"> <MediaFiles> contains no renderable or interactive asset", source: CtvAdPortfolio },
+    RuleMeta { id: "VAST-2.0-ctv-portfolio-no-renderable-asset",   default_severity: Severity::Warning, description: "<Extension type=\"ctv_ad_portfolio\"> has a SIMID file but no <MediaFile> fallback",          source: CtvAdPortfolio },
+    RuleMeta { id: "VAST-2.0-ctv-portfolio-no-duration",           default_severity: Severity::Warning, description: "<Extension type=\"ctv_ad_portfolio\"> delivers a timed asset but has no <Duration>",          source: CtvAdPortfolio },
     // simid.rs
     RuleMeta { id: "SIMID-1.0-simid-type-required",           default_severity: Severity::Error,   description: "<InteractiveCreativeFile apiFramework=\"SIMID\"> must have type=\"text/html\"",           source: SimidSpec },
     RuleMeta { id: "SIMID-1.0-simid-url-empty",               default_severity: Severity::Error,   description: "<InteractiveCreativeFile apiFramework=\"SIMID\"> must contain a non-empty URL",           source: SimidSpec },

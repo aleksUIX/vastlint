@@ -1,5 +1,45 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- CTV Ad Portfolio support for the **VAST 2.0 extension path**. The pull
+  request that landed `vast_4.4.xsd` on 2026-07-17 also added
+  `extensions/ctv_ad_portfolio.md` and `extensions/ctv_qrcode.md`, which
+  deliver the same six formats through VAST 2.0 rather than 4.x. That path
+  had no coverage: none of the AdCOM value or QR checks were reachable, and
+  the generic extension rules reported IAB's own examples as defective.
+  Six new rules for the container's own failure modes:
+  `VAST-2.0-ctv-portfolio-creative-id-required` (the binding that fails
+  silently when an ad has multiple creatives),
+  `VAST-2.0-ctv-portfolio-creative-id-unmatched`,
+  `VAST-2.0-ctv-portfolio-mediafiles-required`,
+  `VAST-2.0-ctv-portfolio-mediafiles-empty`,
+  `VAST-2.0-ctv-portfolio-no-renderable-asset` and
+  `VAST-2.0-ctv-portfolio-no-duration`. Catalog: 212 to 218 rules.
+
+### Fixed
+
+- `VAST-2.0-extension-misplaced-element` no longer fires inside a
+  standardised IAB extension container. `<Extension
+  type="ctv_ad_portfolio">` carries `MediaFiles`, `Duration`,
+  `TrackingEvents`, `Icons` and `AdParameters` by design, because it exists
+  to give VAST 2.0 a NonLinear delivery model it never had.
+- Version inference ignores elements inside those containers. A conforming
+  2.0 tag carrying a SIMID `InteractiveCreativeFile` in its extension was
+  reported as `VAST-2.0-version-mismatch`, which is the one thing the
+  extension is designed to do.
+- `VAST-4.4-adcom-attr-not-motion` accepts 19 and 20. AdCOM 1.0-202607 added
+  19 Contains advertiser QR Code and 20 Support alpha channel transparency
+  alongside the three motion attributes, and IAB's own examples declare 19.
+- The media rules only apply when the extension is the delivery vehicle. A
+  creative that renders from a native `StaticResource` and uses the container
+  only to declare AdCOM signals is conforming.
+
+All five VAST 2.0 examples published in the two extension documents now
+validate clean.
+
 All notable changes to vastlint are documented here.
 Versions follow [Semantic Versioning](https://semver.org/).
 GitHub Releases: <https://github.com/aleksUIX/vastlint/releases>

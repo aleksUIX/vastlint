@@ -2,7 +2,7 @@
 
 Full reference documentation for every rule is at **[vastlint.org/docs/rules](https://vastlint.org/docs/rules/)**.
 
-212 rules across IAB VAST 2.0 – 4.4, VMAP 1.0, DAAST 1.0, and SIMID 1.0 – 1.1. Each rule has a stable ID, a default severity (`error` / `warning` / `info`), and a dedicated docs page with the spec reference, examples, and fix guidance.
+218 rules across IAB VAST 2.0 – 4.4, VMAP 1.0, DAAST 1.0, and SIMID 1.0 – 1.1. Each rule has a stable ID, a default severity (`error` / `warning` / `info`), and a dedicated docs page with the spec reference, examples, and fix guidance.
 
 ---
 
@@ -205,6 +205,12 @@ The NonLinear content model these rules cover is accepted on any VAST 4.x docume
 | [VAST-4.4-qrcode-size-attr](https://vastlint.org/docs/rules/VAST-4.4-qrcode-size-attr/) | error | `<QrCodeSize>` requires a `size` attribute |
 | [VAST-4.4-qrcode-size-percent](https://vastlint.org/docs/rules/VAST-4.4-qrcode-size-percent/) | error | `<QrCodeSize>` `size` must be a percentage |
 | [VAST-4.4-qrcode-missing-scan-url](https://vastlint.org/docs/rules/VAST-4.4-qrcode-missing-scan-url/) | warning | QR code geometry declared without a `<QrCodeScanUrl>` destination |
+| [VAST-2.0-ctv-portfolio-creative-id-required](https://vastlint.org/docs/rules/VAST-2.0-ctv-portfolio-creative-id-required/) | error | `<Extension type="ctv_ad_portfolio">` needs `<CreativeId>` when the ad has multiple creatives |
+| [VAST-2.0-ctv-portfolio-creative-id-unmatched](https://vastlint.org/docs/rules/VAST-2.0-ctv-portfolio-creative-id-unmatched/) | error | `<Extension type="ctv_ad_portfolio">` `<CreativeId>` matches no `<Creative>` id in the ad |
+| [VAST-2.0-ctv-portfolio-mediafiles-required](https://vastlint.org/docs/rules/VAST-2.0-ctv-portfolio-mediafiles-required/) | error | `<Extension type="ctv_ad_portfolio">` carries no `<MediaFiles>` |
+| [VAST-2.0-ctv-portfolio-mediafiles-empty](https://vastlint.org/docs/rules/VAST-2.0-ctv-portfolio-mediafiles-empty/) | error | `<Extension type="ctv_ad_portfolio">` `<MediaFiles>` contains no renderable or interactive asset |
+| [VAST-2.0-ctv-portfolio-no-renderable-asset](https://vastlint.org/docs/rules/VAST-2.0-ctv-portfolio-no-renderable-asset/) | warning | `<Extension type="ctv_ad_portfolio">` has a SIMID file but no `<MediaFile>` fallback |
+| [VAST-2.0-ctv-portfolio-no-duration](https://vastlint.org/docs/rules/VAST-2.0-ctv-portfolio-no-duration/) | warning | `<Extension type="ctv_ad_portfolio">` delivers a timed asset but has no `<Duration>` |
 
 ---
 

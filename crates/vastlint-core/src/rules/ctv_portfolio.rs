@@ -20,10 +20,32 @@
 //! question, and a QR position of `"120"` violates the only type the element
 //! has ever had.
 //!
-//! Version gate: 4.x, not 4.4. Every VAST example in the final guidance
-//! declares `version="4.2"` while using the new content model, so gating on
-//! 4.4 would skip the ecosystem's real traffic. See
+//! Version gate: 4.x, not 4.4, for the `NonLinear` content model. Every VAST
+//! example in the final guidance declares `version="4.2"` while using the new
+//! content model, so gating on 4.4 would skip the ecosystem's real traffic. See
 //! `specs/vast_4.4_reference.md`.
+//!
+//! The extension paths are **not** version gated. On 2026-07-17 the same pull
+//! request that landed `vast_4.4.xsd` also added two extension documents that
+//! target VAST 2.0: `extensions/ctv_ad_portfolio.md`, which back-ports the
+//! `MediaFiles` delivery model into an `<Extension type="ctv_ad_portfolio">`,
+//! and `extensions/ctv_qrcode.md`, which defines
+//! `<CreativeExtension type="tl_qrcode">`. Those exist so the formats can ship
+//! on the version that parses everywhere, so the checks have to run there too.
+//!
+//! The two encodings carry the same four AdCOM signals in different shapes:
+//!
+//! - 4.x: one `<Extension type="plcmt" ext="adcom">` per signal.
+//! - 2.0: one `<Extension type="ctv_ad_portfolio">` holding all of them as
+//!   direct children, alongside the media.
+//!
+//! Each container is checked only where it belongs, so the shape rules
+//! (`VAST-4.4-adcom-extension-*`) stay 4.x-only and the binding and media rules
+//! (`VAST-2.0-ctv-portfolio-*`) belong to the 2.0 container. The *value* checks
+//! and the QR checks are the same defect either way and keep one id each, which
+//! is why a `VAST-4.4-adcom-plcmt-value` or `VAST-4.4-qrcode-size-percent` can
+//! surface on a document that declares 2.0. Emitting two ids for one defect
+//! would be worse for anyone gating CI on them.
 
 use super::emit;
 use crate::parse::{Node, VastDocument};
@@ -44,9 +66,15 @@ const PLAYBACKMETHOD_MAX: i64 = 11;
 /// Squeezeback layouts. 0 remains "unknown".
 const POS_MAX: i64 = 17;
 
-/// AdCOM Creative Attributes added for the CTV Ad Portfolio: 21 Static Visual,
-/// 22 Limited Motion (Cinemagraph), 23 Full-Motion Video.
-const MOTION_ATTRS: std::ops::RangeInclusive<i64> = 21..=23;
+/// AdCOM Creative Attributes added for the CTV Ad Portfolio in AdCOM
+/// 1.0-202607: 19 Contains advertiser QR Code, 20 Support alpha channel
+/// transparency, 21 Static Visual, 22 Limited Motion (Cinemagraph), 23
+/// Full-Motion Video.
+///
+/// This was 21..=23 until the release landed. IAB's own VAST 2.0 extension
+/// examples declare `<attr>19</attr>` next to `<attr>21</attr>`, so treating 19
+/// and 20 as out of scope reported the reference implementation as wrong.
+const PORTFOLIO_ATTRS: std::ops::RangeInclusive<i64> = 19..=23;
 
 pub fn check(
     doc: &VastDocument,
@@ -56,9 +84,10 @@ pub fn check(
 ) {
     let Some(vast) = doc.vast_root() else { return };
     let Some(v) = version.best() else { return };
-    if !v.is_v4() {
-        return;
-    }
+
+    // The NonLinear content model is a 4.x construct. The extension containers
+    // below are deliberately available on any version.
+    let check_non_linear_model = v.is_v4();
 
     if matches!(v, VastVersion::V4_4) {
         emit(
@@ -82,10 +111,23 @@ pub fn check(
             };
             let node_path = format!("{}/{}", ad_path, container);
 
+            let ad_creatives: Vec<&Node> = node
+                .child("Creatives")
+                .into_iter()
+                .flat_map(|c| c.children_named("Creative"))
+                .collect();
+
             if let Some(extensions) = node.child("Extensions") {
-                check_adcom_extensions(
+                let extensions_path = format!("{}/Extensions", node_path);
+                // The per-signal `ext="adcom"` shape belongs to the 4.x
+                // guidance. A 2.0 document signals through the container below.
+                if check_non_linear_model {
+                    check_adcom_extensions(extensions, &extensions_path, ctx, issues);
+                }
+                check_portfolio_extensions(
                     extensions,
-                    &format!("{}/Extensions", node_path),
+                    &extensions_path,
+                    &ad_creatives,
                     ctx,
                     issues,
                 );
@@ -96,14 +138,29 @@ pub fn check(
             };
             for (ci, creative) in creatives.children_named("Creative").enumerate() {
                 let creative_path = format!("{}/Creatives/Creative[{}]", node_path, ci);
-                check_creative(creative, &creative_path, ctx, issues);
+                check_creative(
+                    creative,
+                    &creative_path,
+                    check_non_linear_model,
+                    ctx,
+                    issues,
+                );
             }
         }
     }
 }
 
-fn check_creative(creative: &Node, path: &str, ctx: &ValidationContext, issues: &mut Vec<Issue>) {
-    if let Some(nl_ads) = creative.child("NonLinearAds") {
+fn check_creative(
+    creative: &Node,
+    path: &str,
+    check_non_linear_model: bool,
+    ctx: &ValidationContext,
+    issues: &mut Vec<Issue>,
+) {
+    if let Some(nl_ads) = creative
+        .child("NonLinearAds")
+        .filter(|_| check_non_linear_model)
+    {
         let nl_ads_path = format!("{}/NonLinearAds", path);
         for (i, nl) in nl_ads.children_named("NonLinear").enumerate() {
             check_non_linear(
@@ -224,6 +281,234 @@ fn check_non_linear(nl: &Node, path: &str, ctx: &ValidationContext, issues: &mut
     }
 }
 
+// ── CTV Ad Portfolio container for VAST 2.0 ───────────────────────────────────
+
+/// `<Extension type="ctv_ad_portfolio">` from `extensions/ctv_ad_portfolio.md`.
+///
+/// This is the second of the two encodings: a single container holding the
+/// AdCOM signals as direct children plus the media the 2.0 `NonLinear` element
+/// cannot carry. Menu Ads are out of scope by the document's own statement;
+/// they transact through the OpenRTB Native object.
+fn check_portfolio_extensions(
+    extensions: &Node,
+    path: &str,
+    ad_creatives: &[&Node],
+    ctx: &ValidationContext,
+    issues: &mut Vec<Issue>,
+) {
+    for (i, ext) in extensions.children_named("Extension").enumerate() {
+        if !ext
+            .attr("type")
+            .is_some_and(|t| t.trim().eq_ignore_ascii_case("ctv_ad_portfolio"))
+        {
+            continue;
+        }
+
+        let ext_path = format!("{}/Extension[{}]", path, i);
+
+        for signal in ADCOM_SIGNALS {
+            for payload in ext.children_named(signal) {
+                check_adcom_value(
+                    signal,
+                    payload,
+                    &format!("{}/{}", ext_path, signal),
+                    ctx,
+                    issues,
+                );
+            }
+        }
+
+        check_portfolio_creative_binding(ext, &ext_path, ad_creatives, ctx, issues);
+        check_portfolio_media(
+            ext,
+            &ext_path,
+            resolve_bound_creative(ext, ad_creatives),
+            ctx,
+            issues,
+        );
+
+        for (qi, creative_ext) in ext
+            .child("CreativeExtensions")
+            .into_iter()
+            .flat_map(|c| c.children_named("CreativeExtension"))
+            .enumerate()
+        {
+            check_qr_creative_extension(
+                creative_ext,
+                &format!("{}/CreativeExtensions/CreativeExtension[{}]", ext_path, qi),
+                ctx,
+                issues,
+            );
+        }
+    }
+}
+
+/// The VAST 2.0 `<Extensions>` container hangs off `InLine`, not off
+/// `Creative`, so this extension has no inherent binding to the creative it
+/// describes. `<CreativeId>` is that binding, and the document requires it
+/// whenever the response carries more than one `<Creative>`.
+///
+/// Omitting it is not a parse error. The media files, duration, format signal
+/// and creative attributes get applied to whichever creative the receiving
+/// platform picks, and the tag still validates everywhere else.
+fn check_portfolio_creative_binding(
+    ext: &Node,
+    path: &str,
+    ad_creatives: &[&Node],
+    ctx: &ValidationContext,
+    issues: &mut Vec<Issue>,
+) {
+    let creative_ids: Vec<&str> = ad_creatives.iter().filter_map(|c| c.attr("id")).collect();
+
+    match ext.child("CreativeId") {
+        None => {
+            if ad_creatives.len() > 1 {
+                emit(
+                    ctx,
+                    issues,
+                    "VAST-2.0-ctv-portfolio-creative-id-required",
+                    Severity::Error,
+                    "<Extension type=\"ctv_ad_portfolio\"> has no <CreativeId> but the response carries more than one <Creative>: the extension has no binding to the creative it describes and will be applied to whichever one the platform picks",
+                    Some(format!("{}/CreativeId", path)),
+                    "IAB CTV Ad Portfolio for VAST 2.0 §Implementation",
+                    Some(ext),
+                );
+            }
+        }
+        Some(node) => {
+            let declared = node.text.trim();
+            if !declared.is_empty() && !creative_ids.is_empty() && !creative_ids.contains(&declared)
+            {
+                emit(
+                    ctx,
+                    issues,
+                    "VAST-2.0-ctv-portfolio-creative-id-unmatched",
+                    Severity::Error,
+                    "<Extension type=\"ctv_ad_portfolio\"> declares a <CreativeId> that matches no <Creative> id in this ad",
+                    Some(format!("{}/CreativeId", path)),
+                    "IAB CTV Ad Portfolio for VAST 2.0 §Implementation",
+                    Some(node),
+                );
+            }
+        }
+    }
+}
+
+/// Media delivery inside the container.
+///
+/// The document requires `<MediaFiles>` for units "delivered through this
+/// extension", which is not the same as every use of it. A creative that
+/// renders from a native VAST 2.0 `StaticResource` and uses the extension only
+/// to declare its AdCOM signals is conforming, and IAB's own pause and
+/// squeezeback examples are exactly that shape. So the media rules only apply
+/// when the bound creative has nothing renderable of its own.
+fn check_portfolio_media(
+    ext: &Node,
+    path: &str,
+    bound_creative: Option<&Node>,
+    ctx: &ValidationContext,
+    issues: &mut Vec<Issue>,
+) {
+    let has_native_fallback = bound_creative.is_some_and(creative_has_native_resource);
+
+    let Some(media_files) = ext.child("MediaFiles") else {
+        if !has_native_fallback {
+            emit(
+                ctx,
+                issues,
+                "VAST-2.0-ctv-portfolio-mediafiles-required",
+                Severity::Error,
+                "<Extension type=\"ctv_ad_portfolio\"> carries no <MediaFiles> and the creative has no native <NonLinear> resource to render: the extension exists to supply the media delivery model VAST 2.0 does not have",
+                Some(format!("{}/MediaFiles", path)),
+                "IAB CTV Ad Portfolio for VAST 2.0 §Media file delivery",
+                Some(ext),
+            );
+        }
+        return;
+    };
+
+    let has_media_file = media_files.has_child("MediaFile");
+    let has_interactive = media_files.has_child("InteractiveCreativeFile");
+
+    if !has_media_file && !has_interactive {
+        emit(
+            ctx,
+            issues,
+            "VAST-2.0-ctv-portfolio-mediafiles-empty",
+            Severity::Error,
+            "<Extension type=\"ctv_ad_portfolio\"> has a <MediaFiles> container with no <MediaFile> or <InteractiveCreativeFile>: the ad has no asset to render",
+            Some(format!("{}/MediaFiles", path)),
+            "IAB CTV Ad Portfolio for VAST 2.0 §Media file delivery",
+            Some(media_files),
+        );
+        return;
+    }
+
+    // Same fallback rule as the 4.x model. A SIMID-only payload renders nothing
+    // on a player without SIMID, which on CTV is most of them. A native
+    // NonLinear resource on the bound creative counts as the fallback; the
+    // document asks for one wherever practical.
+    if has_interactive && !has_media_file && !has_native_fallback {
+        emit(
+            ctx,
+            issues,
+            "VAST-2.0-ctv-portfolio-no-renderable-asset",
+            Severity::Warning,
+            "<Extension type=\"ctv_ad_portfolio\"> carries an <InteractiveCreativeFile> but no <MediaFile> fallback: players without SIMID support have nothing to render",
+            Some(format!("{}/MediaFiles", path)),
+            "IAB CTV Ad Portfolio for VAST 2.0 §SIMID interactive creative delivery",
+            Some(media_files),
+        );
+    }
+
+    let has_timed_asset = has_interactive
+        || media_files.children_named("MediaFile").any(|mf| {
+            mf.attr("type")
+                .is_some_and(|t| t.trim().to_ascii_lowercase().starts_with("video/"))
+        });
+    if has_timed_asset && !ext.has_child("Duration") {
+        emit(
+            ctx,
+            issues,
+            "VAST-2.0-ctv-portfolio-no-duration",
+            Severity::Warning,
+            "<Extension type=\"ctv_ad_portfolio\"> delivers a video or interactive creative but declares no <Duration>: quartile and overlayViewDuration tracking cannot fire without it",
+            Some(path.to_string()),
+            "IAB CTV Ad Portfolio for VAST 2.0 §Duration and tracking",
+            Some(ext),
+        );
+    }
+}
+
+/// Resolve which `<Creative>` an extension describes. `<CreativeId>` is the
+/// binding; with a single creative in the ad the document lets it be omitted.
+fn resolve_bound_creative<'a>(ext: &Node, ad_creatives: &[&'a Node]) -> Option<&'a Node> {
+    match ext.child("CreativeId").map(|n| n.text.trim().to_owned()) {
+        Some(id) if !id.is_empty() => ad_creatives
+            .iter()
+            .copied()
+            .find(|c| c.attr("id") == Some(id.as_str())),
+        _ => match ad_creatives {
+            [only] => Some(only),
+            _ => None,
+        },
+    }
+}
+
+/// True when the creative can render without the extension, through a native
+/// VAST 2.0 `<NonLinear>` resource.
+fn creative_has_native_resource(creative: &Node) -> bool {
+    creative
+        .child("NonLinearAds")
+        .into_iter()
+        .flat_map(|ads| ads.children_named("NonLinear"))
+        .any(|nl| {
+            nl.has_child("StaticResource")
+                || nl.has_child("IFrameResource")
+                || nl.has_child("HTMLResource")
+        })
+}
+
 // ── AdCOM signal round-trip via <Extension> ───────────────────────────────────
 
 fn check_adcom_extensions(
@@ -234,6 +519,15 @@ fn check_adcom_extensions(
 ) {
     for (i, ext) in extensions.children_named("Extension").enumerate() {
         let ext_path = format!("{}/Extension[{}]", path, i);
+
+        // The VAST 2.0 portfolio container carries the same signal names but a
+        // different contract, and check_portfolio_extensions owns it.
+        if ext
+            .attr("type")
+            .is_some_and(|t| t.trim().eq_ignore_ascii_case("ctv_ad_portfolio"))
+        {
+            continue;
+        }
 
         // Only Extensions explicitly marked as AdCOM payloads are in scope. A
         // vendor Extension that happens to contain a <pos> child is none of our
@@ -361,12 +655,12 @@ fn check_adcom_value(
                 );
             }
         }
-        "attr" if !MOTION_ATTRS.contains(&value) => emit(
+        "attr" if !PORTFOLIO_ATTRS.contains(&value) => emit(
             ctx,
             issues,
             "VAST-4.4-adcom-attr-not-motion",
             Severity::Info,
-            "AdCOM attr round-tripped into VAST is not one of the CTV Ad Portfolio motion attributes (21 Static Visual, 22 Limited Motion, 23 Full-Motion Video); publishers validate the rendered experience against these",
+            "AdCOM attr round-tripped into VAST is not one of the CTV Ad Portfolio creative attributes (19 QR Code, 20 Alpha Channel, 21 Static Visual, 22 Limited Motion, 23 Full-Motion Video); publishers validate the rendered experience against these",
             Some(path.to_string()),
             "IAB CTV Ad Portfolio §Declaring Creative Experience with battr and attr",
             Some(payload),

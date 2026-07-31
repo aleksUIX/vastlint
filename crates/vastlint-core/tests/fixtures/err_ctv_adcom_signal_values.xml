@@ -5,8 +5,10 @@
     plcmt=12          out of the Plcmt Subtypes (Video) range 1-9
     pos=99            out of the Placement Positions range 0-17
     playbackmethod=40 out of the Playback Methods range 1-11
-    attr=20           not a CTV motion attribute (21/22/23) — this is the exact
-                      defect in IAB's own published example at line 1463
+    attr=14           not a CTV Ad Portfolio creative attribute. The portfolio
+                      set is 19-23 as of AdCOM 1.0-202607; 14 is a real AdCOM
+                      attribute (Windows Dialog or Alert Style) that has no
+                      business being declared on a CTV format
     type="loudness"   not an AdCOM signal name
     type="pos" carrying a <plcmt> payload — declared type and payload disagree
     playbackmethod payload "two" — not an integer
@@ -32,7 +34,7 @@
         <Extension type="plcmt" ext="adcom"><plcmt>12</plcmt></Extension>
         <Extension type="pos" ext="adcom"><pos>99</pos></Extension>
         <Extension type="playbackmethod" ext="adcom"><playbackmethod>40</playbackmethod></Extension>
-        <Extension type="attr" ext="adcom"><attr>20</attr></Extension>
+        <Extension type="attr" ext="adcom"><attr>14</attr></Extension>
         <Extension type="loudness" ext="adcom"><attr>21</attr></Extension>
         <Extension type="pos" ext="adcom"><plcmt>5</plcmt></Extension>
         <Extension type="playbackmethod" ext="adcom"><playbackmethod>two</playbackmethod></Extension>

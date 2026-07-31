@@ -106,6 +106,53 @@ impl Node {
     pub fn has_descendant(&self, name: &str) -> bool {
         self.find_descendant(name).is_some()
     }
+
+    /// True when this node is one of the standardised IAB extension containers
+    /// that deliberately carry elements from a later VAST version inside an
+    /// earlier document.
+    ///
+    /// The CTV Ad Portfolio shipped two of these on 2026-07-17, both targeting
+    /// VAST 2.0: `<Extension type="ctv_ad_portfolio">`, which supplies the
+    /// `MediaFiles` delivery model that 2.0's `NonLinear` lacks, and
+    /// `<CreativeExtension type="tl_qrcode">`. Their contents are correct where
+    /// they sit, so generic "this element belongs elsewhere" and version
+    /// inference logic has to skip them.
+    pub fn is_standardised_iab_extension(&self) -> bool {
+        const STANDARDISED_TYPES: [&str; 2] = ["ctv_ad_portfolio", "tl_qrcode"];
+
+        matches!(self.name.as_str(), "Extension" | "CreativeExtension")
+            && self.attr("type").is_some_and(|t| {
+                STANDARDISED_TYPES
+                    .iter()
+                    .any(|known| t.trim().eq_ignore_ascii_case(known))
+            })
+    }
+
+    /// Like [`Self::find_descendant`], but does not descend into standardised
+    /// IAB extension containers. Used where the presence of an element is taken
+    /// as evidence about the document itself rather than about an extension
+    /// payload carried inside it.
+    pub fn find_descendant_outside_standardised_extensions(&self, name: &str) -> Option<&Node> {
+        for child in &self.children {
+            if child.name == name {
+                return Some(child);
+            }
+            if child.is_standardised_iab_extension() {
+                continue;
+            }
+            if let Some(found) = child.find_descendant_outside_standardised_extensions(name) {
+                return Some(found);
+            }
+        }
+        None
+    }
+
+    /// Returns true if any descendant outside a standardised IAB extension
+    /// container has the given name.
+    pub fn has_descendant_outside_standardised_extensions(&self, name: &str) -> bool {
+        self.find_descendant_outside_standardised_extensions(name)
+            .is_some()
+    }
 }
 
 /// The result of parsing a VAST document.

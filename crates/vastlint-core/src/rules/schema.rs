@@ -866,6 +866,14 @@ fn scan_extension_for_misplaced_elements(
     ctx: &ValidationContext,
     issues: &mut Vec<Issue>,
 ) {
+    // A standardised IAB extension container puts VAST elements exactly where
+    // they belong. `<Extension type="ctv_ad_portfolio">` carries MediaFiles,
+    // Duration, TrackingEvents, Icons and AdParameters by design, because it
+    // exists to give VAST 2.0 a NonLinear delivery model it never had.
+    if node.is_standardised_iab_extension() {
+        return;
+    }
+
     for child in &node.children {
         let child_path = format!("{}/{}", path, child.name);
         if KNOWN_VAST_ELEMENTS.contains(&child.name.as_str()) {

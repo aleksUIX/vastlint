@@ -81,26 +81,31 @@ fn parse_version_str(s: &str) -> Option<VastVersion> {
 fn infer_version(doc: &VastDocument) -> Option<VastVersion> {
     let root = doc.vast_root()?;
 
+    // Elements inside a standardised IAB extension container are excluded from
+    // every discriminator below. The CTV Ad Portfolio VAST 2.0 extension exists
+    // precisely to carry later-version constructs (MediaFiles,
+    // InteractiveCreativeFile, Icons, Duration) inside a 2.0 document, so
+    // counting them as version signals would report every conforming tag as
+    // version-inconsistent. Same reasoning as the 4.4 note above.
+    let has = |name: &str| root.has_descendant_outside_standardised_extensions(name);
+
     // 4.1+ discriminators
-    if root.has_descendant("AdServingId") {
+    if has("AdServingId") {
         // Could be 4.1 through 4.4 — return 4.1 as the floor.
         return Some(VastVersion::V4_1);
     }
 
     // 4.0+ discriminators
-    if root.has_descendant("UniversalAdId")
-        || root.has_descendant("Verification")
-        || root.has_descendant("AdVerifications")
-        || root.has_descendant("InteractiveCreativeFile")
+    if has("UniversalAdId")
+        || has("Verification")
+        || has("AdVerifications")
+        || has("InteractiveCreativeFile")
     {
         return Some(VastVersion::V4_0);
     }
 
     // 3.0+ discriminators
-    if root.has_descendant("Pricing")
-        || root.has_descendant("Icons")
-        || root.has_descendant("ViewableImpression")
-    {
+    if has("Pricing") || has("Icons") || has("ViewableImpression") {
         return Some(VastVersion::V3_0);
     }
 
