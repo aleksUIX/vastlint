@@ -25,10 +25,22 @@ GitHub Releases: <https://github.com/aleksUIX/vastlint/releases>
   gated on 4.x, the same gate the content model itself uses, so a 3.0 document
   still reports the construct once as an unknown child rather than twice.
 
-  No new rule ids: `VAST-2.0-mediafile-delivery`, `-type`, `-dimensions`,
+  The rest of the container had the same problem, so the fix covers it:
+  `<Mezzanine>` and `<InteractiveCreativeFile>` inside a NonLinear
+  `<MediaFiles>` were unvalidated too, and the SIMID pattern the guidance calls
+  preferred puts an `<InteractiveCreativeFile>` exactly there.
+
+  No new rule ids. `VAST-2.0-mediafile-delivery`, `-type`, `-dimensions`,
+  `VAST-4.1-mezzanine-delivery`, `-type`, `-width`, `-height`,
+  `VAST-4.0-interactive-creative-no-api`, `VAST-4.1-interactive-creative-type`,
   `VAST-3.0-icon-program`, `-width`, `-height`, `-xposition`, `-yposition` and
   `VAST-3.0-icon-attrs` now fire wherever their element appears. Catalog stays
   at 220.
+
+- `VAST-4.0-interactive-creative-no-api` and
+  `VAST-4.1-interactive-creative-type` reported the line and column of the
+  enclosing `<Linear>` rather than of the `<InteractiveCreativeFile>` they are
+  about. Editors and CI annotations pointed at the wrong element.
 
 ### Added
 

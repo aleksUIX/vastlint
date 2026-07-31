@@ -3172,6 +3172,34 @@ fn ctv_nonlinear_mediafile_requires_the_same_attrs_as_linear() {
     assert!(has_issue(&result, "VAST-2.0-mediafile-dimensions"));
 }
 
+/// The rest of the `<MediaFiles>` container travels with it. `<Mezzanine>` and
+/// `<InteractiveCreativeFile>` are the same elements with the same attribute
+/// expectations wherever the container hangs.
+#[test]
+fn ctv_nonlinear_mezzanine_and_interactive_file_are_checked() {
+    let with_bare_mezzanine = load("ok_ctv_inscene_video_4_2.xml").replace(
+        "</MediaFiles>",
+        "<Mezzanine><![CDATA[https://cdn.example.com/mezz.mov]]></Mezzanine></MediaFiles>",
+    );
+    let result = validate(&with_bare_mezzanine);
+    for id in [
+        "VAST-4.1-mezzanine-delivery",
+        "VAST-4.1-mezzanine-type",
+        "VAST-4.1-mezzanine-width",
+        "VAST-4.1-mezzanine-height",
+    ] {
+        assert!(has_issue(&result, id), "{id} must fire under NonLinear");
+    }
+
+    let bare_interactive = load("ok_ctv_overlay_simid_4_4.xml").replace(
+        r#"<InteractiveCreativeFile type="text/html" apiFramework="SIMID">"#,
+        "<InteractiveCreativeFile>",
+    );
+    let result = validate(&bare_interactive);
+    assert!(has_issue(&result, "VAST-4.0-interactive-creative-no-api"));
+    assert!(has_issue(&result, "VAST-4.1-interactive-creative-type"));
+}
+
 /// Same element, same required attributes, new location: `<Icons>` under
 /// `<NonLinearAds>` so a NonLinear placement can carry an ad-choices icon.
 #[test]

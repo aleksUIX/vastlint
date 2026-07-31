@@ -388,20 +388,14 @@ fn check_inline_creative(
             check_nonlinear_resource(nl, &nl_path, ctx, issues);
 
             // The CTV Ad Portfolio gives <NonLinear> the same <MediaFiles>
-            // container <Linear> has, which means the same required MediaFile
-            // attributes. Nothing about delivery, type, width or height is new
-            // in 4.4; only the location is, and IAB's own Pause, Screensaver,
-            // Overlay and Squeezeback examples all declare the full set.
+            // container <Linear> has, which means the same required attributes
+            // on everything inside it. Nothing about delivery, type, width or
+            // height is new in 4.4; only the location is, and IAB's own Pause,
+            // Screensaver, Overlay and Squeezeback examples declare the full
+            // set.
             if ctv_model {
                 if let Some(media_files) = nl.child("MediaFiles") {
-                    for (mi, mf) in media_files.children_named("MediaFile").enumerate() {
-                        check_mediafile(
-                            mf,
-                            &format!("{}/MediaFiles/MediaFile[{}]", nl_path, mi),
-                            ctx,
-                            issues,
-                        );
-                    }
+                    check_media_files_assets(media_files, &nl_path, ctx, issues);
                 }
             }
         }
@@ -486,25 +480,7 @@ fn check_inline_linear(
                     Some(linear),
                 )
             }
-            // Check each MediaFile has required attrs.
-            for (i, mf_el) in mf.children_named("MediaFile").enumerate() {
-                check_mediafile(
-                    mf_el,
-                    &format!("{}/MediaFiles/MediaFile[{}]", linear_path, i),
-                    ctx,
-                    issues,
-                );
-            }
-
-            // VAST-4.1: Mezzanine required attrs.
-            for (mi, mez) in mf.children_named("Mezzanine").enumerate() {
-                check_mezzanine_required_attrs(
-                    mez,
-                    &format!("{}/MediaFiles/Mezzanine[{}]", linear_path, mi),
-                    ctx,
-                    issues,
-                );
-            }
+            check_media_files_assets(mf, linear_path, ctx, issues);
         }
     }
 
@@ -520,45 +496,80 @@ fn check_inline_linear(
         }
     }
 
-    // VAST-4.0-interactive-creative-no-api: InteractiveCreativeFile without apiFramework.
-    // VAST-4.1-interactive-creative-type: InteractiveCreativeFile should have a type attribute.
-    if let Some(mf) = linear.child("MediaFiles") {
-        for (icf_i, icf) in mf.children_named("InteractiveCreativeFile").enumerate() {
-            let icf_path = format!(
-                "{}/MediaFiles/InteractiveCreativeFile[{}]",
-                linear_path, icf_i
-            );
-            if icf.attr("apiFramework").is_none() {
-                emit(
-                    ctx, issues,
-                    "VAST-4.0-interactive-creative-no-api",
-                    Severity::Warning,
-                    "<InteractiveCreativeFile> should have an apiFramework attribute (e.g. \"SIMID\")",
-                    Some(icf_path.clone()),
-                    "IAB VAST 4.0 §2.3.5.4",
-            Some(linear),
-        )
-            }
+    let _ = version; // used via check_media_files_assets above
+}
 
-            // VAST-4.1-interactive-creative-type
-            // The type attribute identifies the MIME type of the interactive file.
-            // Spec says it is listed as an attribute; not formally required by the
-            // XSD but needed for the player to know how to execute the file.
-            if icf.attr("type").is_none() {
-                emit(
-                    ctx, issues,
-                    "VAST-4.1-interactive-creative-type",
-                    Severity::Warning,
-                    "<InteractiveCreativeFile> should have a type attribute identifying the MIME type",
-                    Some(icf_path.clone()),
-                    "IAB VAST 4.1 §3.9.3",
-            Some(linear),
-        )
-            }
-        }
+/// Attribute rules for everything a `<MediaFiles>` container holds.
+///
+/// Shared between `<Linear>` and the `<NonLinear>` container the CTV Ad
+/// Portfolio introduced. The requirements belong to the elements, not to their
+/// parent, so the only thing that differs between the two call sites is the
+/// path prefix.
+fn check_media_files_assets(
+    media_files: &Node,
+    container_path: &str,
+    ctx: &ValidationContext,
+    issues: &mut Vec<Issue>,
+) {
+    for (i, mf) in media_files.children_named("MediaFile").enumerate() {
+        check_mediafile(
+            mf,
+            &format!("{}/MediaFiles/MediaFile[{}]", container_path, i),
+            ctx,
+            issues,
+        );
     }
 
-    let _ = version; // used via check_mezzanine_required_attrs above
+    // VAST-4.1: Mezzanine required attrs.
+    for (mi, mez) in media_files.children_named("Mezzanine").enumerate() {
+        check_mezzanine_required_attrs(
+            mez,
+            &format!("{}/MediaFiles/Mezzanine[{}]", container_path, mi),
+            ctx,
+            issues,
+        );
+    }
+
+    // VAST-4.0-interactive-creative-no-api: InteractiveCreativeFile without apiFramework.
+    // VAST-4.1-interactive-creative-type: InteractiveCreativeFile should have a type attribute.
+    for (icf_i, icf) in media_files
+        .children_named("InteractiveCreativeFile")
+        .enumerate()
+    {
+        let icf_path = format!(
+            "{}/MediaFiles/InteractiveCreativeFile[{}]",
+            container_path, icf_i
+        );
+        if icf.attr("apiFramework").is_none() {
+            emit(
+                ctx,
+                issues,
+                "VAST-4.0-interactive-creative-no-api",
+                Severity::Warning,
+                "<InteractiveCreativeFile> should have an apiFramework attribute (e.g. \"SIMID\")",
+                Some(icf_path.clone()),
+                "IAB VAST 4.0 §2.3.5.4",
+                Some(icf),
+            )
+        }
+
+        // VAST-4.1-interactive-creative-type
+        // The type attribute identifies the MIME type of the interactive file.
+        // Spec says it is listed as an attribute; not formally required by the
+        // XSD but needed for the player to know how to execute the file.
+        if icf.attr("type").is_none() {
+            emit(
+                ctx,
+                issues,
+                "VAST-4.1-interactive-creative-type",
+                Severity::Warning,
+                "<InteractiveCreativeFile> should have a type attribute identifying the MIME type",
+                Some(icf_path),
+                "IAB VAST 4.1 §3.9.3",
+                Some(icf),
+            )
+        }
+    }
 }
 
 fn check_mediafile(mf: &Node, path: &str, ctx: &ValidationContext, issues: &mut Vec<Issue>) {
