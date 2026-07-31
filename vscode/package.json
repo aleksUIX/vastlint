@@ -1,8 +1,8 @@
 {
   "name": "vastlint",
   "displayName": "VASTlint — VAST XML Validator",
-  "description": "Inline linting for IAB VAST 2.0–4.4, VMAP 1.0, and DAAST 1.0 ad tags. 212 rules, Problems entries, hovers, fix guidance, docs links. CLI backend with WASM fallback.",
-  "version": "0.9.0",
+  "description": "Inline linting for IAB VAST 2.0–4.4, VMAP 1.0, and DAAST 1.0 ad tags. 220 rules, Problems entries, hovers, fix guidance, docs links. CLI backend with WASM fallback.",
+  "version": "0.10.0",
   "publisher": "aleksUIX",
   "license": "Apache-2.0",
   "repository": {
@@ -88,7 +88,8 @@
             "4.0",
             "4.1",
             "4.2",
-            "4.3"
+            "4.3",
+            "4.4"
           ],
           "default": "",
           "description": "Treat all VAST documents as this spec version regardless of the version attribute. Useful for templates where the version attribute is absent or templated. Maps to --vast-version in CLI mode."

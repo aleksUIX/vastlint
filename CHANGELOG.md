@@ -1,6 +1,14 @@
 # Changelog
 
-## Unreleased
+All notable changes to vastlint are documented here.
+Versions follow [Semantic Versioning](https://semver.org/).
+GitHub Releases: <https://github.com/aleksUIX/vastlint/releases>
+
+---
+
+## [Unreleased]
+
+## [0.11.0] - 2026-07-30
 
 ### Added
 
@@ -18,6 +26,29 @@
   `VAST-2.0-ctv-portfolio-mediafiles-empty`,
   `VAST-2.0-ctv-portfolio-no-renderable-asset` and
   `VAST-2.0-ctv-portfolio-no-duration`. Catalog: 212 to 218 rules.
+
+- **Format-to-Signal consistency**, two rules that read the AdCOM signals as a
+  set rather than one at a time: `VAST-4.4-adcom-pos-format-mismatch` and
+  `VAST-4.4-adcom-playbackmethod-format-mismatch`. `plcmt`, `pos` and
+  `playbackmethod` can each sit inside its own enumeration and still describe
+  two formats at once, which is invisible to the per-value rules: `plcmt=5`
+  (Pause) with `pos=12` (a Squeezeback layout) passed all three. The scope is
+  the container that carries the signals, so both encodings are covered: the
+  whole `<Extensions>` block on 4.x, the single
+  `<Extension type="ctv_ad_portfolio">` on 2.0. Catalog: 218 to 220 rules.
+
+  Both stay quiet where the guidance hedges. `pos` is checked for the four
+  formats with a published value set, never for In-Scene, whose table cell
+  reads "NA", and never for `pos=0`, AdCOM "unknown". `playbackmethod` is
+  checked only against the two rows the reference table states outright, 8/9
+  Pause and 10/11 Screensaver, in both directions; the other three rows read
+  "typically 1 or 2", which is advice rather than a constraint, so an Overlay
+  declaring an autoplay method is not reported. An out-of-range `plcmt`
+  suppresses both, since `VAST-4.4-adcom-plcmt-value` has already reported it
+  and the pairing would be guesswork.
+
+- `explain_rule` in the MCP server returns fix guidance for the CTV Ad
+  Portfolio rules instead of the generic fallback.
 
 ### Fixed
 
@@ -40,13 +71,15 @@
 All five VAST 2.0 examples published in the two extension documents now
 validate clean.
 
-All notable changes to vastlint are documented here.
-Versions follow [Semantic Versioning](https://semver.org/).
-GitHub Releases: <https://github.com/aleksUIX/vastlint/releases>
+### Changed
 
----
-
-## [Unreleased]
+- VS Code extension 0.10.0 and Chrome extension 0.9.0 pick up the new rules.
+  The `vastlint.vastVersion` setting offers `4.4`, which the CLI has accepted
+  since 0.10.0.
+- `specs/vast_4.4_reference.md` covers the VAST 2.0 extension path, the
+  Format-to-Signal cross-check and its deliberate gaps, and corrects the
+  `attr=20` entry in its list of defects in IAB's published examples: AdCOM
+  1.0-202607 defines 20, so it was never a defect.
 
 ## [0.10.2] - 2026-07-27
 
