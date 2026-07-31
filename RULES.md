@@ -2,7 +2,7 @@
 
 Full reference documentation for every rule is at **[vastlint.org/docs/rules](https://vastlint.org/docs/rules/)**.
 
-218 rules across IAB VAST 2.0 – 4.4, VMAP 1.0, DAAST 1.0, and SIMID 1.0 – 1.1. Each rule has a stable ID, a default severity (`error` / `warning` / `info`), and a dedicated docs page with the spec reference, examples, and fix guidance.
+220 rules across IAB VAST 2.0 – 4.4, VMAP 1.0, DAAST 1.0, and SIMID 1.0 – 1.1. Each rule has a stable ID, a default severity (`error` / `warning` / `info`), and a dedicated docs page with the spec reference, examples, and fix guidance.
 
 ---
 
@@ -184,7 +184,9 @@ Full reference documentation for every rule is at **[vastlint.org/docs/rules](ht
 
 VAST 4.4 is a working-group draft, not a published spec. The CTV Ad Portfolio signaling guidance it accompanies **is** final (2026-07-22), so rules derived from the guidance carry more weight than rules derived from the draft schema. Nothing here errors unless the markup is malformed under any version.
 
-The NonLinear content model these rules cover is accepted on any VAST 4.x document, not only on `version="4.4"`, because every example in IAB's final guidance ships it on a 4.2 tag.
+The NonLinear content model these rules cover is accepted on any VAST 4.x document, not only on `version="4.4"`, because every example in IAB's final guidance ships it on a 4.2 tag. The AdCOM signal rules also run on VAST 2.0, where the same five formats are delivered through `<Extension type="ctv_ad_portfolio">`.
+
+The two `-format-mismatch` rules read the signals as a set. `plcmt`, `pos` and `playbackmethod` can each be individually valid and still describe two different formats at once, which the per-value rules cannot see.
 
 | Rule | Severity | Description |
 |------|----------|-------------|
@@ -199,7 +201,9 @@ The NonLinear content model these rules cover is accepted on any VAST 4.x docume
 | [VAST-4.4-adcom-plcmt-value](https://vastlint.org/docs/rules/VAST-4.4-adcom-plcmt-value/) | warning | AdCOM `plcmt` outside the Plcmt Subtypes (Video) range 1–9 |
 | [VAST-4.4-adcom-playbackmethod-value](https://vastlint.org/docs/rules/VAST-4.4-adcom-playbackmethod-value/) | warning | AdCOM `playbackmethod` outside the Playback Methods range 1–11 |
 | [VAST-4.4-adcom-pos-value](https://vastlint.org/docs/rules/VAST-4.4-adcom-pos-value/) | warning | AdCOM `pos` outside the Placement Positions range 0–17 |
-| [VAST-4.4-adcom-attr-not-motion](https://vastlint.org/docs/rules/VAST-4.4-adcom-attr-not-motion/) | info | AdCOM `attr` is not a CTV motion attribute (21 static, 22 cinemagraph, 23 full-motion) |
+| [VAST-4.4-adcom-pos-format-mismatch](https://vastlint.org/docs/rules/VAST-4.4-adcom-pos-format-mismatch/) | warning | AdCOM `pos` is not a position the declared `plcmt` format supports |
+| [VAST-4.4-adcom-playbackmethod-format-mismatch](https://vastlint.org/docs/rules/VAST-4.4-adcom-playbackmethod-format-mismatch/) | warning | AdCOM `playbackmethod` and `plcmt` name different CTV Ad Portfolio formats |
+| [VAST-4.4-adcom-attr-not-motion](https://vastlint.org/docs/rules/VAST-4.4-adcom-attr-not-motion/) | info | AdCOM `attr` is not a CTV Ad Portfolio creative attribute (19 QR, 20 alpha, 21–23 motion) |
 | [VAST-4.4-qrcode-position-attrs](https://vastlint.org/docs/rules/VAST-4.4-qrcode-position-attrs/) | error | `<QrCodePosition>` requires both `xPosition` and `yPosition` |
 | [VAST-4.4-qrcode-position-percent](https://vastlint.org/docs/rules/VAST-4.4-qrcode-position-percent/) | error | `<QrCodePosition>` coordinates must be percentages, not pixels |
 | [VAST-4.4-qrcode-size-attr](https://vastlint.org/docs/rules/VAST-4.4-qrcode-size-attr/) | error | `<QrCodeSize>` requires a `size` attribute |

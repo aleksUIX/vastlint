@@ -76,6 +76,67 @@ const POS_MAX: i64 = 17;
 /// and 20 as out of scope reported the reference implementation as wrong.
 const PORTFOLIO_ATTRS: std::ops::RangeInclusive<i64> = 19..=23;
 
+/// Format-to-Signal Reference Table: the `pos` values each portfolio format may
+/// declare.
+///
+/// In-Scene (9) is deliberately absent. The table reads "NA" for it, so no
+/// value is wrong. 1-4 are the placement subtypes that predate the portfolio
+/// and have no table row.
+fn portfolio_pos_values(plcmt: i64) -> Option<&'static [i64]> {
+    match plcmt {
+        5 | 6 => Some(&[7, 8]),           // Pause, Screensaver: fullscreen or partial
+        7 => Some(&[5, 9, 10, 14, 15]),   // Overlay, depending on geometry
+        8 => Some(&[11, 12, 13, 16, 17]), // Squeezeback, depending on layout
+        _ => None,
+    }
+}
+
+/// The `plcmt` a format-specific playback method belongs to.
+///
+/// AdCOM defines 8 and 9 as Pause and 10 and 11 as Screensaver, and the
+/// reference table gives those two rows without hedging. The other three rows
+/// say "typically 1 or 2", so this returns `None` for every generic value and
+/// the caller never reports a format that merely picked an unusual one.
+fn playbackmethod_format(value: i64) -> Option<i64> {
+    match value {
+        8 | 9 => Some(5),   // Pause, sound on / sound off
+        10 | 11 => Some(6), // Screensaver, sound on / sound off
+        _ => None,
+    }
+}
+
+/// One AdCOM signal payload, kept with enough context to report against the
+/// element that carried it rather than against the container.
+struct Signal<'a> {
+    value: i64,
+    node: &'a Node,
+    path: String,
+}
+
+/// The three signals that together identify a portfolio format, collected
+/// across whichever container encodes them: four sibling `<Extension>` elements
+/// on 4.x, one `<Extension type="ctv_ad_portfolio">` on 2.0.
+#[derive(Default)]
+struct FormatSignals<'a> {
+    plcmt: Option<Signal<'a>>,
+    pos: Option<Signal<'a>>,
+    playbackmethod: Option<Signal<'a>>,
+}
+
+impl<'a> FormatSignals<'a> {
+    /// First occurrence wins. A container that repeats a signal has a different
+    /// problem, and picking a winner among the duplicates would be a guess.
+    fn record(&mut self, signal: &str, value: i64, node: &'a Node, path: String) {
+        let slot = match signal {
+            "plcmt" => &mut self.plcmt,
+            "pos" => &mut self.pos,
+            "playbackmethod" => &mut self.playbackmethod,
+            _ => return,
+        };
+        slot.get_or_insert(Signal { value, node, path });
+    }
+}
+
 pub fn check(
     doc: &VastDocument,
     version: &DetectedVersion,
@@ -306,17 +367,19 @@ fn check_portfolio_extensions(
 
         let ext_path = format!("{}/Extension[{}]", path, i);
 
+        // One container holds all four signals here, so the cross-check scope
+        // is the container itself.
+        let mut signals = FormatSignals::default();
         for signal in ADCOM_SIGNALS {
             for payload in ext.children_named(signal) {
-                check_adcom_value(
-                    signal,
-                    payload,
-                    &format!("{}/{}", ext_path, signal),
-                    ctx,
-                    issues,
-                );
+                let payload_path = format!("{}/{}", ext_path, signal);
+                if let Some(value) = check_adcom_value(signal, payload, &payload_path, ctx, issues)
+                {
+                    signals.record(signal, value, payload, payload_path);
+                }
             }
         }
+        check_format_signal_consistency(&signals, ctx, issues);
 
         check_portfolio_creative_binding(ext, &ext_path, ad_creatives, ctx, issues);
         check_portfolio_media(
@@ -517,6 +580,10 @@ fn check_adcom_extensions(
     ctx: &ValidationContext,
     issues: &mut Vec<Issue>,
 ) {
+    // The 4.x shape spreads one signal per <Extension>, so the cross-check
+    // scope is the whole <Extensions> block rather than any single element.
+    let mut signals = FormatSignals::default();
+
     for (i, ext) in extensions.children_named("Extension").enumerate() {
         let ext_path = format!("{}/Extension[{}]", path, i);
 
@@ -580,19 +647,27 @@ fn check_adcom_extensions(
                     }
                 }
 
-                check_adcom_value(signal, payload, &payload_path, ctx, issues);
+                if let Some(value) = check_adcom_value(signal, payload, &payload_path, ctx, issues)
+                {
+                    signals.record(signal, value, payload, payload_path);
+                }
             }
         }
     }
+
+    check_format_signal_consistency(&signals, ctx, issues);
 }
 
+/// Returns the parsed payload so the caller can cross-check it against the
+/// other signals in the same container. `None` when it is not an integer, which
+/// this reports and no consistency check can work with.
 fn check_adcom_value(
     signal: &str,
     payload: &Node,
     path: &str,
     ctx: &ValidationContext,
     issues: &mut Vec<Issue>,
-) {
+) -> Option<i64> {
     let raw = payload.text.trim();
 
     // VAST-4.4-adcom-signal-not-integer
@@ -609,7 +684,7 @@ fn check_adcom_value(
             "IAB AdCOM 1.0 enumerated lists",
             Some(payload),
         );
-        return;
+        return None;
     };
 
     match signal {
@@ -666,6 +741,72 @@ fn check_adcom_value(
             Some(payload),
         ),
         _ => {}
+    }
+
+    Some(value)
+}
+
+/// Cross-check the three format signals against the guidance's
+/// Format-to-Signal Reference Table.
+///
+/// Each signal is individually in range and still wrong together: `plcmt=5`
+/// with `pos=12` says Pause and Squeezeback at once. A publisher validating the
+/// delivered experience against the bid request sees a contradiction, and the
+/// per-value rules cannot: they only ever see one signal.
+fn check_format_signal_consistency(
+    signals: &FormatSignals,
+    ctx: &ValidationContext,
+    issues: &mut Vec<Issue>,
+) {
+    let Some(plcmt) = &signals.plcmt else { return };
+
+    // An out-of-range plcmt is already reported by VAST-4.4-adcom-plcmt-value.
+    // Pairing anything with it would be guesswork.
+    if !(1..=PLCMT_MAX).contains(&plcmt.value) {
+        return;
+    }
+
+    // VAST-4.4-adcom-pos-format-mismatch
+    if let Some(pos) = &signals.pos {
+        // 0 is AdCOM "unknown" and acceptable anywhere. Out-of-range values
+        // belong to VAST-4.4-adcom-pos-value, which has already fired.
+        let in_scope = pos.value != 0 && (0..=POS_MAX).contains(&pos.value);
+        if in_scope && portfolio_pos_values(plcmt.value).is_some_and(|ok| !ok.contains(&pos.value))
+        {
+            emit(
+                ctx,
+                issues,
+                "VAST-4.4-adcom-pos-format-mismatch",
+                Severity::Warning,
+                "AdCOM pos is not a position the declared plcmt format supports: Pause and Screensaver take 7 or 8, Overlay 5, 9, 10, 14 or 15, Squeezeback 11, 12, 13, 16 or 17",
+                Some(pos.path.clone()),
+                "IAB CTV Ad Portfolio §Format-to-Signal Reference Table",
+                Some(pos.node),
+            );
+        }
+    }
+
+    // VAST-4.4-adcom-playbackmethod-format-mismatch
+    if let Some(pm) = &signals.playbackmethod {
+        let owner = playbackmethod_format(pm.value);
+        // Report only where the table is firm: a Pause or Screensaver playback
+        // method under another format, or Pause or Screensaver declaring
+        // anything but its own pair. The remaining rows say "typically 1 or 2",
+        // which is not a constraint to enforce.
+        let contradicts =
+            owner != Some(plcmt.value) && (owner.is_some() || matches!(plcmt.value, 5 | 6));
+        if (1..=PLAYBACKMETHOD_MAX).contains(&pm.value) && contradicts {
+            emit(
+                ctx,
+                issues,
+                "VAST-4.4-adcom-playbackmethod-format-mismatch",
+                Severity::Warning,
+                "AdCOM playbackmethod and plcmt name different formats: 8 and 9 are Pause, 10 and 11 are Screensaver, and Overlay, Squeezeback and In-Scene use 1 or 2",
+                Some(pm.path.clone()),
+                "IAB CTV Ad Portfolio §Format-to-Signal Reference Table",
+                Some(pm.node),
+            );
+        }
     }
 }
 

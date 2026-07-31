@@ -2102,7 +2102,7 @@ fn linear_with_quartile_tracking_does_not_fire() {
 fn all_rules_catalog_has_expected_count() {
     assert_eq!(
         vastlint_core::all_rules().len(),
-        218,
+        220,
         "catalog count changed — update this assertion and bump RULES.md"
     );
 }
@@ -2901,6 +2901,8 @@ fn ctv_adcom_valid_signals_stay_quiet() {
         "VAST-4.4-adcom-extension-unknown-signal",
         "VAST-4.4-adcom-extension-type-mismatch",
         "VAST-4.4-adcom-signal-not-integer",
+        "VAST-4.4-adcom-pos-format-mismatch",
+        "VAST-4.4-adcom-playbackmethod-format-mismatch",
     ] {
         assert!(
             !has_issue(&result, id),
@@ -3139,4 +3141,104 @@ fn ctv_portfolio_vast_2_0_allows_signalling_only_container() {
     ));
     // 19 is a CTV Ad Portfolio attribute as of AdCOM 1.0-202607.
     assert!(!has_issue(&result, "VAST-4.4-adcom-attr-not-motion"));
+}
+
+// ── format-to-signal consistency ──────────────────────────────────────────────
+
+/// Every signal in range, and the set still contradicts itself: plcmt says
+/// Overlay, pos says Squeezeback.
+#[test]
+fn ctv_pos_outside_the_declared_format_fires_warning() {
+    let xml = load("ok_ctv_overlay_simid_4_4.xml").replace("<pos>14</pos>", "<pos>12</pos>");
+    let result = validate(&xml);
+    assert!(has_issue(&result, "VAST-4.4-adcom-pos-format-mismatch"));
+    assert!(
+        !has_issue(&result, "VAST-4.4-adcom-pos-value"),
+        "12 is inside the Placement Positions range; only the pairing is wrong"
+    );
+}
+
+/// 8 and 9 are Pause playback methods by definition, so one under an Overlay
+/// plcmt is a contradiction rather than an unusual choice.
+#[test]
+fn ctv_playbackmethod_naming_another_format_fires_warning() {
+    let xml = load("ok_ctv_overlay_simid_4_4.xml").replace(
+        "<playbackmethod>2</playbackmethod>",
+        "<playbackmethod>9</playbackmethod>",
+    );
+    let result = validate(&xml);
+    assert!(has_issue(
+        &result,
+        "VAST-4.4-adcom-playbackmethod-format-mismatch"
+    ));
+}
+
+/// Pause and Screensaver are the two rows the reference table states without
+/// hedging, so a generic playback method under them is reported.
+#[test]
+fn ctv_generic_playbackmethod_under_pause_fires_warning() {
+    let xml = load("ok_ctv_portfolio_vast_2_0.xml").replace(
+        "<playbackmethod>9</playbackmethod>",
+        "<playbackmethod>2</playbackmethod>",
+    );
+    let result = validate(&xml);
+    assert!(has_issue(
+        &result,
+        "VAST-4.4-adcom-playbackmethod-format-mismatch"
+    ));
+}
+
+/// The remaining three rows say "typically 1 or 2", which is guidance rather
+/// than a constraint. Overlay with an autoplay playback method stays quiet.
+#[test]
+fn ctv_generic_playbackmethod_under_overlay_stays_quiet() {
+    let xml = load("ok_ctv_overlay_simid_4_4.xml").replace(
+        "<playbackmethod>2</playbackmethod>",
+        "<playbackmethod>3</playbackmethod>",
+    );
+    let result = validate(&xml);
+    assert!(!has_issue(
+        &result,
+        "VAST-4.4-adcom-playbackmethod-format-mismatch"
+    ));
+}
+
+/// pos 0 is AdCOM "unknown" and carries no claim to contradict.
+#[test]
+fn ctv_pos_unknown_never_mismatches() {
+    let xml = load("ok_ctv_overlay_simid_4_4.xml").replace("<pos>14</pos>", "<pos>0</pos>");
+    let result = validate(&xml);
+    assert!(!has_issue(&result, "VAST-4.4-adcom-pos-format-mismatch"));
+}
+
+/// In-Scene reads "NA" in the pos column, so no position is wrong for it.
+#[test]
+fn ctv_in_scene_accepts_any_pos() {
+    let xml = load("ok_ctv_overlay_simid_4_4.xml")
+        .replace("<plcmt>7</plcmt>", "<plcmt>9</plcmt>")
+        .replace("<pos>14</pos>", "<pos>11</pos>");
+    let result = validate(&xml);
+    assert!(!has_issue(&result, "VAST-4.4-adcom-pos-format-mismatch"));
+}
+
+/// The consistency check spans the whole `<Extensions>` block on 4.x and the
+/// single container on 2.0, so it has to fire on both encodings.
+#[test]
+fn ctv_portfolio_vast_2_0_container_cross_checks_signals() {
+    let xml = load("ok_ctv_portfolio_vast_2_0.xml").replace("<pos>7</pos>", "<pos>14</pos>");
+    let result = validate(&xml);
+    assert!(has_issue(&result, "VAST-4.4-adcom-pos-format-mismatch"));
+}
+
+/// An out-of-range plcmt is already reported on its own; pairing anything with
+/// it would be guesswork.
+#[test]
+fn ctv_unknown_plcmt_suppresses_the_pairing_checks() {
+    let result = validate(&load("err_ctv_adcom_signal_values.xml"));
+    assert!(has_issue(&result, "VAST-4.4-adcom-plcmt-value"));
+    assert!(!has_issue(&result, "VAST-4.4-adcom-pos-format-mismatch"));
+    assert!(!has_issue(
+        &result,
+        "VAST-4.4-adcom-playbackmethod-format-mismatch"
+    ));
 }

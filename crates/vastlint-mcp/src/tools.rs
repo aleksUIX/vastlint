@@ -771,6 +771,14 @@ fn explain_hint(rule_id: &str) -> &'static str {
         "VAST-2.0-adsystem-quality"      => "Replace the placeholder <AdSystem> with the real serving system name so a bad tag can be traced to its source, e.g. <AdSystem version=\"2.1\">MyAdServer</AdSystem>.",
         "VAST-2.0-adsystem-no-version"   => "Add a version attribute to <AdSystem>, e.g. <AdSystem version=\"2.1\">MyAdServer</AdSystem>. It helps trace provenance when debugging partner discrepancies.",
         "VMAP-1.0-display-break-no-companions" => "A breakType containing \"display\" expects companion/display ads. Add <CompanionAds> to the inline VAST, or change breakType if the break is video-only.",
+        "VAST-4.4-adcom-signal-not-integer" => "AdCOM plcmt, pos, playbackmethod and attr are numeric enumerations. Replace the payload with the integer value, e.g. <plcmt>7</plcmt>.",
+        "VAST-4.4-adcom-pos-format-mismatch" => "Align pos with the plcmt format: Pause and Screensaver take 7 or 8, Overlay 5, 9, 10, 14 or 15, Squeezeback 11, 12, 13, 16 or 17. Use 0 if the position is genuinely unknown.",
+        "VAST-4.4-adcom-playbackmethod-format-mismatch" => "Align playbackmethod with the plcmt format: Pause uses 8 (sound on) or 9 (sound off), Screensaver 10 or 11, and Overlay, Squeezeback and In-Scene use 1 or 2.",
+        "VAST-4.4-nonlinear-no-renderable-asset" => "Add a renderable <MediaFile> next to the <InteractiveCreativeFile>, or a <StaticResource>. Players without SIMID support have nothing to render and fire the error URI.",
+        "VAST-4.4-nonlinear-video-no-duration" => "Add a <Duration> to the <NonLinear>, e.g. <Duration>00:00:15</Duration>. Quartile and overlayViewDuration tracking cannot fire without it.",
+        "VAST-4.4-qrcode-position-percent" => "QrCodePosition coordinates are percentages, not pixels: use xPosition=\"10%\" yPosition=\"70%\". Unlike <Icon>, bare integers are invalid here.",
+        "VAST-2.0-ctv-portfolio-creative-id-required" => "Add a <CreativeId> to the <Extension type=\"ctv_ad_portfolio\"> matching the id of the <Creative> it describes. Without it the extension binds to whichever creative the platform picks.",
+        "VAST-2.0-ctv-portfolio-mediafiles-required" => "Add a <MediaFiles> block to the <Extension type=\"ctv_ad_portfolio\">, or give the creative a native <NonLinear> resource. Nothing renders otherwise.",
         _                                => "Refer to the IAB VAST specification for fix guidance. Call list_rules to confirm the rule ID is correct.",
     }
 }

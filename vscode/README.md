@@ -12,7 +12,7 @@ Supports VAST 2.0 through 4.4 with clean Problems entries, concise hovers, fix g
 - **Multi-block** — validates every `<VAST>...</VAST>` block in a file independently
 - **Live as you type** — re-validates 500 ms after you stop typing, and on every save
 - **CLI backend** — uses the `vastlint` CLI binary when available, falls back to WASM in-process
-- **218 rules** across VAST 2.0–4.4 plus SIMID and OMID validation: required fields, schema structure, URLs, verification semantics, deprecations, and CTV/SSAI advisories
+- **220 rules** across VAST 2.0–4.4 plus SIMID and OMID validation: required fields, schema structure, URLs, verification semantics, deprecations, and CTV/SSAI advisories
 
 ## How it looks
 
@@ -34,7 +34,7 @@ Docs: vastlint.org/docs/rules/VAST-2.0-inline-adsystem
 | `vastlint.minSeverity` | `"info"` | Minimum severity to show: `"error"`, `"warning"`, or `"info"` |
 | `vastlint.ruleOverrides` | `{}` | Per-rule severity overrides (WASM fallback only — use `vastlint.toml` in CLI mode) |
 | `vastlint.templateIgnoreRegex` | `""` | Regex for template expressions to blank out before validation (e.g. `\$\{[^}]+\}`) |
-| `vastlint.vastVersion` | `""` | Force a VAST version (`"2.0"`, `"3.0"`, `"4.0"`, `"4.1"`, `"4.2"`, `"4.3"`) — blank = auto-detect |
+| `vastlint.vastVersion` | `""` | Force a VAST version (`"2.0"`, `"3.0"`, `"4.0"`, `"4.1"`, `"4.2"`, `"4.3"`, `"4.4"`) — blank = auto-detect |
 | `vastlint.cliPath` | `"vastlint"` | Path to the `vastlint` CLI binary. Falls back to common install locations, then WASM. |
 
 ### Example: silence HTTP warnings
@@ -59,7 +59,7 @@ Docs: vastlint.org/docs/rules/VAST-2.0-inline-adsystem
 
 ## Rules
 
-VASTlint checks 218 rules across:
+VASTlint checks 220 rules across:
 - Required elements and attributes (VAST 2.0–4.4)
 - Value formats (durations, URLs, enums)
 - Schema conformance (unknown elements/attributes)
@@ -80,7 +80,7 @@ Canonical rule catalog:
 - [vastlint.org/docs/rules](https://vastlint.org/docs/rules/) for the hosted per-rule pages
 
 <details>
-<summary>All 218 rules</summary>
+<summary>All 220 rules</summary>
 
 ### VAST 2.0
 
@@ -263,7 +263,9 @@ The NonLinear content model these rules cover is accepted on any VAST 4.x docume
 | [VAST-4.4-adcom-plcmt-value](https://vastlint.org/docs/rules/VAST-4.4-adcom-plcmt-value/) | warning | AdCOM `plcmt` outside the Plcmt Subtypes (Video) range 1–9 |
 | [VAST-4.4-adcom-playbackmethod-value](https://vastlint.org/docs/rules/VAST-4.4-adcom-playbackmethod-value/) | warning | AdCOM `playbackmethod` outside the Playback Methods range 1–11 |
 | [VAST-4.4-adcom-pos-value](https://vastlint.org/docs/rules/VAST-4.4-adcom-pos-value/) | warning | AdCOM `pos` outside the Placement Positions range 0–17 |
-| [VAST-4.4-adcom-attr-not-motion](https://vastlint.org/docs/rules/VAST-4.4-adcom-attr-not-motion/) | info | AdCOM `attr` is not a CTV motion attribute (21 static, 22 cinemagraph, 23 full-motion) |
+| [VAST-4.4-adcom-pos-format-mismatch](https://vastlint.org/docs/rules/VAST-4.4-adcom-pos-format-mismatch/) | warning | AdCOM `pos` is not a position the declared `plcmt` format supports |
+| [VAST-4.4-adcom-playbackmethod-format-mismatch](https://vastlint.org/docs/rules/VAST-4.4-adcom-playbackmethod-format-mismatch/) | warning | AdCOM `playbackmethod` and `plcmt` name different CTV Ad Portfolio formats |
+| [VAST-4.4-adcom-attr-not-motion](https://vastlint.org/docs/rules/VAST-4.4-adcom-attr-not-motion/) | info | AdCOM `attr` is not a CTV Ad Portfolio creative attribute (19 QR, 20 alpha, 21–23 motion) |
 | [VAST-4.4-qrcode-position-attrs](https://vastlint.org/docs/rules/VAST-4.4-qrcode-position-attrs/) | error | `<QrCodePosition>` requires both `xPosition` and `yPosition` |
 | [VAST-4.4-qrcode-position-percent](https://vastlint.org/docs/rules/VAST-4.4-qrcode-position-percent/) | error | `<QrCodePosition>` coordinates must be percentages, not pixels |
 | [VAST-4.4-qrcode-size-attr](https://vastlint.org/docs/rules/VAST-4.4-qrcode-size-attr/) | error | `<QrCodeSize>` requires a `size` attribute |
