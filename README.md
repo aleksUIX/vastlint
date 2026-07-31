@@ -288,7 +288,7 @@ Fields:
 
 ```toml
 [dependencies]
-vastlint-core = "0.1"
+vastlint-core = "0.11"
 ```
 
 ```rust

@@ -8,6 +8,27 @@ GitHub Releases: <https://github.com/aleksUIX/vastlint/releases>
 
 ## [Unreleased]
 
+### Changed
+
+- Every in-repo version number now equals the released tag. They had drifted
+  across 0.5.0 (`server.json`), 0.6.2 (crates and npm), 0.9.1 (Chrome) and
+  0.10.1 (VS Code) while every published artifact carried the tag, because CI
+  stamps the tag into each of them at build time and never pushes the result.
+  Nothing shipped was ever wrong. The stale values only misled readers of the
+  repo, and made a local `cargo run --version` report 0.6.2.
+
+  `RELEASE.md` is the cause and is rewritten: it asked for manual VS Code and
+  Chrome version bumps that CI overwrites, so those numbers were maintained by
+  hand and published by nobody. It now states the tag as the single source,
+  lists which job stamps which file, and drops the manual steps.
+
+  Two earlier entries name extension versions that were never published
+  (0.9.0/0.8.0 in 0.10.0, 0.10.0/0.9.0 in 0.11.0). The Marketplace received
+  0.10.0 and 0.11.0. Left as written rather than rewriting released notes.
+
+- `README.md` showed `vastlint-core = "0.1"` as the dependency snippet and
+  `ROADMAP.md` still described the core library as v0.8. Both now say 0.11.
+
 ## [0.11.1] - 2026-07-30
 
 **Upgrading from 0.11.0 can fail a build that passed.** Existing rules now fire
@@ -68,8 +89,8 @@ vastlint and serve NonLinear ads, validate a sample before you bump.
 
 ### Changed
 
-- VS Code extension 0.10.1 and Chrome extension 0.9.1 pick up the corrected
-  traversal.
+- The VS Code and Chrome extensions pick up the corrected traversal. Both ship
+  at the release version, as they always have.
 
 ## [0.11.0] - 2026-07-30
 

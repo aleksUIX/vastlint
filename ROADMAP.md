@@ -11,7 +11,7 @@ Where vastlint is today and where it's going.
 
 | Milestone | Detail |
 |---|---|
-| **Core library** | `vastlint-core` v0.8 on crates.io - pure-Rust library, 220 rules, VAST 2.0–4.4 plus SIMID, OMID, VMAP 1.0, and DAAST 1.0 validation. |
+| **Core library** | `vastlint-core` v0.11 on crates.io - pure-Rust library, 220 rules, VAST 2.0–4.4 plus SIMID, OMID, VMAP 1.0, and DAAST 1.0 validation. |
 | **CLI** | `vastlint` on crates.io and Homebrew (`brew install aleksUIX/tap/vastlint`). JS/WASM on npm, Go bindings on GitHub. |
 | **Web validator** | Paste or drop a VAST tag at [vastlint.org/validate](https://vastlint.org/validate) - structured report, nothing stored. |
 | **VS Code extension** | Inline VAST XML validation as you type - errors and warnings with rule IDs and spec refs, directly in your editor. [Install →](https://marketplace.visualstudio.com/items?itemName=aleksuix.vastlint) |

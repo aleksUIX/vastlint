@@ -7,20 +7,45 @@ Use this file every time you cut a release. Work top to bottom.
 ## 1 — Pre-release (local)
 
 - [ ] `CHANGELOG.md` — new `## [X.Y.Z] - YYYY-MM-DD` section written with today's date
-- [ ] `vscode/package.json` — `"version"` bumped *(if VS Code extension changed)*
-- [ ] `chrome/manifest.json` + `chrome/package.json` — `"version"` bumped *(if Chrome extension changed)*
-- [ ] Rust crates (`crates/*/Cargo.toml`) — CI auto-bumps these at build time from the git tag; no manual edit needed unless you're publishing to crates.io from local
-- [ ] `npm/package.json` — CI auto-bumps from the git tag; no manual edit needed
+
+That is the only edit a release needs. **The git tag is the single source of every
+version number in this project.** At build time CI stamps the tag (minus the
+leading `v`) into all of them:
+
+| File | Stamped by |
+|---|---|
+| `crates/*/Cargo.toml` and their inter-crate `version =` pins | `release` and `publish` jobs |
+| `npm/package.json` | `publish-npm` |
+| `vscode/package.json` | `publish-vscode`, via `npm version` |
+| `chrome/manifest.json` | `chrome-extension`, which then asserts it took |
+| `crates/vastlint-mcp/server.json` (version, package URL, SHA-256) | `publish-mcp-registry` |
+
+None of those commits are pushed, so the in-repo values are cosmetic and exist
+only so a local `cargo run` reports its version honestly. Keep them equal to the
+last released tag. **Do not maintain separate version numbers for the VS Code
+and Chrome extensions.** An earlier version of this checklist asked for that,
+and it produced entries in `CHANGELOG.md` naming extension versions that were
+never published: the Marketplace has always carried the release version.
 
 ---
 
 ## 2 — Commit + tag
 
 ```bash
-git add CHANGELOG.md vscode/package.json   # add chrome/manifest.json + chrome/package.json if changed
+git add CHANGELOG.md
 git commit -m "chore: release vX.Y.Z"
 git tag vX.Y.Z
 git push && git push origin vX.Y.Z
+```
+
+Optionally sync the cosmetic in-repo versions to the tag in the same commit, so
+a local build reports the right number:
+
+```bash
+sed -i '' "s/^version = \".*\"/version = \"X.Y.Z\"/" crates/*/Cargo.toml
+sed -i '' "s/version = \"[^\"]*\" }/version = \"X.Y.Z\" }/" crates/*/Cargo.toml
+sed -i '' "s/\"version\": \"[^\"]*\"/\"version\": \"X.Y.Z\"/" \
+  npm/package.json vscode/package.json chrome/package.json chrome/manifest.json
 ```
 
 ---
@@ -43,7 +68,7 @@ Go to **GitHub Actions → Release** and watch the run. One human approval gate 
 Chrome publish paths:
 
 1. Tagged release: the `chrome-extension` job in `Release` runs on tag pushes and publishes the zipped extension.
-2. Standalone publish: run the `Chrome Extension` workflow with `publish: true` and optional `version: 0.4.9` when you need to ship the extension outside a full repo release.
+2. Standalone publish: run the `Chrome Extension` workflow with `publish: true` and optional `version: 0.11.1` when you need to ship the extension outside a full repo release.
 
 ---
 
@@ -87,12 +112,17 @@ These repos pin a specific vastlint-core release and need their own release cycl
 
 ## Version locations at a glance
 
+Everything published carries the tag version. The only version numbers that need
+a human are the ones outside this repo.
+
 | File | Updated by | Notes |
 |------|-----------|-------|
 | `CHANGELOG.md` | manual | always |
-| `vscode/package.json` | manual | when VS Code ext changes |
-| `chrome/manifest.json` + `chrome/package.json` | manual | when Chrome ext changes |
-| `crates/*/Cargo.toml` | CI (sed at build time) | no manual edit needed |
-| `npm/package.json` | CI (npm version at build time) | no manual edit needed |
+| `crates/*/Cargo.toml` | CI (sed at build time) | in-repo value is cosmetic |
+| `npm/package.json` | CI (`npm version`) | in-repo value is cosmetic |
+| `vscode/package.json` | CI (`npm version`) | in-repo value is cosmetic |
+| `chrome/manifest.json` + `chrome/package.json` | CI (node, then asserted) | in-repo value is cosmetic |
+| `crates/vastlint-mcp/server.json` | CI (jq: version, URL, SHA-256) | in-repo value is cosmetic |
 | `homebrew-tap/Formula/vastlint.rb` | manual | after release assets are live |
 | `vastlint-erlang/mix.exs` | manual | when NIF ABI changes |
+| `vastlint-infra` `apps/vastlint-web/package.json` | manual | pins the `vastlint` npm package the web validator runs |
