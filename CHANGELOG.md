@@ -8,6 +8,16 @@ GitHub Releases: <https://github.com/aleksUIX/vastlint/releases>
 
 ## [Unreleased]
 
+## [0.11.1] - 2026-07-30
+
+**Upgrading from 0.11.0 can fail a build that passed.** Existing rules now fire
+in places they previously skipped, at their existing severities, most of them
+errors. No rule id is new and no setting changed, so a tag that validated clean
+on 0.11.0 can report errors on 0.11.1 without anything on your side changing.
+Every one of those findings was always true; 0.11.0 simply could not see them.
+Only CTV Ad Portfolio NonLinear creative is affected. If you gate CI on
+vastlint and serve NonLinear ads, validate a sample before you bump.
+
 ### Fixed
 
 - **The CTV Ad Portfolio content model now reuses the element rules that already
@@ -55,6 +65,11 @@ GitHub Releases: <https://github.com/aleksUIX/vastlint/releases>
   `VAST-2.0-ctv-portfolio-mediafiles-empty`. All four were reachable and
   correct; none had a test asserting they fire. Every rule in the category now
   has one.
+
+### Changed
+
+- VS Code extension 0.10.1 and Chrome extension 0.9.1 pick up the corrected
+  traversal.
 
 ## [0.11.0] - 2026-07-30
 
