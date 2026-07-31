@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  CTV Ad Portfolio Squeezeback ad.
+  Modelled on the IAB signaling guidance example (§Examples, Squeezeback),
+  which declares version="4.2" while using the 4.4 NonLinear content model.
+
+  Three things are resolved rather than copied verbatim, because IAB's example
+  ships them unfilled and they are unrelated to the format: the macro-style
+  placeholder URLs (IMPRESSION_COUNT, START, ERROR_TRACKER), the missing
+  <AdServingId>, and a stray id attribute on <StaticResource>, which the XSD
+  has never allowed.
+
+  Format signals: plcmt 8 Squeezeback, pos 16 (a Squeezeback layout),
+  playbackmethod 2. This tag must validate clean, and neither -format-mismatch
+  rule may fire.
+-->
+<VAST version="4.2">
+  <Ad id="123456">
+    <InLine>
+      <AdSystem version="1.0">ExampleAdServer</AdSystem>
+      <AdTitle>Brand Q Squeezeback - L-Bar</AdTitle>
+      <Impression id="Imp"><![CDATA[https://track.example.com/imp?id=123456]]></Impression>
+      <Error><![CDATA[https://track.example.com/error?id=123456]]></Error>
+      <AdServingId>ServerName-9f8e7d6c-5b4a-3210</AdServingId>
+      <Creatives>
+        <Creative id="1">
+          <UniversalAdId idRegistry="ad-id.org">CNPA0484000H</UniversalAdId>
+          <NonLinearAds>
+            <TrackingEvents>
+              <Tracking event="start"><![CDATA[https://track.example.com/start?id=123456]]></Tracking>
+              <Tracking event="firstQuartile"><![CDATA[https://track.example.com/q1?id=123456]]></Tracking>
+              <Tracking event="midpoint"><![CDATA[https://track.example.com/q2?id=123456]]></Tracking>
+              <Tracking event="thirdQuartile"><![CDATA[https://track.example.com/q3?id=123456]]></Tracking>
+              <Tracking event="complete"><![CDATA[https://track.example.com/complete?id=123456]]></Tracking>
+            </TrackingEvents>
+            <NonLinear width="1920" height="1080" scalable="true" maintainAspectRatio="true">
+              <Duration>00:00:10</Duration>
+              <StaticResource creativeType="image/png"><![CDATA[https://cdn.example.com/creative/lbanner/123456.png]]></StaticResource>
+              <NonLinearClickThrough><![CDATA[https://advertiser.example.com/click?ad=123456]]></NonLinearClickThrough>
+            </NonLinear>
+          </NonLinearAds>
+        </Creative>
+      </Creatives>
+      <Extensions>
+        <Extension type="plcmt" ext="adcom"><plcmt>8</plcmt></Extension>
+        <Extension type="pos" ext="adcom"><pos>16</pos></Extension>
+        <Extension type="playbackmethod" ext="adcom"><playbackmethod>2</playbackmethod></Extension>
+        <Extension type="attr" ext="adcom"><attr>21</attr></Extension>
+      </Extensions>
+    </InLine>
+  </Ad>
+</VAST>

@@ -4,7 +4,7 @@
 //! enforce it, so validation must happen in code. Also covers best-practice
 //! guidance that has a meaningful impact on ad serving.
 
-use super::emit;
+use super::{allows_ctv_nonlinear, emit};
 use crate::parse::{Node, VastDocument};
 use crate::{DetectedVersion, Issue, Severity, ValidationContext, VastVersion};
 
@@ -48,13 +48,28 @@ fn check_inline(
         }
 
         if let Some(non_linear_ads) = creative.child("NonLinearAds") {
+            let nl_ads_path = format!("{}/NonLinearAds", creative_path);
+
             for (nl_idx, nl) in non_linear_ads.children_named("NonLinear").enumerate() {
                 check_non_linear(
                     nl,
-                    &format!("{}/NonLinearAds/NonLinear[{}]", creative_path, nl_idx),
+                    &format!("{}/NonLinear[{}]", nl_ads_path, nl_idx),
                     ctx,
                     issues,
                 );
+            }
+
+            // <Icons> under <NonLinearAds> is the CTV Ad Portfolio location for
+            // an ad-choices icon. The recommended-attribute advice is about the
+            // element, not about where it hangs.
+            if allows_ctv_nonlinear(v.copied()) {
+                if let Some(icons) = non_linear_ads.child("Icons") {
+                    for (icon_idx, icon) in icons.children_named("Icon").enumerate() {
+                        let icon_path = format!("{}/Icons/Icon[{}]", nl_ads_path, icon_idx);
+                        check_icon(icon, &icon_path, ctx, issues);
+                        check_icon_fallback_images(icon, &icon_path, v, ctx, issues);
+                    }
+                }
             }
         }
 

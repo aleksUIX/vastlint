@@ -5,7 +5,7 @@
 
 use std::collections::HashSet;
 
-use super::emit;
+use super::{allows_ctv_nonlinear, emit};
 use crate::parse::{Node, VastDocument};
 use crate::Issue;
 use crate::{DetectedVersion, Severity, ValidationContext, VastVersion};
@@ -380,13 +380,46 @@ fn check_inline_creative(
 
     // VAST-2.0-nonlinear-resource: InLine NonLinear must have a resource.
     if let Some(nl_ads) = creative.child("NonLinearAds") {
+        let nl_ads_path = format!("{}/NonLinearAds", creative_path);
+        let ctv_model = allows_ctv_nonlinear(version.best().copied());
+
         for (ni, nl) in nl_ads.children_named("NonLinear").enumerate() {
-            check_nonlinear_resource(
-                nl,
-                &format!("{}/NonLinearAds/NonLinear[{}]", creative_path, ni),
-                ctx,
-                issues,
-            );
+            let nl_path = format!("{}/NonLinear[{}]", nl_ads_path, ni);
+            check_nonlinear_resource(nl, &nl_path, ctx, issues);
+
+            // The CTV Ad Portfolio gives <NonLinear> the same <MediaFiles>
+            // container <Linear> has, which means the same required MediaFile
+            // attributes. Nothing about delivery, type, width or height is new
+            // in 4.4; only the location is, and IAB's own Pause, Screensaver,
+            // Overlay and Squeezeback examples all declare the full set.
+            if ctv_model {
+                if let Some(media_files) = nl.child("MediaFiles") {
+                    for (mi, mf) in media_files.children_named("MediaFile").enumerate() {
+                        check_mediafile(
+                            mf,
+                            &format!("{}/MediaFiles/MediaFile[{}]", nl_path, mi),
+                            ctx,
+                            issues,
+                        );
+                    }
+                }
+            }
+        }
+
+        // <Icons> moved under <NonLinearAds> so a NonLinear placement can carry
+        // an ad-choices icon. Same element, same required attributes as under
+        // <Linear>; without them the player has no way to size or place it.
+        if ctv_model {
+            if let Some(icons) = nl_ads.child("Icons") {
+                for (ii, icon) in icons.children_named("Icon").enumerate() {
+                    check_icon_required_attrs(
+                        icon,
+                        &format!("{}/Icons/Icon[{}]", nl_ads_path, ii),
+                        ctx,
+                        issues,
+                    );
+                }
+            }
         }
     }
 

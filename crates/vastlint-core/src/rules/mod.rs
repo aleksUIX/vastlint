@@ -29,7 +29,20 @@ use crate::parse::Node;
 use crate::parse::VastDocument;
 use crate::{
     DetectedVersion, DocumentType, Issue, RuleMeta, RuleSource, Severity, ValidationContext,
+    VastVersion,
 };
+
+/// True when the document may carry the CTV Ad Portfolio NonLinear content
+/// model: `<MediaFiles>`, `<Duration>` and `<NonLinearCustomClick>` under
+/// `<NonLinear>`, and `<Icons>` under `<NonLinearAds>`.
+///
+/// Gated on 4.x rather than 4.4 because every VAST example in IAB's final
+/// signaling guidance declares `version="4.2"` while using these constructs.
+/// Below 4.0 they stay unknown-child errors, so the rules that inspect them
+/// must not run there and double-report.
+pub(super) fn allows_ctv_nonlinear(version: Option<VastVersion>) -> bool {
+    version.map(|v| v.is_v4()).unwrap_or(false)
+}
 use RuleSource::{
     CtvAdPortfolio, DaastSpec, DaastXsd, IanaMediaTypes, IndustryBestPractice, Inferred, Iso4217,
     Rfc3986, SimidSpec, VastSpec, VastXsd, VmapSpec, Xml,

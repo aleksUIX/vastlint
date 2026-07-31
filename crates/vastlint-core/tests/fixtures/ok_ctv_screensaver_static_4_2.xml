@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  CTV Ad Portfolio Screensaver ad, static image.
+  Copied from the IAB signaling guidance example (§Examples, Pause & Screensaver
+  Ad(s), Screensaver - Static), which declares version="4.2" while using the 4.4
+  NonLinear content model. Nothing is resolved here: that example validates
+  clean as published.
+
+  The one addition is the plcmt Extension. IAB's example carries pos and attr
+  but no plcmt, so on its own it never reaches the Screensaver branch of the
+  Format-to-Signal cross-check. plcmt 6 with pos 7 and playbackmethod 11 is the
+  pairing the reference table gives for a fullscreen Screensaver with sound on.
+-->
+<VAST version="4.2">
+  <Ad id="screensaver-static-001">
+    <InLine>
+      <AdSystem version="1.0">ExampleAdServer</AdSystem>
+      <AdTitle>Brand X Screensaver Ad - Static</AdTitle>
+      <Impression><![CDATA[https://track.example.com/imp?id=001]]></Impression>
+      <AdServingId>ServerName-a1b2c3d4-e5f6-7890</AdServingId>
+      <Creatives>
+        <Creative id="creative-static-001" adId="AD-ID-001">
+          <UniversalAdId idRegistry="ad-id.org">CNPA0484000H</UniversalAdId>
+          <NonLinearAds>
+            <NonLinear width="1920" height="1080" scalable="true" maintainAspectRatio="true">
+              <StaticResource creativeType="image/jpeg"><![CDATA[https://cdn.example.com/screensaver/brand_x_1920x1080.jpg]]></StaticResource>
+              <NonLinearClickThrough><![CDATA[https://brand-x.example.com/landing]]></NonLinearClickThrough>
+              <NonLinearClickTracking><![CDATA[https://track.example.com/click?id=001]]></NonLinearClickTracking>
+            </NonLinear>
+            <TrackingEvents>
+              <Tracking event="creativeView"><![CDATA[https://track.example.com/creativeView?id=001]]></Tracking>
+              <Tracking event="overlayViewDuration"><![CDATA[https://track.example.com/overlayView?id=001]]></Tracking>
+              <Tracking event="close"><![CDATA[https://track.example.com/close?id=001]]></Tracking>
+            </TrackingEvents>
+          </NonLinearAds>
+        </Creative>
+      </Creatives>
+      <Extensions>
+        <Extension type="plcmt" ext="adcom"><plcmt>6</plcmt></Extension>
+        <Extension type="pos" ext="adcom"><pos>7</pos></Extension>
+        <Extension type="playbackmethod" ext="adcom"><playbackmethod>11</playbackmethod></Extension>
+        <Extension type="attr" ext="adcom"><attr>21</attr></Extension>
+      </Extensions>
+    </InLine>
+  </Ad>
+</VAST>

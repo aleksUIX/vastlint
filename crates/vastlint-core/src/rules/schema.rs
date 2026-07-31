@@ -7,21 +7,9 @@
 //!
 //! Rule IDs use the version where the element was introduced.
 
-use super::emit;
+use super::{allows_ctv_nonlinear, emit};
 use crate::parse::{Node, VastDocument};
 use crate::{DetectedVersion, Issue, Severity, ValidationContext, VastVersion};
-
-/// Whether the document may use the CTV Ad Portfolio content model that the
-/// VAST 4.4 draft schema introduces: `<MediaFiles>` and `<Duration>` under
-/// `<NonLinear>`, and `<Icons>` under `<NonLinearAds>`.
-///
-/// Gated on 4.x rather than on 4.4 alone. Every VAST example in the final CTV
-/// Ad Portfolio signaling guidance declares `version="4.2"` while using these
-/// constructs, so restricting them to `version="4.4"` would reject the
-/// ecosystem's actual conforming traffic. See `specs/vast_4.4_reference.md`.
-fn allows_ctv_nonlinear(version: Option<VastVersion>) -> bool {
-    version.map(|v| v.is_v4()).unwrap_or(false)
-}
 
 pub fn check(
     doc: &VastDocument,

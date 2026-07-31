@@ -3143,6 +3143,140 @@ fn ctv_portfolio_vast_2_0_allows_signalling_only_container() {
     assert!(!has_issue(&result, "VAST-4.4-adcom-attr-not-motion"));
 }
 
+// ── the CTV content model reuses the existing element rules ───────────────────
+
+/// A `<MediaFile>` is the same element wherever it hangs. The CTV Ad Portfolio
+/// moved it under `<NonLinear>`; it did not relax delivery, type, width or
+/// height, and every NonLinear media example IAB publishes declares all four.
+#[test]
+fn ctv_nonlinear_mediafile_requires_the_same_attrs_as_linear() {
+    let xml = r#"<VAST version="4.2">
+    <Ad id="1"><InLine>
+        <AdSystem version="1.0">ExampleAdServer</AdSystem>
+        <AdTitle>Overlay with a bare MediaFile</AdTitle>
+        <Impression><![CDATA[https://example.com/impression]]></Impression>
+        <AdServingId>abc-123</AdServingId>
+        <Creatives><Creative id="1" adId="1">
+            <UniversalAdId idRegistry="ad-id.org">CNPA0484000H</UniversalAdId>
+            <NonLinearAds><NonLinear width="480" height="70">
+                <MediaFiles>
+                    <MediaFile><![CDATA[https://example.com/overlay.mp4]]></MediaFile>
+                </MediaFiles>
+            </NonLinear></NonLinearAds>
+        </Creative></Creatives>
+    </InLine></Ad>
+</VAST>"#;
+    let result = validate(xml);
+    assert!(has_issue(&result, "VAST-2.0-mediafile-delivery"));
+    assert!(has_issue(&result, "VAST-2.0-mediafile-type"));
+    assert!(has_issue(&result, "VAST-2.0-mediafile-dimensions"));
+}
+
+/// Same element, same required attributes, new location: `<Icons>` under
+/// `<NonLinearAds>` so a NonLinear placement can carry an ad-choices icon.
+#[test]
+fn ctv_nonlinearads_icon_requires_the_same_attrs_as_linear() {
+    let xml = r#"<VAST version="4.2">
+    <Ad id="1"><InLine>
+        <AdSystem version="1.0">ExampleAdServer</AdSystem>
+        <AdTitle>Overlay with a bare Icon</AdTitle>
+        <Impression><![CDATA[https://example.com/impression]]></Impression>
+        <AdServingId>abc-123</AdServingId>
+        <Creatives><Creative id="1" adId="1">
+            <UniversalAdId idRegistry="ad-id.org">CNPA0484000H</UniversalAdId>
+            <NonLinearAds>
+                <Icons><Icon>
+                    <StaticResource creativeType="image/png"><![CDATA[https://example.com/adchoices.png]]></StaticResource>
+                </Icon></Icons>
+                <NonLinear width="480" height="70">
+                    <StaticResource creativeType="image/png"><![CDATA[https://example.com/overlay.png]]></StaticResource>
+                </NonLinear>
+            </NonLinearAds>
+        </Creative></Creatives>
+    </InLine></Ad>
+</VAST>"#;
+    let result = validate(xml);
+    for id in [
+        "VAST-3.0-icon-program",
+        "VAST-3.0-icon-width",
+        "VAST-3.0-icon-height",
+        "VAST-3.0-icon-xposition",
+        "VAST-3.0-icon-yposition",
+        "VAST-3.0-icon-attrs",
+    ] {
+        assert!(has_issue(&result, id), "{id} must fire under NonLinearAds");
+    }
+}
+
+/// Regression guard for both of the above: below 4.0 neither construct is
+/// valid, so the only finding must be the unknown-child error. Running the
+/// attribute rules there as well would report the same tag twice.
+#[test]
+fn ctv_content_model_rules_do_not_double_report_below_4_0() {
+    let result = validate(&load("err_ctv_nonlinear_mediafiles_in_4_2_only.xml"));
+    for id in [
+        "VAST-2.0-mediafile-delivery",
+        "VAST-2.0-mediafile-type",
+        "VAST-2.0-mediafile-dimensions",
+        "VAST-3.0-icon-program",
+        "VAST-3.0-icon-attrs",
+    ] {
+        assert!(
+            !has_issue(&result, id),
+            "{id} must not fire on a 3.0 document, where the construct is already an unknown-child error"
+        );
+    }
+}
+
+/// The three error-severity rules that shipped without a regression test.
+#[test]
+fn ctv_empty_containers_and_pixel_qr_size_fire() {
+    let empty_nonlinear_mediafiles = load("ok_ctv_inscene_video_4_2.xml").replace(
+        r#"<MediaFile delivery="progressive" type="video/mp4" width="1400" height="400" bitrate="6000"><![CDATA[https://cdn.example.com/creatives/iscene_video_asset.mp4]]></MediaFile>"#,
+        "",
+    );
+    assert!(has_issue(
+        &validate(&empty_nonlinear_mediafiles),
+        "VAST-4.4-nonlinear-mediafiles-empty"
+    ));
+
+    let empty_portfolio_mediafiles = r#"<VAST version="2.0">
+    <Ad id="a"><InLine>
+        <AdSystem version="1.0">ExampleAdServer</AdSystem>
+        <AdTitle>Pause</AdTitle>
+        <Impression><![CDATA[https://track.example.com/imp]]></Impression>
+        <Creatives><Creative id="c1"><NonLinearAds><NonLinear id="nl" width="1920" height="1080">
+            <StaticResource creativeType="image/png"><![CDATA[https://cdn.example.com/a.png]]></StaticResource>
+        </NonLinear></NonLinearAds></Creative></Creatives>
+        <Extensions><Extension type="ctv_ad_portfolio">
+            <plcmt>5</plcmt>
+            <MediaFiles></MediaFiles>
+        </Extension></Extensions>
+    </InLine></Ad>
+</VAST>"#;
+    assert!(has_issue(
+        &validate(empty_portfolio_mediafiles),
+        "VAST-2.0-ctv-portfolio-mediafiles-empty"
+    ));
+
+    let pixel_size = load("ok_ctv_overlay_simid_4_4.xml").replace(r#"size="15%""#, r#"size="120""#);
+    let result = validate(&pixel_size);
+    assert!(has_issue(&result, "VAST-4.4-qrcode-size-percent"));
+    assert!(!has_issue(&result, "VAST-4.4-qrcode-size-attr"));
+}
+
+/// The QR geometry fixture covers position-percent; this covers the attribute
+/// being absent entirely.
+#[test]
+fn ctv_qrcode_position_missing_coordinate_fires() {
+    let xml = load("ok_ctv_overlay_simid_4_4.xml").replace(
+        r#"<QrCodePosition xPosition="10%" yPosition="70%"/>"#,
+        r#"<QrCodePosition xPosition="10%"/>"#,
+    );
+    let result = validate(&xml);
+    assert!(has_issue(&result, "VAST-4.4-qrcode-position-attrs"));
+}
+
 // ── format-to-signal consistency ──────────────────────────────────────────────
 
 /// Every signal in range, and the set still contradicts itself: plcmt says
@@ -3228,6 +3362,33 @@ fn ctv_portfolio_vast_2_0_container_cross_checks_signals() {
     let xml = load("ok_ctv_portfolio_vast_2_0.xml").replace("<pos>7</pos>", "<pos>14</pos>");
     let result = validate(&xml);
     assert!(has_issue(&result, "VAST-4.4-adcom-pos-format-mismatch"));
+}
+
+/// The three formats that had no fixture of their own. Each carries the
+/// pairing the reference table gives it, so a false positive in either
+/// -format-mismatch rule shows up here.
+#[test]
+fn ctv_screensaver_squeezeback_and_inscene_examples_validate_clean() {
+    for fixture in [
+        "ok_ctv_screensaver_static_4_2.xml",
+        "ok_ctv_squeezeback_video_4_2.xml",
+        "ok_ctv_inscene_video_4_2.xml",
+    ] {
+        let result = validate(&load(fixture));
+        assert!(
+            result.issues.is_empty(),
+            "{fixture} must validate with no issues at all: {:#?}",
+            result.issues
+        );
+    }
+}
+
+/// In-Scene is the one format whose pos cell reads NA. pos 11 is a Squeezeback
+/// layout and must still pass under plcmt 9.
+#[test]
+fn ctv_inscene_fixture_accepts_a_pos_from_another_format() {
+    let result = validate(&load("ok_ctv_inscene_video_4_2.xml"));
+    assert!(!has_issue(&result, "VAST-4.4-adcom-pos-format-mismatch"));
 }
 
 /// An out-of-range plcmt is already reported on its own; pairing anything with

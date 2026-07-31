@@ -8,6 +8,42 @@ GitHub Releases: <https://github.com/aleksUIX/vastlint/releases>
 
 ## [Unreleased]
 
+### Fixed
+
+- **The CTV Ad Portfolio content model now reuses the element rules that already
+  existed.** Moving `<MediaFiles>` under `<NonLinear>` and `<Icons>` under
+  `<NonLinearAds>` changed where those elements live, not what they require, but
+  the rules that check them only ever traversed `<Linear>`. A `<MediaFile>`
+  inside a NonLinear with no `delivery`, `type`, `width` or `height` produced
+  nothing at all; the identical element under `<Linear>` produced three errors.
+  Same for an `<Icon>` under `<NonLinearAds>` missing `program`, `width`,
+  `height`, `xPosition` or `yPosition`, which is five errors and a warning under
+  `<Linear>`.
+
+  This was the widest hole in the 4.4 support, since delivering video through
+  NonLinear is the entire point of the new content model. Both traversals are
+  gated on 4.x, the same gate the content model itself uses, so a 3.0 document
+  still reports the construct once as an unknown child rather than twice.
+
+  No new rule ids: `VAST-2.0-mediafile-delivery`, `-type`, `-dimensions`,
+  `VAST-3.0-icon-program`, `-width`, `-height`, `-xposition`, `-yposition` and
+  `VAST-3.0-icon-attrs` now fire wherever their element appears. Catalog stays
+  at 220.
+
+### Added
+
+- Fixtures for the three CTV Ad Portfolio formats that had none: Screensaver
+  (`plcmt` 6), Squeezeback (8) and In-Scene (9), modelled on IAB's published
+  examples. Every format in the portfolio now has a tag that must validate
+  clean, which is what proves the Format-to-Signal rules do not false-positive
+  on the reference implementation.
+- Regression tests for the four CTV rules that shipped without one:
+  `VAST-4.4-nonlinear-mediafiles-empty`, `VAST-4.4-qrcode-size-percent`,
+  `VAST-4.4-qrcode-position-attrs` and
+  `VAST-2.0-ctv-portfolio-mediafiles-empty`. All four were reachable and
+  correct; none had a test asserting they fire. Every rule in the category now
+  has one.
+
 ## [0.11.0] - 2026-07-30
 
 ### Added

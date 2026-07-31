@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  CTV Ad Portfolio In-Scene ad, video insert.
+  Modelled on the IAB signaling guidance example (§Examples, In-Scene Ads),
+  which declares version="4.2" while using the 4.4 NonLinear content model.
+
+  As with the Squeezeback fixture, the macro-style placeholder URLs and the
+  missing <AdServingId> are resolved rather than copied. The <Extensions> block
+  is added: IAB's In-Scene example carries no AdCOM signals at all, but the
+  Format-to-Signal Reference Table assigns the format plcmt 9 and playbackmethod
+  1 or 2, and this fixture exists to exercise that pairing.
+
+  In-Scene is the one format whose pos cell reads NA, so pos 11, a Squeezeback
+  layout, must not fire VAST-4.4-adcom-pos-format-mismatch here.
+
+  The <MediaFile> carries the full required attribute set, matching every
+  NonLinear media example IAB publishes.
+-->
+<VAST version="4.2">
+  <Ad id="ISCENE-23918">
+    <InLine>
+      <AdSystem version="1.0">ExampleAdServer</AdSystem>
+      <AdTitle>Brand W In-Scene - Video Insert</AdTitle>
+      <Impression id="Imp"><![CDATA[https://track.example.com/imp?id=23918]]></Impression>
+      <Error><![CDATA[https://track.example.com/error?id=23918]]></Error>
+      <AdServingId>ServerName-4c3b2a19-8765-4321</AdServingId>
+      <Creatives>
+        <Creative id="1">
+          <UniversalAdId idRegistry="ad-id.org">CNPA0484000H</UniversalAdId>
+          <NonLinearAds>
+            <TrackingEvents>
+              <Tracking event="start"><![CDATA[https://track.example.com/start?id=23918]]></Tracking>
+              <Tracking event="firstQuartile"><![CDATA[https://track.example.com/q1?id=23918]]></Tracking>
+              <Tracking event="midpoint"><![CDATA[https://track.example.com/q2?id=23918]]></Tracking>
+              <Tracking event="thirdQuartile"><![CDATA[https://track.example.com/q3?id=23918]]></Tracking>
+              <Tracking event="complete"><![CDATA[https://track.example.com/complete?id=23918]]></Tracking>
+            </TrackingEvents>
+            <NonLinear width="1400" height="400" scalable="true" maintainAspectRatio="true">
+              <Duration>00:00:05</Duration>
+              <MediaFiles>
+                <MediaFile delivery="progressive" type="video/mp4" width="1400" height="400" bitrate="6000"><![CDATA[https://cdn.example.com/creatives/iscene_video_asset.mp4]]></MediaFile>
+              </MediaFiles>
+            </NonLinear>
+          </NonLinearAds>
+        </Creative>
+      </Creatives>
+      <Extensions>
+        <Extension type="plcmt" ext="adcom"><plcmt>9</plcmt></Extension>
+        <Extension type="pos" ext="adcom"><pos>11</pos></Extension>
+        <Extension type="playbackmethod" ext="adcom"><playbackmethod>2</playbackmethod></Extension>
+        <Extension type="attr" ext="adcom"><attr>23</attr></Extension>
+      </Extensions>
+    </InLine>
+  </Ad>
+</VAST>
