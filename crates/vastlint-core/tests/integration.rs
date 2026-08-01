@@ -3431,3 +3431,137 @@ fn ctv_unknown_plcmt_suppresses_the_pairing_checks() {
         "VAST-4.4-adcom-playbackmethod-format-mismatch"
     ));
 }
+
+// ── requirements that arrived in a later version than the rule id ────────────
+
+fn issue_of(result: &vastlint_core::ValidationResult, id: &str) -> vastlint_core::Issue {
+    result
+        .issues
+        .iter()
+        .find(|i| i.id == id)
+        .unwrap_or_else(|| panic!("expected {id}, got: {:#?}", result.issues))
+        .clone()
+}
+
+/// VAST 1.0's root element is `<VideoAdServingTemplate>`. "Root element must be
+/// <VAST>" describes such a document as malformed when it is only older, so the
+/// rule names the version instead and stops: 1.0 has its own vocabulary and the
+/// 2.0+ rules would report every element of it as unknown.
+#[test]
+fn vast_1_0_is_named_rather_than_called_malformed() {
+    let result = validate(&load("warn_vast_1_0_document.xml"));
+    let issue = issue_of(&result, "VAST-2.0-root-element");
+    assert_eq!(
+        issue.severity,
+        Severity::Warning,
+        "a valid 1.0 document is not an invalid 2.0 document: {issue:#?}"
+    );
+    assert!(
+        issue.message.contains("VAST 1.0"),
+        "the message must name the version it found: {issue:#?}"
+    );
+    assert_eq!(
+        result.issues.len(),
+        1,
+        "nothing after the root check applies to 1.0: {:#?}",
+        result.issues
+    );
+}
+
+/// 4.0 declares `<Mezzanine>` as a bare `xs:anyURI`. delivery, type, width and
+/// height only exist from 4.1, so requiring them of a 4.0 document reports four
+/// errors against a tag its own schema accepts.
+#[test]
+fn mezzanine_attrs_are_not_required_before_4_1() {
+    let result =
+        validate(&load("err_mezzanine_attrs.xml").replace("version=\"4.1\"", "version=\"4.0\""));
+    for rule in &[
+        "VAST-4.1-mezzanine-delivery",
+        "VAST-4.1-mezzanine-type",
+        "VAST-4.1-mezzanine-width",
+        "VAST-4.1-mezzanine-height",
+    ] {
+        assert!(
+            !has_issue(&result, rule),
+            "{rule} must not fire on 4.0: {:#?}",
+            result.issues
+        );
+    }
+}
+
+/// The same fixture at its declared 4.1 still reports all four, so the gate is
+/// on the version and not on the check having been dropped.
+#[test]
+fn mezzanine_attrs_stay_required_from_4_1() {
+    let result = validate(&load("err_mezzanine_attrs.xml"));
+    assert!(has_issue(&result, "VAST-4.1-mezzanine-delivery"));
+    assert!(has_issue(&result, "VAST-4.1-mezzanine-height"));
+}
+
+/// 3.0 §2.3.6.4 marks the Icon placement attributes required. The 4.1 and 4.2
+/// XSDs declare every one of them optional and the 4.3 attribute table has no
+/// required column, so a 4.x omission is worth reporting but not as an error.
+#[test]
+fn icon_attrs_drop_to_warning_on_4_x() {
+    let result = validate(
+        &load("err_icon_required_attrs.xml").replace("version=\"3.0\"", "version=\"4.2\""),
+    );
+    for rule in &[
+        "VAST-3.0-icon-program",
+        "VAST-3.0-icon-width",
+        "VAST-3.0-icon-height",
+        "VAST-3.0-icon-xposition",
+        "VAST-3.0-icon-yposition",
+    ] {
+        let issue = issue_of(&result, rule);
+        assert_eq!(
+            issue.severity,
+            Severity::Warning,
+            "{rule} is optional in the 4.x schemas: {issue:#?}"
+        );
+    }
+}
+
+/// 3.0 keeps them as errors, which is what the spec that made them required
+/// says.
+#[test]
+fn icon_attrs_stay_errors_on_3_0() {
+    let result = validate(&load("err_icon_required_attrs.xml"));
+    assert_eq!(
+        issue_of(&result, "VAST-3.0-icon-program").severity,
+        Severity::Error
+    );
+    assert!(!result.summary.is_valid());
+}
+
+/// 4.0 introduced `<AdVerifications>` with `vendor` and `apiFramework` declared
+/// `use="optional"`. The requirement is 4.1 prose, so a 4.0 document gets a
+/// warning rather than an error it could not have avoided.
+#[test]
+fn verification_attrs_drop_to_warning_on_4_0() {
+    let vendor = validate(
+        &load("err_verification_vendor.xml").replace("version=\"4.1\"", "version=\"4.0\""),
+    );
+    assert_eq!(
+        issue_of(&vendor, "VAST-4.1-verification-vendor").severity,
+        Severity::Warning
+    );
+
+    let api = validate(
+        &load("err_verification_resource_attrs.xml").replace("version=\"4.1\"", "version=\"4.0\""),
+    );
+    assert_eq!(
+        issue_of(&api, "VAST-4.1-js-resource-apiframework").severity,
+        Severity::Warning
+    );
+}
+
+/// From 4.1 both stay errors.
+#[test]
+fn verification_attrs_stay_errors_from_4_1() {
+    let result = validate(&load("err_verification_vendor.xml"));
+    assert_eq!(
+        issue_of(&result, "VAST-4.1-verification-vendor").severity,
+        Severity::Error
+    );
+}

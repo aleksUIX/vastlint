@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- VAST 1.0 — root is <VideoAdServingTemplate>, vocabulary predates VAST 2.0 -->
+<VideoAdServingTemplate>
+  <Ad id="preroll-1">
+    <InLine>
+      <AdSystem>Test AdServer</AdSystem>
+      <AdTitle>Acme Spring Sale 30s</AdTitle>
+      <Impression>
+        <URL id="primary"><![CDATA[https://example.com/impression]]></URL>
+      </Impression>
+      <Video>
+        <Duration>00:00:30</Duration>
+        <VideoClicks>
+          <ClickThrough><![CDATA[https://example.com/click]]></ClickThrough>
+        </VideoClicks>
+        <MediaFiles>
+          <MediaFile delivery="progressive" type="video/x-flv" bitrate="457" width="300" height="225">
+            <![CDATA[https://example.com/video.flv]]>
+          </MediaFile>
+        </MediaFiles>
+      </Video>
+    </InLine>
+  </Ad>
+</VideoAdServingTemplate>

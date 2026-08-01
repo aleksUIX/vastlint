@@ -39,7 +39,27 @@ fn check_root(
     issues: &mut Vec<Issue>,
 ) {
     // VAST-2.0-root-element
-    // Spec (all versions): root element must be <VAST>.
+    // Spec (2.0+): root element must be <VAST>.
+    //
+    // VAST 1.0 is the exception: its root is <VideoAdServingTemplate>, so a
+    // valid 1.0 document is not a malformed 2.0 document. Reporting "Root
+    // element must be <VAST>" against one is wrong on its face, and legacy 1.0
+    // tags are still served. Name the version instead and say what to do about
+    // it. IAB's own VAST_Samples ship four such files.
+    if doc.root.name == "VideoAdServingTemplate" {
+        emit(
+            ctx,
+            issues,
+            "VAST-2.0-root-element",
+            Severity::Warning,
+            "Document is VAST 1.0 (<VideoAdServingTemplate> root); VAST 1.0 was superseded by VAST 2.0 and is not validated further",
+            Some("/".to_owned()),
+            "IAB VAST 2.0 §2",
+            Some(&doc.root),
+        );
+        return; // 1.0 has its own element vocabulary; 2.0+ rules do not apply.
+    }
+
     if doc.root.name != "VAST" {
         emit(
             ctx,
@@ -308,11 +328,23 @@ fn check_inline(
 
     // VAST-4.1-verification-no-resource
     if let Some(ad_ver) = inline.child("AdVerifications") {
-        check_ad_verifications(ad_ver, &format!("{}/AdVerifications", path), ctx, issues);
+        check_ad_verifications(
+            ad_ver,
+            &format!("{}/AdVerifications", path),
+            version,
+            ctx,
+            issues,
+        );
     }
 
     if let Some(extensions) = inline.child("Extensions") {
-        check_embedded_ad_verifications(extensions, &format!("{}/Extensions", path), ctx, issues);
+        check_embedded_ad_verifications(
+            extensions,
+            &format!("{}/Extensions", path),
+            version,
+            ctx,
+            issues,
+        );
     }
 }
 
@@ -395,7 +427,7 @@ fn check_inline_creative(
             // set.
             if ctv_model {
                 if let Some(media_files) = nl.child("MediaFiles") {
-                    check_media_files_assets(media_files, &nl_path, ctx, issues);
+                    check_media_files_assets(media_files, &nl_path, version, ctx, issues);
                 }
             }
         }
@@ -409,6 +441,7 @@ fn check_inline_creative(
                     check_icon_required_attrs(
                         icon,
                         &format!("{}/Icons/Icon[{}]", nl_ads_path, ii),
+                        version,
                         ctx,
                         issues,
                     );
@@ -480,7 +513,7 @@ fn check_inline_linear(
                     Some(linear),
                 )
             }
-            check_media_files_assets(mf, linear_path, ctx, issues);
+            check_media_files_assets(mf, linear_path, version, ctx, issues);
         }
     }
 
@@ -490,13 +523,12 @@ fn check_inline_linear(
             check_icon_required_attrs(
                 icon,
                 &format!("{}/Icons/Icon[{}]", linear_path, ii),
+                version,
                 ctx,
                 issues,
             );
         }
     }
-
-    let _ = version; // used via check_media_files_assets above
 }
 
 /// Attribute rules for everything a `<MediaFiles>` container holds.
@@ -508,6 +540,7 @@ fn check_inline_linear(
 fn check_media_files_assets(
     media_files: &Node,
     container_path: &str,
+    version: &DetectedVersion,
     ctx: &ValidationContext,
     issues: &mut Vec<Issue>,
 ) {
@@ -521,13 +554,26 @@ fn check_media_files_assets(
     }
 
     // VAST-4.1: Mezzanine required attrs.
-    for (mi, mez) in media_files.children_named("Mezzanine").enumerate() {
-        check_mezzanine_required_attrs(
-            mez,
-            &format!("{}/MediaFiles/Mezzanine[{}]", container_path, mi),
-            ctx,
-            issues,
-        );
+    //
+    // 4.0 defines <Mezzanine> as a bare `xs:anyURI` element with no attributes
+    // at all (vast4.xsd: `<xs:element name="Mezzanine" type="xs:anyURI">`).
+    // delivery, type, width and height arrive in 4.1, where the element becomes
+    // a complexType. Applying the 4.1 requirements to a 4.0 document reports
+    // four errors against a tag that is valid under its own schema, so gate on
+    // the version rather than the element being present.
+    if version
+        .best()
+        .map(|v| v.at_least(&VastVersion::V4_1))
+        .unwrap_or(false)
+    {
+        for (mi, mez) in media_files.children_named("Mezzanine").enumerate() {
+            check_mezzanine_required_attrs(
+                mez,
+                &format!("{}/MediaFiles/Mezzanine[{}]", container_path, mi),
+                ctx,
+                issues,
+            );
+        }
     }
 
     // VAST-4.0-interactive-creative-no-api: InteractiveCreativeFile without apiFramework.
@@ -698,13 +744,25 @@ fn check_wrapper(
     if let Some(v) = version.best() {
         if v.at_least(&VastVersion::V4_1) {
             if let Some(av) = wrapper.child("AdVerifications") {
-                check_ad_verifications(av, &format!("{}/AdVerifications", path), ctx, issues);
+                check_ad_verifications(
+                    av,
+                    &format!("{}/AdVerifications", path),
+                    version,
+                    ctx,
+                    issues,
+                );
             }
         }
     }
 
     if let Some(extensions) = wrapper.child("Extensions") {
-        check_embedded_ad_verifications(extensions, &format!("{}/Extensions", path), ctx, issues);
+        check_embedded_ad_verifications(
+            extensions,
+            &format!("{}/Extensions", path),
+            version,
+            ctx,
+            issues,
+        );
     }
 }
 
@@ -798,71 +856,71 @@ pub(super) fn check_pricing(
 }
 
 /// Checks Icon elements for required attributes per spec (3.0+).
+///
+/// Severity is version-dependent. VAST 3.0 §2.3.6.4 marks program, width,
+/// height, xPosition and yPosition as required attributes. VAST 4.x relaxed
+/// this: the 4.1/4.2 XSDs declare every one of them without a `use` attribute
+/// (so `optional`), and the 4.3 Icon attribute table carries no required
+/// column at all. A player still needs the dimensions and position to place
+/// the icon, so 4.x omissions stay reportable, but as warnings rather than
+/// errors against a document its own schema accepts.
 pub(super) fn check_icon_required_attrs(
     icon: &Node,
     icon_path: &str,
+    version: &DetectedVersion,
     ctx: &ValidationContext,
     issues: &mut Vec<Issue>,
 ) {
-    if icon.attr("program").is_none() {
-        emit(
-            ctx,
-            issues,
+    let severity = if version.best().map(|v| v.is_v4()).unwrap_or(false) {
+        Severity::Warning
+    } else {
+        Severity::Error
+    };
+    let spec_ref = if severity == Severity::Warning {
+        "IAB VAST 4.3 §3.11.1"
+    } else {
+        "IAB VAST 3.0 §2.3.6.4"
+    };
+
+    for (attr, rule, message) in [
+        (
+            "program",
             "VAST-3.0-icon-program",
-            Severity::Error,
             "<Icon> is missing required program attribute",
-            Some(icon_path.to_owned()),
-            "IAB VAST 3.0 §2.3.6.4",
-            Some(icon),
-        )
-    }
-    if icon.attr("width").is_none() {
-        emit(
-            ctx,
-            issues,
+        ),
+        (
+            "width",
             "VAST-3.0-icon-width",
-            Severity::Error,
             "<Icon> is missing required width attribute",
-            Some(icon_path.to_owned()),
-            "IAB VAST 3.0 §2.3.6.4",
-            Some(icon),
-        )
-    }
-    if icon.attr("height").is_none() {
-        emit(
-            ctx,
-            issues,
+        ),
+        (
+            "height",
             "VAST-3.0-icon-height",
-            Severity::Error,
             "<Icon> is missing required height attribute",
-            Some(icon_path.to_owned()),
-            "IAB VAST 3.0 §2.3.6.4",
-            Some(icon),
-        )
-    }
-    if icon.attr("xPosition").is_none() {
-        emit(
-            ctx,
-            issues,
+        ),
+        (
+            "xPosition",
             "VAST-3.0-icon-xposition",
-            Severity::Error,
             "<Icon> is missing required xPosition attribute",
-            Some(icon_path.to_owned()),
-            "IAB VAST 3.0 §2.3.6.4",
-            Some(icon),
-        )
-    }
-    if icon.attr("yPosition").is_none() {
-        emit(
-            ctx,
-            issues,
+        ),
+        (
+            "yPosition",
             "VAST-3.0-icon-yposition",
-            Severity::Error,
             "<Icon> is missing required yPosition attribute",
-            Some(icon_path.to_owned()),
-            "IAB VAST 3.0 §2.3.6.4",
-            Some(icon),
-        )
+        ),
+    ] {
+        if icon.attr(attr).is_none() {
+            emit(
+                ctx,
+                issues,
+                rule,
+                severity,
+                message,
+                Some(icon_path.to_owned()),
+                spec_ref,
+                Some(icon),
+            )
+        }
     }
 
     // VAST-3.0-icon-resource: must have at least one resource child.
@@ -1000,6 +1058,7 @@ pub(super) fn check_mezzanine_required_attrs(
 fn check_ad_verifications(
     ad_ver_node: &Node,
     ad_ver_path: &str,
+    version: &DetectedVersion,
     ctx: &ValidationContext,
     issues: &mut Vec<Issue>,
 ) {
@@ -1024,34 +1083,53 @@ fn check_ad_verifications(
             }
         }
 
-        check_verification_resource(ver_node, &ver_path, ctx, issues);
+        check_verification_resource(ver_node, &ver_path, version, ctx, issues);
     }
 }
 
 fn check_embedded_ad_verifications(
     node: &Node,
     path: &str,
+    version: &DetectedVersion,
     ctx: &ValidationContext,
     issues: &mut Vec<Issue>,
 ) {
     if node.name == "AdVerifications" || node.has_child("Verification") {
-        check_ad_verifications(node, path, ctx, issues);
+        check_ad_verifications(node, path, version, ctx, issues);
         return;
     }
 
     for (child_index, child) in node.children.iter().enumerate() {
         let child_path = format!("{}/{}[{}]", path, child.name, child_index);
-        check_embedded_ad_verifications(child, &child_path, ctx, issues);
+        check_embedded_ad_verifications(child, &child_path, version, ctx, issues);
     }
 }
 
 /// Checks Verification for required resource presence and vendor attr (4.1+).
+///
+/// `vendor` on `<Verification>` and `apiFramework` on `<JavaScriptResource>`
+/// are only required from 4.1 onward. VAST 4.0, which introduced
+/// `<AdVerifications>`, declares both `use="optional"` in vast4.xsd, and the
+/// 4.1/4.2 XSDs still say optional while their prose says required (the
+/// requirement only reaches the schema in the 4.4 draft). Reporting them as
+/// errors against a 4.0 document contradicts the schema that document was
+/// written to, so 4.0 gets warnings instead.
 pub(super) fn check_verification_resource(
     ver_node: &Node,
     ver_path: &str,
+    version: &DetectedVersion,
     ctx: &ValidationContext,
     issues: &mut Vec<Issue>,
 ) {
+    let attr_severity = if version
+        .best()
+        .map(|v| v.at_least(&VastVersion::V4_1))
+        .unwrap_or(true)
+    {
+        Severity::Error
+    } else {
+        Severity::Warning
+    };
     let has_js = ver_node.has_child("JavaScriptResource");
     let has_exec = ver_node.has_child("ExecutableResource");
     if !has_js && !has_exec {
@@ -1074,7 +1152,7 @@ pub(super) fn check_verification_resource(
             ctx,
             issues,
             "VAST-4.1-verification-vendor",
-            Severity::Error,
+            attr_severity,
             "<Verification> is missing required vendor attribute",
             Some(ver_path.to_owned()),
             "IAB VAST 4.1 §3.17",
@@ -1126,7 +1204,7 @@ pub(super) fn check_verification_resource(
                 ctx,
                 issues,
                 "VAST-4.1-js-resource-apiframework",
-                Severity::Error,
+                attr_severity,
                 "<JavaScriptResource> is missing required apiFramework attribute",
                 Some(js_path.clone()),
                 "IAB VAST 4.1 §3.17.1",
