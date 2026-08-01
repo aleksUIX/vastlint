@@ -6,7 +6,53 @@ GitHub Releases: <https://github.com/aleksUIX/vastlint/releases>
 
 ---
 
-## [Unreleased]
+## [0.11.2] - 2026-08-01
+
+**This release only removes findings.** Four checks reported against documents
+that their own schema accepts, all of them because a requirement introduced by
+one VAST version was applied to every version. Nothing new fires, so a tag that
+passed on 0.11.1 still passes. Tags that failed on attributes their spec never
+required now pass, or report warnings instead of errors.
+
+### Fixed
+
+- **A VAST 1.0 document is named as one instead of being called malformed.**
+  VAST 1.0's root element is `<VideoAdServingTemplate>`, so every 1.0 tag
+  collected `VAST-2.0-root-element` at error severity, message "Root element
+  must be `<VAST>`". That describes a document written to a published IAB spec
+  as broken. Legacy 1.0 tags are still served, and the four samples IAB ships in
+  its own VAST 1-2.0 sample set are all of this shape.
+
+  The rule now recognises the root, reports it as a warning naming the version
+  ("Document is VAST 1.0 ... superseded by VAST 2.0 and is not validated
+  further"), and stops. VAST 1.0 has its own element vocabulary (`<Video>`,
+  `<URL>` inside `<Impression>`), so continuing would report every element of a
+  correct 1.0 document as unknown.
+
+- **`<Mezzanine>` attributes are required from 4.1, not from 4.0.** VAST 4.0
+  declares `<Mezzanine>` as a bare `xs:anyURI` element with no attributes at all
+  (`<xs:element name="Mezzanine" type="xs:anyURI">`). `delivery`, `type`,
+  `width` and `height` arrive in 4.1, where it becomes a complexType. A 4.0
+  document with a mezzanine URL produced four errors for attributes its schema
+  does not define. The four `VAST-4.1-mezzanine-*` rules are now gated on 4.1+.
+
+- **`<Icon>` placement attributes drop to warning on 4.x.** VAST 3.0 §2.3.6.4
+  marks `program`, `width`, `height`, `xPosition` and `yPosition` required, and
+  they stay errors there. The 4.1 and 4.2 XSDs declare all five without a `use`
+  attribute, which makes them optional, and the 4.3 Icon attribute table has no
+  required column at all. A player still needs dimensions and position to place
+  an icon, so 4.x omissions are still reported, as warnings.
+
+- **`vendor` and `apiFramework` drop to warning on 4.0.** VAST 4.0 introduced
+  `<AdVerifications>` with `vendor` on `<Verification>` and `apiFramework` on
+  `<JavaScriptResource>` both `use="optional"` in vast4.xsd. The requirement is
+  4.1 prose (the 4.1 and 4.2 schemas still say optional; it only reaches the
+  schema in the 4.4 draft). `VAST-4.1-verification-vendor` and
+  `VAST-4.1-js-resource-apiframework` stay errors from 4.1 and are warnings on
+  4.0.
+
+  Default severities in the rule catalog are unchanged: they describe the
+  version that made the attribute required, and `RULES.md` lists defaults.
 
 ### Changed
 

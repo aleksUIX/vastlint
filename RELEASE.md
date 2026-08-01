@@ -68,7 +68,7 @@ Go to **GitHub Actions → Release** and watch the run. One human approval gate 
 Chrome publish paths:
 
 1. Tagged release: the `chrome-extension` job in `Release` runs on tag pushes and publishes the zipped extension.
-2. Standalone publish: run the `Chrome Extension` workflow with `publish: true` and optional `version: 0.11.1` when you need to ship the extension outside a full repo release.
+2. Standalone publish: run the `Chrome Extension` workflow with `publish: true` and optional `version: 0.11.2` when you need to ship the extension outside a full repo release.
 
 ---
 
