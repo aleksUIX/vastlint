@@ -38,15 +38,20 @@ git tag vX.Y.Z
 git push && git push origin vX.Y.Z
 ```
 
-Optionally sync the cosmetic in-repo versions to the tag in the same commit, so
-a local build reports the right number:
+Sync the cosmetic in-repo versions to the tag in the same commit, so a local
+build reports the right number:
 
 ```bash
 sed -i '' "s/^version = \".*\"/version = \"X.Y.Z\"/" crates/*/Cargo.toml
 sed -i '' "s/version = \"[^\"]*\" }/version = \"X.Y.Z\" }/" crates/*/Cargo.toml
 sed -i '' "s/\"version\": \"[^\"]*\"/\"version\": \"X.Y.Z\"/" \
-  npm/package.json vscode/package.json chrome/package.json chrome/manifest.json
+  npm/package.json vscode/package.json chrome/package.json chrome/manifest.json \
+  crates/vastlint-mcp/server.json
+cargo check --workspace   # refreshes Cargo.lock
 ```
+
+CI stamps the same values again at build time, so a sync that is one release
+behind still ships correctly. It just makes `cargo run -- --version` honest.
 
 ---
 
@@ -72,29 +77,37 @@ Chrome publish paths:
 
 ---
 
-## 4 — Homebrew tap (manual — after GitHub Release is live)
+## 4 — Downstream repos the same run pushes to
 
-1. Download the four CLI tarballs from the GitHub Release
-2. Compute SHA-256 for each:
-   ```bash
-   shasum -a 256 vastlint-macos-aarch64.tar.gz
-   shasum -a 256 vastlint-macos-x86_64.tar.gz
-   shasum -a 256 vastlint-linux-aarch64.tar.gz
-   shasum -a 256 vastlint-linux-x86_64.tar.gz
-   ```
-3. Update `homebrew-tap/Formula/vastlint.rb` — bump `version` and all four `sha256` values + URLs
-4. Commit + push the tap repo
+These used to be manual. They are jobs in the same `Release` run now, each
+gated on a repo variable and a deploy key, and each pushes straight to `main`
+of its target repo.
+
+| Job | Target repo | What it writes | Gate variable |
+|-----|-------------|----------------|---------------|
+| `sync-homebrew-tap` | `aleksUIX/homebrew-tap` | `Formula/vastlint.rb`: version, four URLs, four SHA-256 values taken from the run's own tarballs | `ENABLE_HOMEBREW_TAP_SYNC=true` |
+| `sync-go` | `aleksUIX/vastlint-go` | prebuilt `libs/` FFI artifacts | `ENABLE_GO_SYNC=true` |
+| `sync-python` | `aleksUIX/vastlint-python` | release commit + tag | `ENABLE_PYTHON_SYNC=true` |
+| `sync-erlang` | `aleksUIX/vastlint-erlang` | prebuilt NIFs and checksums | `ENABLE_ERLANG_SYNC=true` |
+
+Check each one landed rather than assuming: `gh api repos/aleksUIX/<repo>/commits -q '.[0].commit.message'`.
 
 ---
 
-## 5 — Language binding repos (manual — only when FFI/NIF ABI changes)
+## 5 — vastlint-infra (manual)
 
-These repos pin a specific vastlint-core release and need their own release cycle.
+`sync-infra` exists in the workflow but stays skipped: it needs
+`ENABLE_INFRA_SYNC=true` and a `VASTLINT_INFRA_DEPLOY_KEY` secret, and neither
+is set. Until they are, bump the pin by hand after `publish-npm` finishes:
 
-| Repo | What to update | Current version |
-|------|---------------|-----------------|
-| `vastlint-erlang` | `@version` in `mix.exs`, checksum files, `CHANGELOG.md` | 0.3.7 |
-| `vastlint-go` | precompiled `libs/` artifacts, `go.mod` tag | — |
+```bash
+cd ../vastlint-infra
+sed -i '' 's/"vastlint": "[^"]*"/"vastlint": "X.Y.Z"/' package.json apps/vastlint-web/package.json
+pnpm install && pnpm build:web    # the build is the only check that the new WASM loads
+git commit -am "chore: point the web validator at vastlint X.Y.Z" && git push
+```
+
+Pushing to `main` deploys the web app and the worker through `deploy.yml`.
 
 ---
 
@@ -106,7 +119,16 @@ These repos pin a specific vastlint-core release and need their own release cycl
 - [ ] Open VSX page shows new version (`open-vsx.org/extension/aleksUIX/vastlint`)
 - [ ] `docker pull aleksuix/vastlint:latest` pulls new image
 - [ ] MCP Registry entry updated (if `ENABLE_MCP_REGISTRY_PUBLISH=true`)
-- [ ] Homebrew: `brew upgrade vastlint` installs new version (after tap PR merged)
+- [ ] `cargo info vastlint-core` and `cargo info vastlint-cli` report the new version
+- [ ] Homebrew: `brew upgrade vastlint` installs new version
+- [ ] vastlint.org/validate reports the release version and the current rule count
+
+Read the job list, do not read the run's overall conclusion. A failed publish
+job leaves the run red while everything else shipped, and a skipped one leaves
+it green. `gh run view <id> --json jobs -q '.jobs[] | "\(.name): \(.conclusion)"'`.
+
+If crates.io failed on its own, re-run just that half:
+`gh workflow run publish-crates.yml -f tag=vX.Y.Z`.
 
 ---
 
@@ -123,6 +145,6 @@ a human are the ones outside this repo.
 | `vscode/package.json` | CI (`npm version`) | in-repo value is cosmetic |
 | `chrome/manifest.json` + `chrome/package.json` | CI (node, then asserted) | in-repo value is cosmetic |
 | `crates/vastlint-mcp/server.json` | CI (jq: version, URL, SHA-256) | in-repo value is cosmetic |
-| `homebrew-tap/Formula/vastlint.rb` | manual | after release assets are live |
-| `vastlint-erlang/mix.exs` | manual | when NIF ABI changes |
-| `vastlint-infra` `apps/vastlint-web/package.json` | manual | pins the `vastlint` npm package the web validator runs |
+| `homebrew-tap/Formula/vastlint.rb` | CI (`sync-homebrew-tap`) | version, URLs and SHA-256 values |
+| `vastlint-erlang`, `vastlint-go`, `vastlint-python` | CI (`sync-*` jobs) | prebuilt artifacts and release commits |
+| `vastlint-infra` `package.json` + `apps/vastlint-web/package.json` | manual | pins the `vastlint` npm package the web validator runs |
