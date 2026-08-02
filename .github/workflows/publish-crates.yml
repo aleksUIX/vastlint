@@ -50,7 +50,13 @@ jobs:
           done
           git config user.name "vastlint-release"
           git config user.email "release@vastlint.org"
-          git commit -am "release: stamp ${VERSION} crate versions"
+          # Already-matching versions leave a clean tree, and `git commit` exits
+          # 1 on nothing to commit. A clean tree is what this step is after.
+          if git diff --quiet; then
+            echo "crate versions already match the tag, nothing to stamp"
+          else
+            git commit -am "release: stamp ${VERSION} crate versions"
+          fi
 
       - name: Publish vastlint-core
         env:

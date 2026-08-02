@@ -1232,11 +1232,19 @@ jobs:
       # cargo publish refuses a dirty working tree, and the bump step above
       # dirties every Cargo.toml. Commit runner-locally (never pushed) so the
       # publish runs against a clean tree instead of failing with exit 101.
+      #
+      # The tree is already clean when the release commit carries the tag's
+      # version, which RELEASE.md asks for. `git commit` exits 1 on nothing to
+      # commit, so guard it: a clean tree is the state this step wants.
       - name: Commit version stamp (runner-local, never pushed)
         run: |
           git config user.name "vastlint-release"
           git config user.email "release@vastlint.org"
-          git commit -am "release: stamp ${GITHUB_REF_NAME#v} crate versions"
+          if git diff --quiet; then
+            echo "crate versions already match the tag, nothing to stamp"
+          else
+            git commit -am "release: stamp ${GITHUB_REF_NAME#v} crate versions"
+          fi
 
       - name: Publish vastlint-core
         env:
