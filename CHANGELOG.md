@@ -6,6 +6,55 @@ GitHub Releases: <https://github.com/aleksUIX/vastlint/releases>
 
 ---
 
+## [0.11.3] - 2026-08-04
+
+Dependency maintenance. No rule changed, nothing was added or removed from the
+catalog, and the MCP surface is byte-identical, so a tag that passed on 0.11.2
+produces the same findings on 0.11.3.
+
+### Security
+
+- Three transitive dev-dependencies of `@vscode/vsce` had advisories open
+  against the versions the extension pinned. All three are packaging-time
+  tools, so none of them ship in the CLI, the WASM package, or the published
+  extensions.
+
+  - `undici` 7.28.0 → 7.29.0, clearing five advisories: GHSA-4cwx-7wf7-3272
+    (high, cross-user information disclosure and parse-time crash via
+    degenerate private cache directives), GHSA-8xcm-r25x-g524 (downstream
+    response desynchronization via the retry interceptor),
+    GHSA-m8rv-5g2x-5cg5 (CRLF injection via a blob-like body `type` property),
+    GHSA-jr45-8vmc-qm54 (cross-user information disclosure via whitespace
+    around equals in `Cache-Control` directives), and GHSA-v3r7-h72x-cjcm
+    (cookie attribute injection via an unsanitized domain and unparsed
+    `setCookie` fields).
+  - `brace-expansion` 5.0.8 → 5.0.9 (GHSA-rgw5-rvv9-x895, high): denial of
+    service via unbounded intermediate arrays, which bypasses the
+    CVE-2026-14257 mitigation.
+  - `fast-uri` 3.1.4 → 3.1.5 (GHSA-7p8r-x3mc-p8w7, high): host confusion via a
+    backslash authority introducer.
+
+- `brace-expansion` and `fast-uri` were both pinned in 0.10.1 against earlier
+  advisories. Each of those pins has now been superseded by a new finding
+  against the version that fixed the last one.
+- `npm audit`: 0 vulnerabilities in `vscode/`, `npm/`, `chrome/` and the root
+  workspace. `cargo audit`: no known vulnerabilities across 252 crates.
+
+### Maintenance
+
+- `rmcp` 2.2.0 → 3.0.1, a major version of the MCP SDK. 3.0 makes
+  `schema_for_output` infallible: it returns `Arc<JsonObject>` where 2.x
+  returned `Option<Arc<JsonObject>>`. vastlint's local wrapper existed only to
+  unwrap that `Option`, so it is gone and the upstream function is aliased at
+  the import instead. The server still advertises protocol version
+  `2024-11-05`, the same `tools` capability and the same seven tools, so MCP
+  clients see no change.
+- `toml` 1.1.3+spec-1.1.0 → 1.1.4+spec-1.1.0, semver-compatible inside the
+  existing range. Lockfile-only.
+- CI action pins refreshed: `github/codeql-action/upload-sarif` 4.37.3 →
+  4.37.4, `docker/login-action` 4.5.1 → 4.6.0.
+- VS Code extension: `@types/node` 26.1.1 → 26.1.2 (dev-dependency).
+
 ## [0.11.2] - 2026-08-01
 
 **This release only removes findings.** Four checks reported against documents

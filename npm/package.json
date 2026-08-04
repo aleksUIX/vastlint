@@ -1,6 +1,6 @@
 {
   "name": "vastlint",
-  "version": "0.11.2",
+  "version": "0.11.3",
   "description": "Validate VAST 2.0–4.4, VMAP 1.0, and DAAST 1.0 ad tags against IAB specs. 220 rules. Rust/WASM core.",
   "license": "Apache-2.0",
   "author": "Alex Sekowski <alex@vastlint.org>",
