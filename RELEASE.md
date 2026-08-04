@@ -43,12 +43,18 @@ build reports the right number:
 
 ```bash
 sed -i '' "s/^version = \".*\"/version = \"X.Y.Z\"/" crates/*/Cargo.toml
-sed -i '' "s/version = \"[^\"]*\" }/version = \"X.Y.Z\" }/" crates/*/Cargo.toml
+sed -i '' "s/^vastlint-core = { path = \"..\/vastlint-core\", version = \"[^\"]*\" }/vastlint-core = { path = \"..\/vastlint-core\", version = \"X.Y.Z\" }/" crates/*/Cargo.toml
 sed -i '' "s/\"version\": \"[^\"]*\"/\"version\": \"X.Y.Z\"/" \
   npm/package.json vscode/package.json chrome/package.json chrome/manifest.json \
   crates/vastlint-mcp/server.json
 cargo check --workspace   # refreshes Cargo.lock
+git diff crates/    # only version lines should appear
 ```
+
+The second `sed` names `vastlint-core` in full on purpose. An earlier version
+matched any `version = "..." }`, which also rewrote third-party pins written in
+table form: cutting 0.11.3 it turned `quick-xml = { version = "0.41" }` into
+`quick-xml = { version = "0.11.3" }`. Read the `git diff` before committing.
 
 CI stamps the same values again at build time, so a sync that is one release
 behind still ships correctly. It just makes `cargo run -- --version` honest.
