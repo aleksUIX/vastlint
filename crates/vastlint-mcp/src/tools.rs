@@ -1,8 +1,6 @@
-use std::sync::Arc;
-
 use rmcp::{
-    handler::server::{common::schema_for_output, wrapper::Parameters},
-    model::{Implementation, JsonObject, ServerCapabilities, ServerInfo},
+    handler::server::{common::schema_for_output as output_schema, wrapper::Parameters},
+    model::{Implementation, ServerCapabilities, ServerInfo},
     schemars, tool, tool_handler, tool_router, Json, ServerHandler,
 };
 use serde::{Deserialize, Serialize};
@@ -14,12 +12,6 @@ use vastlint_core::{
 
 #[derive(Debug, Clone)]
 pub struct VastlintServer;
-
-// ── Output schema helper ──────────────────────────────────────────────────────
-
-fn output_schema<T: schemars::JsonSchema + 'static>() -> Arc<JsonObject> {
-    schema_for_output::<T>().expect("valid output schema")
-}
 
 // ── Input types ───────────────────────────────────────────────────────────────
 
