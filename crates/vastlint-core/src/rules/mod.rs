@@ -14,6 +14,7 @@ pub mod ctv;
 pub mod ctv_portfolio;
 pub mod daast;
 pub mod deprecated;
+pub mod elements;
 pub mod macros;
 pub mod quality;
 pub mod required;
@@ -23,6 +24,7 @@ pub mod simid;
 pub mod structure;
 pub mod values;
 pub mod vmap;
+mod walk;
 
 use crate::detect::detect_document_type;
 use crate::parse::Node;
@@ -86,6 +88,7 @@ pub fn run(
     values::check(doc, version, ctx, issues);
     ctv::check(doc, version, ctx, issues);
     ctv_portfolio::check(doc, version, ctx, issues);
+    elements::check(doc, version, ctx, issues);
     simid::check(doc, version, ctx, issues);
     macros::check(doc, version, ctx, issues);
     quality::check(doc, version, ctx, issues);

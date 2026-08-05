@@ -253,17 +253,6 @@ fn check_standardised_extension_values(
             }
         }
 
-        if let Some(media_files) = ext.child("MediaFiles") {
-            for (mi, mf) in media_files.children_named("MediaFile").enumerate() {
-                check_mediafile_values(
-                    mf,
-                    &format!("{}/MediaFiles/MediaFile[{}]", ext_path, mi),
-                    ctx,
-                    issues,
-                );
-            }
-        }
-
         if let Some(tracking_events) = ext.child("TrackingEvents") {
             for (ti, tracking) in tracking_events.children_named("Tracking").enumerate() {
                 check_tracking_value(
@@ -386,14 +375,6 @@ fn check_linear(
             check_tracking_value(tracking, &tp, v, ctx, issues);
         }
     }
-
-    // VAST-3.0-minmaxbitrate-pair and VAST-3.0-bitrate-conflict on MediaFile.
-    if let Some(mf_container) = node.child("MediaFiles") {
-        for (mi, mf) in mf_container.children_named("MediaFile").enumerate() {
-            let mp = format!("{}/MediaFiles/MediaFile[{}]", path, mi);
-            check_mediafile_values(mf, &mp, ctx, issues);
-        }
-    }
 }
 
 fn check_tracking_value(
@@ -459,7 +440,12 @@ fn check_tracking_value(
     }
 }
 
-fn check_mediafile_values(mf: &Node, path: &str, ctx: &ValidationContext, issues: &mut Vec<Issue>) {
+pub(super) fn check_mediafile_values(
+    mf: &Node,
+    path: &str,
+    ctx: &ValidationContext,
+    issues: &mut Vec<Issue>,
+) {
     // VAST-2.0-mediafile-delivery-enum
     if let Some(delivery) = mf.attr("delivery") {
         if delivery != "progressive" && delivery != "streaming" {

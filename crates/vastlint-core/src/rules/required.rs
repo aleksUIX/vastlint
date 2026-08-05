@@ -373,10 +373,6 @@ fn check_standardised_extension_assets(
         }
         let ext_path = format!("{}/Extension[{}]", extensions_path, i);
 
-        if let Some(media_files) = ext.child("MediaFiles") {
-            check_media_files_assets(media_files, &ext_path, version, ctx, issues);
-        }
-
         if let Some(icons) = ext.child("Icons") {
             for (ii, icon) in icons.children_named("Icon").enumerate() {
                 check_icon_required_attrs(
@@ -468,11 +464,6 @@ fn check_inline_creative(
             // height is new in 4.4; only the location is, and IAB's own Pause,
             // Screensaver, Overlay and Squeezeback examples declare the full
             // set.
-            if ctv_model {
-                if let Some(media_files) = nl.child("MediaFiles") {
-                    check_media_files_assets(media_files, &nl_path, version, ctx, issues);
-                }
-            }
         }
 
         // <Icons> moved under <NonLinearAds> so a NonLinear placement can carry
@@ -556,7 +547,6 @@ fn check_inline_linear(
                     Some(linear),
                 )
             }
-            check_media_files_assets(mf, linear_path, version, ctx, issues);
         }
     }
 
@@ -580,88 +570,56 @@ fn check_inline_linear(
 /// Portfolio introduced. The requirements belong to the elements, not to their
 /// parent, so the only thing that differs between the two call sites is the
 /// path prefix.
-fn check_media_files_assets(
-    media_files: &Node,
-    container_path: &str,
-    version: &DetectedVersion,
+/// Attribute rules for `<InteractiveCreativeFile>`.
+///
+/// Dispatched by `elements.rs` wherever the element appears, which since 0.11.4
+/// is `<Linear>`, `<NonLinear>` and the CTV Ad Portfolio extension container.
+/// The guidance names it inside a NonLinear `<MediaFiles>` the preferred
+/// pattern, so the checks have to be there and not only under `<Linear>`.
+pub(super) fn check_interactive_creative_file(
+    icf: &Node,
+    path: &str,
     ctx: &ValidationContext,
     issues: &mut Vec<Issue>,
 ) {
-    for (i, mf) in media_files.children_named("MediaFile").enumerate() {
-        check_mediafile(
-            mf,
-            &format!("{}/MediaFiles/MediaFile[{}]", container_path, i),
+    // VAST-4.0-interactive-creative-no-api
+    if icf.attr("apiFramework").is_none() {
+        emit(
             ctx,
             issues,
-        );
+            "VAST-4.0-interactive-creative-no-api",
+            Severity::Warning,
+            "<InteractiveCreativeFile> should have an apiFramework attribute (e.g. \"SIMID\")",
+            Some(path.to_owned()),
+            "IAB VAST 4.0 §2.3.5.4",
+            Some(icf),
+        )
     }
 
-    // VAST-4.1: Mezzanine required attrs.
-    //
-    // 4.0 defines <Mezzanine> as a bare `xs:anyURI` element with no attributes
-    // at all (vast4.xsd: `<xs:element name="Mezzanine" type="xs:anyURI">`).
-    // delivery, type, width and height arrive in 4.1, where the element becomes
-    // a complexType. Applying the 4.1 requirements to a 4.0 document reports
-    // four errors against a tag that is valid under its own schema, so gate on
-    // the version rather than the element being present.
-    if version
-        .best()
-        .map(|v| v.at_least(&VastVersion::V4_1))
-        .unwrap_or(false)
-    {
-        for (mi, mez) in media_files.children_named("Mezzanine").enumerate() {
-            check_mezzanine_required_attrs(
-                mez,
-                &format!("{}/MediaFiles/Mezzanine[{}]", container_path, mi),
-                ctx,
-                issues,
-            );
-        }
-    }
-
-    // VAST-4.0-interactive-creative-no-api: InteractiveCreativeFile without apiFramework.
-    // VAST-4.1-interactive-creative-type: InteractiveCreativeFile should have a type attribute.
-    for (icf_i, icf) in media_files
-        .children_named("InteractiveCreativeFile")
-        .enumerate()
-    {
-        let icf_path = format!(
-            "{}/MediaFiles/InteractiveCreativeFile[{}]",
-            container_path, icf_i
-        );
-        if icf.attr("apiFramework").is_none() {
-            emit(
-                ctx,
-                issues,
-                "VAST-4.0-interactive-creative-no-api",
-                Severity::Warning,
-                "<InteractiveCreativeFile> should have an apiFramework attribute (e.g. \"SIMID\")",
-                Some(icf_path.clone()),
-                "IAB VAST 4.0 §2.3.5.4",
-                Some(icf),
-            )
-        }
-
-        // VAST-4.1-interactive-creative-type
-        // The type attribute identifies the MIME type of the interactive file.
-        // Spec says it is listed as an attribute; not formally required by the
-        // XSD but needed for the player to know how to execute the file.
-        if icf.attr("type").is_none() {
-            emit(
-                ctx,
-                issues,
-                "VAST-4.1-interactive-creative-type",
-                Severity::Warning,
-                "<InteractiveCreativeFile> should have a type attribute identifying the MIME type",
-                Some(icf_path),
-                "IAB VAST 4.1 §3.9.3",
-                Some(icf),
-            )
-        }
+    // VAST-4.1-interactive-creative-type
+    // The type attribute identifies the MIME type of the interactive file.
+    // Listed as an attribute rather than required by the XSD, but the player
+    // needs it to know how to execute the file.
+    if icf.attr("type").is_none() {
+        emit(
+            ctx,
+            issues,
+            "VAST-4.1-interactive-creative-type",
+            Severity::Warning,
+            "<InteractiveCreativeFile> should have a type attribute identifying the MIME type",
+            Some(path.to_owned()),
+            "IAB VAST 4.1 §3.9.3",
+            Some(icf),
+        )
     }
 }
 
-fn check_mediafile(mf: &Node, path: &str, ctx: &ValidationContext, issues: &mut Vec<Issue>) {
+pub(super) fn check_mediafile(
+    mf: &Node,
+    path: &str,
+    ctx: &ValidationContext,
+    issues: &mut Vec<Issue>,
+) {
     // VAST-2.0-mediafile-delivery
     // Spec (all versions): delivery attribute is required.
     if mf.attr("delivery").is_none() {

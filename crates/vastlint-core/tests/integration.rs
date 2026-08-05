@@ -3297,6 +3297,105 @@ fn ctv_portfolio_legacy_fixture_is_identical_on_vast_3_0() {
     assert_eq!(ids_2_0, ids_3_0);
 }
 
+/// The property that makes the traversal class of bug impossible rather than
+/// merely fixed.
+///
+/// The same defective `<MediaFile>` is placed in every container the spec has
+/// ever put one in, and every location must report the same rules. This test
+/// would have failed before 0.11.1 (NonLinear unvalidated) and again before
+/// 0.11.4 (the extension container unvalidated). Both were found by hand, one
+/// of them only because someone asked the right question.
+///
+/// Adding a location to this list is the whole cost of covering a new one. If
+/// the element dispatch in `elements.rs` regresses to a hand-written traversal
+/// that forgets a spot, this fails on the spot.
+#[test]
+fn the_same_defective_media_file_reports_identically_everywhere() {
+    const BARE: &str = r#"<MediaFile><![CDATA[https://cdn.example.com/a.mp4]]></MediaFile>"#;
+
+    // 4.2 throughout: the only version where all three containers are legal at
+    // once. The NonLinear content model is 4.x, and the extension container is
+    // valid on any version.
+    let under_linear = format!(
+        r#"<VAST version="4.2"><Ad id="a"><InLine>
+             <AdSystem version="1.0">X</AdSystem><AdTitle>T</AdTitle>
+             <AdServingId>s</AdServingId>
+             <Impression><![CDATA[https://t.example.com/i]]></Impression>
+             <Creatives><Creative id="c1">
+               <UniversalAdId idRegistry="ad-id">AD</UniversalAdId>
+               <Linear><Duration>00:00:15</Duration><MediaFiles>{BARE}</MediaFiles></Linear>
+             </Creative></Creatives>
+           </InLine></Ad></VAST>"#
+    );
+
+    let under_non_linear = format!(
+        r#"<VAST version="4.2"><Ad id="a"><InLine>
+             <AdSystem version="1.0">X</AdSystem><AdTitle>T</AdTitle>
+             <AdServingId>s</AdServingId>
+             <Impression><![CDATA[https://t.example.com/i]]></Impression>
+             <Creatives><Creative id="c1">
+               <UniversalAdId idRegistry="ad-id">AD</UniversalAdId>
+               <NonLinearAds><NonLinear id="nl" width="1920" height="1080">
+                 <MediaFiles>{BARE}</MediaFiles>
+               </NonLinear></NonLinearAds>
+             </Creative></Creatives>
+           </InLine></Ad></VAST>"#
+    );
+
+    let inside_portfolio_extension = format!(
+        r#"<VAST version="4.2"><Ad id="a"><InLine>
+             <AdSystem version="1.0">X</AdSystem><AdTitle>T</AdTitle>
+             <AdServingId>s</AdServingId>
+             <Impression><![CDATA[https://t.example.com/i]]></Impression>
+             <Creatives><Creative id="c1">
+               <UniversalAdId idRegistry="ad-id">AD</UniversalAdId>
+               <NonLinearAds><NonLinear id="nl" width="1920" height="1080">
+                 <StaticResource creativeType="image/jpeg"><![CDATA[https://cdn.example.com/a.jpg]]></StaticResource>
+               </NonLinear></NonLinearAds>
+             </Creative></Creatives>
+             <Extensions><Extension type="ctv_ad_portfolio">
+               <CreativeId>c1</CreativeId><plcmt>5</plcmt>
+               <MediaFiles>{BARE}</MediaFiles>
+             </Extension></Extensions>
+           </InLine></Ad></VAST>"#
+    );
+
+    let media_file_rules = |xml: &str| {
+        let mut ids: Vec<&str> = validate(xml)
+            .issues
+            .iter()
+            .filter(|i| i.id.contains("mediafile"))
+            .map(|i| i.id)
+            .collect();
+        ids.sort_unstable();
+        ids.dedup();
+        ids
+    };
+
+    let baseline = media_file_rules(&under_linear);
+    assert!(
+        !baseline.is_empty(),
+        "the Linear case must report something, or this test proves nothing"
+    );
+
+    for (location, xml) in [
+        (
+            "NonLinear <MediaFiles> (4.x content model)",
+            &under_non_linear,
+        ),
+        (
+            "<Extension type=\"ctv_ad_portfolio\"> (legacy encoding)",
+            &inside_portfolio_extension,
+        ),
+    ] {
+        assert_eq!(
+            media_file_rules(xml),
+            baseline,
+            "a <MediaFile> in {location} must report the same rules as one under <Linear>"
+        );
+    }
+}
+
 /// The container holds the ad's real media, duration, icons and tracking,
 /// because VAST 2.0 has no other element that can. So the rules for those
 /// elements have to reach inside it, exactly as 0.11.1 took them inside
