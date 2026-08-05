@@ -6,7 +6,7 @@ GitHub Releases: <https://github.com/aleksUIX/vastlint/releases>
 
 ---
 
-## [Unreleased]
+## [0.11.4] - 2026-08-05
 
 **Upgrading can fail a build that passed.** Existing rules now fire inside the
 CTV Ad Portfolio extension container, at their existing severities, most of them
