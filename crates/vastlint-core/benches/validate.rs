@@ -17,7 +17,8 @@ const VALID_4_3_VERIFICATION: &str =
 /// container throughout. This is the shape the element dispatch in
 /// `rules/elements.rs` walks hardest: deep trees, standardised extension
 /// containers it must descend into, and a high finding count.
-const CTV_PORTFOLIO: &str = include_str!("../tests/fixtures/err_ctv_portfolio_legacy_all_modes.xml");
+const CTV_PORTFOLIO: &str =
+    include_str!("../tests/fixtures/err_ctv_portfolio_legacy_all_modes.xml");
 
 /// A conforming portfolio tag. The defective one above exits some rules early
 /// on their first failure, so a clean document of the same shape is the more

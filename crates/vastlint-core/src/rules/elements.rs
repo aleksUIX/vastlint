@@ -24,15 +24,16 @@ pub fn check(
     let Some(vast) = doc.vast_root() else { return };
     let v = version.best().copied();
 
-    visit_vast_elements(vast, "/VAST", &mut |node, path, loc| {
+    visit_vast_elements(vast, "/VAST", &mut |node, loc| {
         if !subtree_is_valid_here(loc, v) {
             return;
         }
 
         match node.name.as_str() {
             "MediaFile" => {
-                required::check_mediafile(node, path, ctx, issues);
-                values::check_mediafile_values(node, path, ctx, issues);
+                let path = loc.path();
+                required::check_mediafile(node, &path, ctx, issues);
+                values::check_mediafile_values(node, &path, ctx, issues);
             }
 
             // 4.0 declares <Mezzanine> as a bare `xs:anyURI` with no attributes
@@ -40,11 +41,11 @@ pub fn check(
             // becomes a complexType. Reaching the element everywhere must not
             // hand a 4.0 or 2.0 document a requirement its schema never had.
             "Mezzanine" if at_least(v, VastVersion::V4_1) => {
-                required::check_mezzanine_required_attrs(node, path, ctx, issues);
+                required::check_mezzanine_required_attrs(node, &loc.path(), ctx, issues);
             }
 
             "InteractiveCreativeFile" => {
-                required::check_interactive_creative_file(node, path, ctx, issues);
+                required::check_interactive_creative_file(node, &loc.path(), ctx, issues);
             }
 
             _ => {}
