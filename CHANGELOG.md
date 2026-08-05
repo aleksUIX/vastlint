@@ -6,6 +6,70 @@ GitHub Releases: <https://github.com/aleksUIX/vastlint/releases>
 
 ---
 
+## [0.11.5] - 2026-08-05
+
+**No rule changed and no finding moved.** All 631 findings across the
+127-fixture corpus are byte-identical to 0.11.4, paths included. This release
+changes how the element rules reach their subject, not what they report, so a
+tag that validated a particular way on 0.11.4 validates identically here.
+
+### Changed
+
+- **Element rules are dispatched by name instead of by hand-written traversal.**
+  Twice now the same defect has shipped: the CTV Ad Portfolio moved
+  `<MediaFiles>` somewhere new, the rules that check its contents did not
+  follow, and a defective `<MediaFile>` validated clean until someone wrote
+  another traversal. 0.11.1 fixed it for `<NonLinear>`, 0.11.4 for the VAST 2.0
+  extension container. A third location would have been a third fix.
+
+  `rules/walk.rs` visits every element belonging to the document proper, paired
+  with the location to report it at. It descends into standardised IAB extension
+  containers, whose children are real VAST, and stops at any other
+  `<Extension>` or `<CreativeExtension>`, whose payload is a vendor's private
+  format. That allowlist is now the entire maintenance surface for a new
+  container: one entry, rather than one traversal per rule module.
+
+  `rules/elements.rs` registers the position-independent rules against the
+  element name. `<MediaFile>`, `<Mezzanine>` and `<InteractiveCreativeFile>`
+  move first, collapsing three call sites into one dispatch.
+
+  Position-dependent rules keep their own traversals, which is correct: their
+  subject really is a location. `SIMID-1.0-simid-mediafile-required` stays
+  Linear-only, and the `ctv_portfolio.rs` rules are about the container rather
+  than any one child. The two version constraints survive intact and are
+  tested: `<Mezzanine>` attributes stay 4.1+, and the NonLinear content model
+  stays 4.x so a 3.0 document still reports the construct once as an unknown
+  child rather than twice.
+
+### Performance
+
+Measured against 0.11.4 with criterion, same bench file on both revisions.
+
+The pods and the CTV Ad Portfolio fixtures are at parity (no change detected,
+p > 0.05). Small fixtures are within 0-3%. `valid_4.3_with_verification` is the
+outlier at roughly +10%, about 1.3 µs on a 16 µs validation.
+
+The cost lands on documents that gain nothing from the dispatch, which is worth
+stating plainly. Where a portfolio container exists the walker replaces the
+hand-written traversals it deletes, so the work nets out; where one does not,
+the walk is pure addition. It is largest on small, element-dense tags, where a
+fixed per-node cost is a bigger fraction of a smaller total.
+
+An eager first implementation built a path string for every visited node and
+cost +16% to +19% across the board. Paths are now joined on demand, and sibling
+counting is limited to elements that carry an index.
+
+### Added
+
+- Benchmark cases for the CTV Ad Portfolio path (`ctv_portfolio_9_ads`,
+  `ctv_portfolio_clean`) and for element-count scaling (`pod_50_ads`). None of
+  the previous cases contained a standardised extension container, so the
+  benchmark could not see the cost of the code that walks one.
+- `the_same_defective_media_file_reports_identically_everywhere`: the same bare
+  `<MediaFile>` placed in every container the spec has put one in must report
+  the same rules. This test fails on 0.11.0 and again on 0.11.3, so it would
+  have caught both original bugs. Verified non-vacuous by mutation.
+
 ## [0.11.4] - 2026-08-05
 
 **Upgrading can fail a build that passed.** Existing rules now fire inside the
