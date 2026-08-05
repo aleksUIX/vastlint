@@ -13,6 +13,17 @@ const VALID_4_2: &str = include_str!("../tests/fixtures/valid_4.2.xml");
 const VALID_4_3_VERIFICATION: &str =
     include_str!("../tests/fixtures/valid_4.3_with_verification.xml");
 
+/// Nine ads, every CTV Ad Portfolio failure mode, and the legacy extension
+/// container throughout. This is the shape the element dispatch in
+/// `rules/elements.rs` walks hardest: deep trees, standardised extension
+/// containers it must descend into, and a high finding count.
+const CTV_PORTFOLIO: &str = include_str!("../tests/fixtures/err_ctv_portfolio_legacy_all_modes.xml");
+
+/// A conforming portfolio tag. The defective one above exits some rules early
+/// on their first failure, so a clean document of the same shape is the more
+/// honest measure of full-traversal cost.
+const CTV_PORTFOLIO_CLEAN: &str = include_str!("../tests/fixtures/ok_ctv_portfolio_vast_2_0.xml");
+
 fn bench_validate(c: &mut Criterion) {
     let mut group = c.benchmark_group("validate");
 
@@ -43,6 +54,34 @@ fn bench_validate(c: &mut Criterion) {
     };
     group.bench_function("pod_10_ads", |b| {
         b.iter(|| vastlint_core::validate(black_box(&pod)))
+    });
+
+    group.bench_function("ctv_portfolio_9_ads", |b| {
+        b.iter(|| vastlint_core::validate(black_box(CTV_PORTFOLIO)))
+    });
+    group.bench_function("ctv_portfolio_clean", |b| {
+        b.iter(|| vastlint_core::validate(black_box(CTV_PORTFOLIO_CLEAN)))
+    });
+
+    // Element-count stress. The dispatch pass visits every node in the document
+    // and builds a path for it, so cost scales with node count rather than with
+    // finding count. A 50-ad pod is the worst realistic case for that.
+    let big_pod = {
+        let inner = VALID_4_2
+            .trim()
+            .trim_start_matches(r#"<?xml version="1.0" encoding="UTF-8"?>"#)
+            .trim();
+        let open_end = inner.find('>').expect("fixture has a root element");
+        let body_end = inner.rfind("</VAST>").expect("fixture has a closing tag");
+        let body = &inner[open_end + 1..body_end];
+        format!(
+            r#"<VAST version="4.2">{}</VAST>"#,
+            body.repeat(50)
+                .replace(r#"<Ad id="#, r#"<Ad sequence="1" id="#)
+        )
+    };
+    group.bench_function("pod_50_ads", |b| {
+        b.iter(|| vastlint_core::validate(black_box(&big_pod)))
     });
 
     group.finish();
