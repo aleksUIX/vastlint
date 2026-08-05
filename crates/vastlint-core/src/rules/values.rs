@@ -65,6 +65,16 @@ fn check_ad_content(
         }
     }
 
+    if let Some(extensions) = node.child("Extensions") {
+        check_standardised_extension_values(
+            extensions,
+            &format!("{}/Extensions", path),
+            v,
+            ctx,
+            issues,
+        );
+    }
+
     // Pricing value checks (3.0+).
     check_pricing_values(node, path, v, ctx, issues);
 
@@ -197,6 +207,74 @@ fn taxonomy_authority_host(value: &str) -> Option<String> {
         Some(host.to_ascii_lowercase())
     } else {
         None
+    }
+}
+
+/// Value rules for the VAST content a standardised IAB extension carries.
+///
+/// The counterpart to `required.rs::check_standardised_extension_assets`: that
+/// one covers required attributes, this one covers whether the values are
+/// legal. `<Extension type="ctv_ad_portfolio">` carries the media, duration and
+/// tracking that VAST 2.0 and 3.0 have no other way to express, so a malformed
+/// `<Duration>` or an invented tracking event is the same defect there as
+/// anywhere else.
+///
+/// Not version gated, for the same reason as the required-attribute traversal:
+/// this container only ever appears on the versions that need it.
+fn check_standardised_extension_values(
+    extensions: &Node,
+    extensions_path: &str,
+    v: Option<&VastVersion>,
+    ctx: &ValidationContext,
+    issues: &mut Vec<Issue>,
+) {
+    for (i, ext) in extensions.children_named("Extension").enumerate() {
+        if !ext.is_standardised_iab_extension() {
+            continue;
+        }
+        let ext_path = format!("{}/Extension[{}]", extensions_path, i);
+
+        // VAST-2.0-duration-format. The container's <Duration> is what drives
+        // quartile and overlayViewDuration tracking, so a value the player
+        // cannot parse costs the same measurement as one under <Linear>.
+        if let Some(dur) = ext.child("Duration") {
+            let text = dur.text.trim();
+            if !text.is_empty() && !is_valid_duration(text) {
+                emit(
+                    ctx,
+                    issues,
+                    "VAST-2.0-duration-format",
+                    Severity::Error,
+                    "<Duration> value does not match required format HH:MM:SS or HH:MM:SS.mmm",
+                    Some(format!("{}/Duration", ext_path)),
+                    "IAB VAST 2.0 §2.3.5.1",
+                    Some(dur),
+                )
+            }
+        }
+
+        if let Some(media_files) = ext.child("MediaFiles") {
+            for (mi, mf) in media_files.children_named("MediaFile").enumerate() {
+                check_mediafile_values(
+                    mf,
+                    &format!("{}/MediaFiles/MediaFile[{}]", ext_path, mi),
+                    ctx,
+                    issues,
+                );
+            }
+        }
+
+        if let Some(tracking_events) = ext.child("TrackingEvents") {
+            for (ti, tracking) in tracking_events.children_named("Tracking").enumerate() {
+                check_tracking_value(
+                    tracking,
+                    &format!("{}/TrackingEvents/Tracking[{}]", ext_path, ti),
+                    v,
+                    ctx,
+                    issues,
+                );
+            }
+        }
     }
 }
 

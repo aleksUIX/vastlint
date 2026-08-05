@@ -1,0 +1,324 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Every failure mode of the CTV Ad Portfolio legacy extension path, in one tag.
+
+  A document carries one version attribute, so the 2.0/3.0 half of the question
+  cannot live in a single file. It does not need to: change the root to
+  version="3.0" and the output is identical, because neither container reads the
+  version. That is the demo.
+
+  Several of these rules are mutually exclusive inside one container. A
+  container either has a CreativeId or it does not; its MediaFiles are either
+  absent, empty, or SIMID-only. So each <Ad> below isolates one failure and the
+  document as a whole covers the category.
+
+  Ad 1  binding absent            2 creatives, no CreativeId
+  Ad 2  binding dangling          CreativeId matches no Creative
+  Ad 3  no delivery vehicle       no MediaFiles, nothing native to fall back to
+  Ad 4  empty delivery vehicle    MediaFiles with no asset in it
+  Ad 5  SIMID with no fallback    interactive only, and no Duration
+  Ad 6  AdCOM payload defects     non-integer, two out-of-range, foreign attr
+  Ad 7  signals contradict        Pause plcmt against a Squeezeback position
+  Ad 8  QR geometry defects       pixels, missing coordinate, no destination
+  Ad 9  plcmt out of range        and the pairing checks correctly staying quiet
+
+  20 findings, 19 distinct rule ids. That is 18 of the 25 rules in the CTV Ad
+  Portfolio category, which is all of them that a legacy document can reach. The
+  other seven are gated on 4.x because they describe constructs this encoding
+  does not have: the four <NonLinear> content-model rules, the two
+  <Extension ext="adcom"> shape rules, and the 4.4 version notice.
+
+  Two findings are not portfolio rules: VAST-2.0-nonlinear-resource on Ad 3 and
+  Ad 5, whose <NonLinear> elements are deliberately bare so the container is the
+  only thing that could deliver media. The legacy rule is right, it just cannot
+  say why. That is the pairing worth pointing at.
+-->
+<VAST version="2.0">
+
+  <!-- Ad 1. Two creatives and no <CreativeId>. The extension has no binding, so
+       its signals and media land on whichever creative the platform picks. -->
+  <Ad id="portfolio-01-binding-absent">
+    <InLine>
+      <AdSystem version="1.0">ExampleAdServer</AdSystem>
+      <AdTitle>Binding absent</AdTitle>
+      <Impression><![CDATA[https://track.example.com/imp?ad=01]]></Impression>
+      <Creatives>
+        <Creative id="creative-01-16x9">
+          <NonLinearAds>
+            <NonLinear id="nl-01-16x9" width="1920" height="1080">
+              <StaticResource creativeType="image/jpeg"><![CDATA[https://cdn.example.com/pause_1920x1080.jpg]]></StaticResource>
+            </NonLinear>
+          </NonLinearAds>
+        </Creative>
+        <Creative id="creative-01-4x3">
+          <NonLinearAds>
+            <NonLinear id="nl-01-4x3" width="1440" height="1080">
+              <StaticResource creativeType="image/jpeg"><![CDATA[https://cdn.example.com/pause_1440x1080.jpg]]></StaticResource>
+            </NonLinear>
+          </NonLinearAds>
+        </Creative>
+      </Creatives>
+      <Extensions>
+        <Extension type="ctv_ad_portfolio">
+          <plcmt>5</plcmt>
+          <pos>7</pos>
+          <MediaFiles>
+            <MediaFile delivery="progressive" type="image/jpeg" width="1920" height="1080"><![CDATA[https://cdn.example.com/pause_1920x1080.jpg]]></MediaFile>
+          </MediaFiles>
+        </Extension>
+      </Extensions>
+    </InLine>
+  </Ad>
+
+  <!-- Ad 2. The binding exists and points at nothing. -->
+  <Ad id="portfolio-02-binding-dangling">
+    <InLine>
+      <AdSystem version="1.0">ExampleAdServer</AdSystem>
+      <AdTitle>Binding dangling</AdTitle>
+      <Impression><![CDATA[https://track.example.com/imp?ad=02]]></Impression>
+      <Creatives>
+        <Creative id="creative-02">
+          <NonLinearAds>
+            <NonLinear id="nl-02" width="1920" height="1080">
+              <StaticResource creativeType="image/jpeg"><![CDATA[https://cdn.example.com/pause_1920x1080.jpg]]></StaticResource>
+            </NonLinear>
+          </NonLinearAds>
+        </Creative>
+      </Creatives>
+      <Extensions>
+        <Extension type="ctv_ad_portfolio">
+          <CreativeId>creative-that-does-not-exist</CreativeId>
+          <plcmt>5</plcmt>
+          <pos>7</pos>
+          <MediaFiles>
+            <MediaFile delivery="progressive" type="image/jpeg" width="1920" height="1080"><![CDATA[https://cdn.example.com/pause_1920x1080.jpg]]></MediaFile>
+          </MediaFiles>
+        </Extension>
+      </Extensions>
+    </InLine>
+  </Ad>
+
+  <!-- Ad 3. The container is the delivery vehicle and carries no media, and the
+       creative has no native resource either. Nothing renders. -->
+  <Ad id="portfolio-03-no-mediafiles">
+    <InLine>
+      <AdSystem version="1.0">ExampleAdServer</AdSystem>
+      <AdTitle>No delivery vehicle</AdTitle>
+      <Impression><![CDATA[https://track.example.com/imp?ad=03]]></Impression>
+      <Creatives>
+        <Creative id="creative-03">
+          <NonLinearAds>
+            <NonLinear id="nl-03" width="1920" height="1080">
+              <NonLinearClickThrough><![CDATA[https://advertiser.example.com/landing]]></NonLinearClickThrough>
+            </NonLinear>
+          </NonLinearAds>
+        </Creative>
+      </Creatives>
+      <Extensions>
+        <Extension type="ctv_ad_portfolio">
+          <CreativeId>creative-03</CreativeId>
+          <plcmt>5</plcmt>
+          <pos>7</pos>
+        </Extension>
+      </Extensions>
+    </InLine>
+  </Ad>
+
+  <!-- Ad 4. The container declares MediaFiles and puts nothing in it. -->
+  <Ad id="portfolio-04-empty-mediafiles">
+    <InLine>
+      <AdSystem version="1.0">ExampleAdServer</AdSystem>
+      <AdTitle>Empty delivery vehicle</AdTitle>
+      <Impression><![CDATA[https://track.example.com/imp?ad=04]]></Impression>
+      <Creatives>
+        <Creative id="creative-04">
+          <NonLinearAds>
+            <NonLinear id="nl-04" width="1920" height="1080">
+              <StaticResource creativeType="image/jpeg"><![CDATA[https://cdn.example.com/pause_1920x1080.jpg]]></StaticResource>
+            </NonLinear>
+          </NonLinearAds>
+        </Creative>
+      </Creatives>
+      <Extensions>
+        <Extension type="ctv_ad_portfolio">
+          <CreativeId>creative-04</CreativeId>
+          <plcmt>5</plcmt>
+          <pos>7</pos>
+          <MediaFiles></MediaFiles>
+        </Extension>
+      </Extensions>
+    </InLine>
+  </Ad>
+
+  <!-- Ad 5. SIMID and nothing else, with no Duration. Every player without SIMID
+       support fires the error URI, and the ones that render it cannot fire
+       quartile or overlayViewDuration tracking. -->
+  <Ad id="portfolio-05-simid-only">
+    <InLine>
+      <AdSystem version="1.0">ExampleAdServer</AdSystem>
+      <AdTitle>SIMID with no fallback</AdTitle>
+      <Impression><![CDATA[https://track.example.com/imp?ad=05]]></Impression>
+      <Creatives>
+        <Creative id="creative-05">
+          <NonLinearAds>
+            <NonLinear id="nl-05" width="1920" height="300">
+              <NonLinearClickThrough><![CDATA[https://advertiser.example.com/landing]]></NonLinearClickThrough>
+            </NonLinear>
+          </NonLinearAds>
+        </Creative>
+      </Creatives>
+      <Extensions>
+        <Extension type="ctv_ad_portfolio">
+          <CreativeId>creative-05</CreativeId>
+          <plcmt>7</plcmt>
+          <pos>14</pos>
+          <MediaFiles>
+            <InteractiveCreativeFile apiFramework="SIMID" type="text/html" variableDuration="true"><![CDATA[https://cdn.example.com/simid/overlay.html]]></InteractiveCreativeFile>
+          </MediaFiles>
+        </Extension>
+      </Extensions>
+    </InLine>
+  </Ad>
+
+  <!-- Ad 6. Payload defects. plcmt is not a number at all; pos, playbackmethod
+       and attr are numbers outside the lists they name. -->
+  <Ad id="portfolio-06-adcom-payloads">
+    <InLine>
+      <AdSystem version="1.0">ExampleAdServer</AdSystem>
+      <AdTitle>AdCOM payload defects</AdTitle>
+      <Impression><![CDATA[https://track.example.com/imp?ad=06]]></Impression>
+      <Creatives>
+        <Creative id="creative-06">
+          <NonLinearAds>
+            <NonLinear id="nl-06" width="1920" height="1080">
+              <StaticResource creativeType="image/jpeg"><![CDATA[https://cdn.example.com/pause_1920x1080.jpg]]></StaticResource>
+            </NonLinear>
+          </NonLinearAds>
+        </Creative>
+      </Creatives>
+      <Extensions>
+        <Extension type="ctv_ad_portfolio">
+          <CreativeId>creative-06</CreativeId>
+          <plcmt>seven</plcmt>
+          <pos>99</pos>
+          <playbackmethod>42</playbackmethod>
+          <attr>5</attr>
+          <MediaFiles>
+            <MediaFile delivery="progressive" type="image/jpeg" width="1920" height="1080"><![CDATA[https://cdn.example.com/pause_1920x1080.jpg]]></MediaFile>
+          </MediaFiles>
+        </Extension>
+      </Extensions>
+    </InLine>
+  </Ad>
+
+  <!-- Ad 7. Every value is individually legal. Read as a set they name three
+       different formats: Pause, a Squeezeback layout, and a Screensaver
+       playback method. This is the defect a per-value check cannot see. -->
+  <Ad id="portfolio-07-signals-contradict">
+    <InLine>
+      <AdSystem version="1.0">ExampleAdServer</AdSystem>
+      <AdTitle>Signals contradict</AdTitle>
+      <Impression><![CDATA[https://track.example.com/imp?ad=07]]></Impression>
+      <Creatives>
+        <Creative id="creative-07">
+          <NonLinearAds>
+            <NonLinear id="nl-07" width="1920" height="1080">
+              <StaticResource creativeType="image/jpeg"><![CDATA[https://cdn.example.com/pause_1920x1080.jpg]]></StaticResource>
+            </NonLinear>
+          </NonLinearAds>
+        </Creative>
+      </Creatives>
+      <Extensions>
+        <Extension type="ctv_ad_portfolio">
+          <CreativeId>creative-07</CreativeId>
+          <plcmt>5</plcmt>
+          <pos>12</pos>
+          <playbackmethod>10</playbackmethod>
+          <attr>21</attr>
+          <MediaFiles>
+            <MediaFile delivery="progressive" type="image/jpeg" width="1920" height="1080"><![CDATA[https://cdn.example.com/pause_1920x1080.jpg]]></MediaFile>
+          </MediaFiles>
+        </Extension>
+      </Extensions>
+    </InLine>
+  </Ad>
+
+  <!-- Ad 8. Two QR extensions. The first is in pixels and missing a coordinate
+       and a destination; the second omits the size attribute outright.
+       QrCodePosition and QrCodeSize are typed as percentages in every revision
+       of the schema that has defined them, unlike <Icon>. -->
+  <Ad id="portfolio-08-qrcode">
+    <InLine>
+      <AdSystem version="1.0">ExampleAdServer</AdSystem>
+      <AdTitle>QR geometry defects</AdTitle>
+      <Impression><![CDATA[https://track.example.com/imp?ad=08]]></Impression>
+      <Creatives>
+        <Creative id="creative-08">
+          <NonLinearAds>
+            <NonLinear id="nl-08" width="1920" height="1080">
+              <StaticResource creativeType="image/jpeg"><![CDATA[https://cdn.example.com/pause_1920x1080.jpg]]></StaticResource>
+            </NonLinear>
+          </NonLinearAds>
+          <CreativeExtensions>
+            <CreativeExtension type="tl_qrcode">
+              <QrCodeImageUrl><![CDATA[https://cdn.example.com/qr/brand_qr.png]]></QrCodeImageUrl>
+              <QrCodePosition xPosition="120"/>
+              <QrCodeSize size="200"/>
+            </CreativeExtension>
+            <CreativeExtension type="tl_qrcode">
+              <QrCodeScanUrl><![CDATA[https://advertiser.example.com/code]]></QrCodeScanUrl>
+              <QrCodeImageUrl><![CDATA[https://cdn.example.com/qr/brand_qr2.png]]></QrCodeImageUrl>
+              <QrCodePosition xPosition="10.0%" yPosition="10.0%"/>
+              <QrCodeSize/>
+            </CreativeExtension>
+          </CreativeExtensions>
+        </Creative>
+      </Creatives>
+      <Extensions>
+        <Extension type="ctv_ad_portfolio">
+          <CreativeId>creative-08</CreativeId>
+          <plcmt>5</plcmt>
+          <pos>7</pos>
+          <attr>19</attr>
+          <MediaFiles>
+            <MediaFile delivery="progressive" type="image/jpeg" width="1920" height="1080"><![CDATA[https://cdn.example.com/pause_1920x1080.jpg]]></MediaFile>
+          </MediaFiles>
+        </Extension>
+      </Extensions>
+    </InLine>
+  </Ad>
+
+  <!-- Ad 9. plcmt 12 is outside Plcmt Subtypes (Video), which tops out at 9.
+       Note what does NOT fire: pos 12 would contradict a Pause, but with the
+       format itself unreadable there is nothing to contradict, so the pairing
+       checks stay quiet rather than guessing. Compare with Ad 7, where every
+       value is legal and the contradiction is real. -->
+  <Ad id="portfolio-09-plcmt-out-of-range">
+    <InLine>
+      <AdSystem version="1.0">ExampleAdServer</AdSystem>
+      <AdTitle>plcmt out of range</AdTitle>
+      <Impression><![CDATA[https://track.example.com/imp?ad=09]]></Impression>
+      <Creatives>
+        <Creative id="creative-09">
+          <NonLinearAds>
+            <NonLinear id="nl-09" width="1920" height="1080">
+              <StaticResource creativeType="image/jpeg"><![CDATA[https://cdn.example.com/pause_1920x1080.jpg]]></StaticResource>
+            </NonLinear>
+          </NonLinearAds>
+        </Creative>
+      </Creatives>
+      <Extensions>
+        <Extension type="ctv_ad_portfolio">
+          <CreativeId>creative-09</CreativeId>
+          <plcmt>12</plcmt>
+          <pos>12</pos>
+          <attr>21</attr>
+          <MediaFiles>
+            <MediaFile delivery="progressive" type="image/jpeg" width="1920" height="1080"><![CDATA[https://cdn.example.com/pause_1920x1080.jpg]]></MediaFile>
+          </MediaFiles>
+        </Extension>
+      </Extensions>
+    </InLine>
+  </Ad>
+
+</VAST>

@@ -3143,6 +3143,384 @@ fn ctv_portfolio_vast_2_0_allows_signalling_only_container() {
     assert!(!has_issue(&result, "VAST-4.4-adcom-attr-not-motion"));
 }
 
+/// The two extension documents IAB published on 2026-07-17 are written against
+/// VAST 2.0, but nothing in either container reads the version, so the checks
+/// are not gated on one. A 3.0 tag carrying the same container is the same
+/// document with a different version string and has to report the same
+/// findings, clean and defective alike.
+///
+/// Comparing the whole issue set rather than the portfolio ids alone is
+/// deliberate: a version gate added by accident anywhere in the path, or a
+/// generic rule that starts reporting the container on 3.0 only, shows up here
+/// as a difference.
+#[test]
+fn ctv_portfolio_extension_path_reports_the_same_on_vast_3_0() {
+    for fixture in [
+        "ok_ctv_portfolio_vast_2_0.xml",
+        "err_ctv_portfolio_vast_2_0_binding.xml",
+    ] {
+        let as_2_0 = load(fixture);
+        let as_3_0 = as_2_0.replace(r#"<VAST version="2.0">"#, r#"<VAST version="3.0">"#);
+        assert_ne!(
+            as_2_0, as_3_0,
+            "{fixture} no longer declares 2.0, so this test compares a document with itself"
+        );
+
+        let result_2_0 = validate(&as_2_0);
+        let result_3_0 = validate(&as_3_0);
+
+        let mut ids_2_0: Vec<&str> = result_2_0.issues.iter().map(|i| i.id).collect();
+        let mut ids_3_0: Vec<&str> = result_3_0.issues.iter().map(|i| i.id).collect();
+        ids_2_0.sort_unstable();
+        ids_3_0.sort_unstable();
+
+        assert_eq!(
+            ids_2_0, ids_3_0,
+            "{fixture}: the CTV Ad Portfolio extension path must not be version gated"
+        );
+    }
+}
+
+/// Every failure mode of the legacy extension path in one document, asserted as
+/// an exact set rather than rule by rule.
+///
+/// The per-rule tests above each prove one rule fires. This proves the category
+/// as a whole: that all of it is reachable from a single realistic tag, and
+/// that nothing else fires alongside it. An exact-set assertion is the point,
+/// because it fails in both directions. A rule that stops firing is caught, and
+/// so is a new rule that starts reporting this document without anyone deciding
+/// it should.
+///
+/// Several of these rules are mutually exclusive inside one container, so the
+/// fixture isolates each in its own `<Ad>`.
+#[test]
+fn ctv_portfolio_legacy_path_covers_every_reachable_rule() {
+    let xml = load("err_ctv_portfolio_legacy_all_modes.xml");
+    let result = validate(&xml);
+
+    let mut got: Vec<&str> = result.issues.iter().map(|i| i.id).collect();
+    got.sort_unstable();
+    got.dedup();
+
+    let expected = [
+        // The container's own contract.
+        "VAST-2.0-ctv-portfolio-creative-id-required",
+        "VAST-2.0-ctv-portfolio-creative-id-unmatched",
+        "VAST-2.0-ctv-portfolio-mediafiles-empty",
+        "VAST-2.0-ctv-portfolio-mediafiles-required",
+        "VAST-2.0-ctv-portfolio-no-duration",
+        "VAST-2.0-ctv-portfolio-no-renderable-asset",
+        // Not a portfolio rule. Ads 3 and 5 carry a deliberately bare
+        // <NonLinear> so the container is the only possible delivery vehicle,
+        // and the pre-existing 2.0 rule is right to say so.
+        "VAST-2.0-nonlinear-resource",
+        // Shared with the 4.x encoding, one id per defect rather than a
+        // per-container duplicate.
+        "VAST-4.4-adcom-attr-not-motion",
+        "VAST-4.4-adcom-playbackmethod-format-mismatch",
+        "VAST-4.4-adcom-playbackmethod-value",
+        "VAST-4.4-adcom-plcmt-value",
+        "VAST-4.4-adcom-pos-format-mismatch",
+        "VAST-4.4-adcom-pos-value",
+        "VAST-4.4-adcom-signal-not-integer",
+        "VAST-4.4-qrcode-missing-scan-url",
+        "VAST-4.4-qrcode-position-attrs",
+        "VAST-4.4-qrcode-position-percent",
+        "VAST-4.4-qrcode-size-attr",
+        "VAST-4.4-qrcode-size-percent",
+    ];
+
+    assert_eq!(got, expected);
+}
+
+/// The coverage claim behind the fixture, checked against the catalog rather
+/// than against a number written down by hand.
+///
+/// Every rule in the CTV Ad Portfolio category either fires on that document or
+/// is one of the seven gated on 4.x, which a legacy document cannot reach by
+/// definition: the four `<NonLinear>` content-model rules, the two
+/// `<Extension ext="adcom">` shape rules, and the 4.4 version notice.
+///
+/// Guards the claim itself. Add a legacy-reachable rule to the category without
+/// adding it to the fixture and this fails, so the fixture cannot silently fall
+/// behind the catalog.
+#[test]
+fn ctv_portfolio_legacy_fixture_reaches_every_non_4x_rule() {
+    let result = validate(&load("err_ctv_portfolio_legacy_all_modes.xml"));
+    let fired: std::collections::HashSet<&str> = result.issues.iter().map(|i| i.id).collect();
+
+    const FOUR_X_ONLY: [&str; 7] = [
+        "VAST-4.4-version-attribute",
+        "VAST-4.4-nonlinear-no-renderable-asset",
+        "VAST-4.4-nonlinear-mediafiles-empty",
+        "VAST-4.4-nonlinear-simid-iframe",
+        "VAST-4.4-nonlinear-video-no-duration",
+        "VAST-4.4-adcom-extension-unknown-signal",
+        "VAST-4.4-adcom-extension-type-mismatch",
+    ];
+
+    let unreached: Vec<&str> = vastlint_core::all_rules()
+        .iter()
+        .map(|r| r.id)
+        .filter(|id| id.starts_with("VAST-4.4-") || id.contains("ctv-portfolio"))
+        .filter(|id| !fired.contains(id) && !FOUR_X_ONLY.contains(id))
+        .collect();
+
+    assert!(
+        unreached.is_empty(),
+        "legacy-reachable CTV Ad Portfolio rules with no coverage in the fixture: {:?}",
+        unreached
+    );
+}
+
+/// The whole question the fixture exists to answer: the same document declared
+/// 3.0 reports exactly the same thing. IAB wrote the extension documents
+/// against 2.0 and published no 3.0 variant, but neither container reads the
+/// version, so nothing about the output may depend on it.
+#[test]
+fn ctv_portfolio_legacy_fixture_is_identical_on_vast_3_0() {
+    let as_2_0 = load("err_ctv_portfolio_legacy_all_modes.xml");
+    let as_3_0 = as_2_0.replace(r#"<VAST version="2.0">"#, r#"<VAST version="3.0">"#);
+    assert_ne!(
+        as_2_0, as_3_0,
+        "fixture no longer declares 2.0, so this compares a document with itself"
+    );
+
+    let result_2_0 = validate(&as_2_0);
+    let result_3_0 = validate(&as_3_0);
+
+    let mut ids_2_0: Vec<&str> = result_2_0.issues.iter().map(|i| i.id).collect();
+    let mut ids_3_0: Vec<&str> = result_3_0.issues.iter().map(|i| i.id).collect();
+    ids_2_0.sort_unstable();
+    ids_3_0.sort_unstable();
+
+    assert_eq!(ids_2_0, ids_3_0);
+}
+
+/// The container holds the ad's real media, duration, icons and tracking,
+/// because VAST 2.0 has no other element that can. So the rules for those
+/// elements have to reach inside it, exactly as 0.11.1 took them inside
+/// `<NonLinear>` for the 4.x content model.
+///
+/// Before this traversal existed the whole document below reported nothing at
+/// all. The identical elements under `<Linear>` are 11 errors and 2 warnings.
+#[test]
+fn ctv_portfolio_container_contents_get_the_element_rules() {
+    let xml = r#"<?xml version="1.0" encoding="UTF-8"?>
+<VAST version="2.0">
+  <Ad id="a">
+    <InLine>
+      <AdSystem version="1.0">ExampleAdServer</AdSystem>
+      <AdTitle>Pause</AdTitle>
+      <Impression><![CDATA[https://track.example.com/imp]]></Impression>
+      <Creatives>
+        <Creative id="c1">
+          <NonLinearAds>
+            <NonLinear id="nl" width="1920" height="1080">
+              <StaticResource creativeType="image/jpeg"><![CDATA[https://cdn.example.com/a.jpg]]></StaticResource>
+            </NonLinear>
+          </NonLinearAds>
+        </Creative>
+      </Creatives>
+      <Extensions>
+        <Extension type="ctv_ad_portfolio">
+          <CreativeId>c1</CreativeId>
+          <plcmt>5</plcmt>
+          <Duration>banana</Duration>
+          <TrackingEvents>
+            <Tracking event="notARealEvent"><![CDATA[https://track.example.com/e]]></Tracking>
+          </TrackingEvents>
+          <Icons>
+            <Icon><StaticResource creativeType="image/png"><![CDATA[https://cdn.example.com/ac.png]]></StaticResource></Icon>
+          </Icons>
+          <MediaFiles>
+            <MediaFile><![CDATA[https://cdn.example.com/a.mp4]]></MediaFile>
+            <InteractiveCreativeFile><![CDATA[https://cdn.example.com/s.html]]></InteractiveCreativeFile>
+          </MediaFiles>
+        </Extension>
+      </Extensions>
+    </InLine>
+  </Ad>
+</VAST>"#;
+
+    let result = validate(xml);
+    for id in [
+        "VAST-2.0-mediafile-delivery",
+        "VAST-2.0-mediafile-type",
+        "VAST-2.0-mediafile-dimensions",
+        "VAST-4.0-interactive-creative-no-api",
+        "VAST-4.1-interactive-creative-type",
+        "VAST-3.0-icon-program",
+        "VAST-3.0-icon-width",
+        "VAST-3.0-icon-height",
+        "VAST-3.0-icon-xposition",
+        "VAST-3.0-icon-yposition",
+        "VAST-3.0-icon-attrs",
+        "VAST-2.0-duration-format",
+        "VAST-4.1-tracking-event-value",
+    ] {
+        assert!(
+            has_issue(&result, id),
+            "{id} must fire inside <Extension type=\"ctv_ad_portfolio\">"
+        );
+    }
+
+    // The findings have to point at the element, not at the container, or a CI
+    // annotation sends someone to the wrong line.
+    let mf = result
+        .issues
+        .iter()
+        .find(|i| i.id == "VAST-2.0-mediafile-delivery")
+        .expect("checked above");
+    assert_eq!(
+        mf.path.as_deref(),
+        Some("/VAST/Ad[0]/InLine/Extensions/Extension[0]/MediaFiles/MediaFile[0]")
+    );
+
+    // Same document on 3.0. The container is the legacy encoding, so the
+    // traversal must not be gated on a version the way the NonLinear one is.
+    let as_3_0 = xml.replace(r#"<VAST version="2.0">"#, r#"<VAST version="3.0">"#);
+    let mut ids_2_0: Vec<&str> = result.issues.iter().map(|i| i.id).collect();
+    let result_3_0 = validate(&as_3_0);
+    let mut ids_3_0: Vec<&str> = result_3_0.issues.iter().map(|i| i.id).collect();
+    ids_2_0.sort_unstable();
+    ids_3_0.sort_unstable();
+    assert_eq!(ids_2_0, ids_3_0);
+}
+
+/// The traversal is not version gated, but the rules it reaches still are, and
+/// the two must compose. `<Mezzanine>` is the case that proves it: 4.0 declares
+/// it as a bare `xs:anyURI` with no attributes and 4.1 makes it a complexType,
+/// so the attribute rules are 4.1+.
+///
+/// Reaching into the container must not hand a VAST 2.0 document a requirement
+/// its schema never had. That is the 0.11.2 bug class, and a traversal that
+/// deliberately ignores the version is exactly where it would come back.
+#[test]
+fn ctv_portfolio_container_still_honours_per_rule_version_gates() {
+    let xml = |version: &str| {
+        format!(
+            r#"<?xml version="1.0" encoding="UTF-8"?>
+<VAST version="{version}">
+  <Ad id="a">
+    <InLine>
+      <AdSystem version="1.0">ExampleAdServer</AdSystem>
+      <AdTitle>Pause</AdTitle>
+      <Impression><![CDATA[https://track.example.com/imp]]></Impression>
+      <Creatives>
+        <Creative id="c1">
+          <NonLinearAds>
+            <NonLinear id="nl" width="1920" height="1080">
+              <StaticResource creativeType="image/jpeg"><![CDATA[https://cdn.example.com/a.jpg]]></StaticResource>
+            </NonLinear>
+          </NonLinearAds>
+        </Creative>
+      </Creatives>
+      <Extensions>
+        <Extension type="ctv_ad_portfolio">
+          <CreativeId>c1</CreativeId>
+          <plcmt>5</plcmt>
+          <pos>7</pos>
+          <MediaFiles>
+            <MediaFile delivery="progressive" type="image/jpeg" width="1" height="1"><![CDATA[https://cdn.example.com/a.jpg]]></MediaFile>
+            <Mezzanine><![CDATA[https://cdn.example.com/mezz.mp4]]></Mezzanine>
+          </MediaFiles>
+        </Extension>
+      </Extensions>
+    </InLine>
+  </Ad>
+</VAST>"#
+        )
+    };
+
+    let on_4_2 = validate(&xml("4.2"));
+    for id in [
+        "VAST-4.1-mezzanine-delivery",
+        "VAST-4.1-mezzanine-type",
+        "VAST-4.1-mezzanine-width",
+        "VAST-4.1-mezzanine-height",
+    ] {
+        assert!(
+            has_issue(&on_4_2, id),
+            "{id} must fire inside the container on 4.2"
+        );
+    }
+
+    let on_2_0 = validate(&xml("2.0"));
+    assert!(
+        !on_2_0.issues.iter().any(|i| i.id.contains("mezzanine")),
+        "VAST 2.0 has no <Mezzanine> requirement to report: {:?}",
+        on_2_0.issues.iter().map(|i| i.id).collect::<Vec<_>>()
+    );
+}
+
+/// A vendor `<Extension>` is a private payload. Its children may happen to be
+/// named like VAST elements and are none of the linter's business, so the
+/// traversal above must key off the standardised-container allowlist rather
+/// than off the presence of a `<MediaFiles>` child.
+#[test]
+fn vendor_extension_contents_are_left_alone() {
+    let xml = r#"<?xml version="1.0" encoding="UTF-8"?>
+<VAST version="2.0">
+  <Ad id="a">
+    <InLine>
+      <AdSystem version="1.0">ExampleAdServer</AdSystem>
+      <AdTitle>Pause</AdTitle>
+      <Impression><![CDATA[https://track.example.com/imp]]></Impression>
+      <Creatives>
+        <Creative id="c1">
+          <NonLinearAds>
+            <NonLinear id="nl" width="1920" height="1080">
+              <StaticResource creativeType="image/jpeg"><![CDATA[https://cdn.example.com/a.jpg]]></StaticResource>
+            </NonLinear>
+          </NonLinearAds>
+        </Creative>
+      </Creatives>
+      <Extensions>
+        <Extension type="acme-private-format">
+          <Duration>banana</Duration>
+          <MediaFiles>
+            <MediaFile><![CDATA[https://cdn.example.com/a.mp4]]></MediaFile>
+          </MediaFiles>
+        </Extension>
+      </Extensions>
+    </InLine>
+  </Ad>
+</VAST>"#;
+
+    let result = validate(xml);
+    for id in [
+        "VAST-2.0-mediafile-delivery",
+        "VAST-2.0-mediafile-type",
+        "VAST-2.0-mediafile-dimensions",
+        "VAST-2.0-duration-format",
+    ] {
+        assert!(
+            !has_issue(&result, id),
+            "{id} must not fire inside a vendor extension payload"
+        );
+    }
+}
+
+/// The other half of that boundary. The per-signal `<Extension ext="adcom">`
+/// shape belongs to the 4.x guidance, so it stays off below 4.0 whichever
+/// legacy version the document declares, not just on the 2.0 the extension
+/// documents name. Without this, a 3.0 tag would be told about AdCOM signal
+/// shapes that have no 3.0 encoding.
+#[test]
+fn ctv_portfolio_rules_do_not_fire_on_vast_3_0() {
+    let xml = load("err_ctv_adcom_signal_values.xml")
+        .replace(r#"<VAST version="4.2">"#, r#"<VAST version="3.0">"#);
+    let result = validate(&xml);
+    for issue in &result.issues {
+        assert!(
+            !issue.id.starts_with("VAST-4.4-"),
+            "no 4.4 rule may fire on a 3.0 document, got {}",
+            issue.id
+        );
+    }
+}
+
 // ── the CTV content model reuses the existing element rules ───────────────────
 
 /// A `<MediaFile>` is the same element wherever it hangs. The CTV Ad Portfolio

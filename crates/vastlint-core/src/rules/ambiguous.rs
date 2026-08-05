@@ -84,6 +84,49 @@ fn check_inline(
             }
         }
     }
+
+    check_standardised_extension_icons(inline, inline_path, v, ctx, issues);
+}
+
+/// The recommended-attribute advice for `<Icons>` carried by a standardised IAB
+/// extension container.
+///
+/// The counterpart to the `<NonLinearAds>` traversal above. `<Extension
+/// type="ctv_ad_portfolio">` is where a VAST 2.0 or 3.0 ad declares its
+/// ad-choices icon, since those versions have no `<Icons>` under
+/// `<NonLinearAds>` to put it in. The advice is about the element, not about
+/// where it hangs.
+///
+/// Not version gated, unlike the NonLinearAds traversal: the container is the
+/// legacy encoding and only appears where the 4.x location does not exist.
+fn check_standardised_extension_icons(
+    node: &Node,
+    path: &str,
+    v: Option<&VastVersion>,
+    ctx: &ValidationContext,
+    issues: &mut Vec<Issue>,
+) {
+    let Some(extensions) = node.child("Extensions") else {
+        return;
+    };
+
+    for (ext_idx, ext) in extensions.children_named("Extension").enumerate() {
+        if !ext.is_standardised_iab_extension() {
+            continue;
+        }
+        let Some(icons) = ext.child("Icons") else {
+            continue;
+        };
+
+        for (icon_idx, icon) in icons.children_named("Icon").enumerate() {
+            let icon_path = format!(
+                "{}/Extensions/Extension[{}]/Icons/Icon[{}]",
+                path, ext_idx, icon_idx
+            );
+            check_icon(icon, &icon_path, ctx, issues);
+            check_icon_fallback_images(icon, &icon_path, v, ctx, issues);
+        }
+    }
 }
 
 fn check_linear(
@@ -301,4 +344,6 @@ fn check_wrapper(
             }
         }
     }
+
+    check_standardised_extension_icons(wrapper, path, v, ctx, issues);
 }

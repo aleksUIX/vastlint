@@ -6,6 +6,73 @@ GitHub Releases: <https://github.com/aleksUIX/vastlint/releases>
 
 ---
 
+## [Unreleased]
+
+**Upgrading can fail a build that passed.** Existing rules now fire inside the
+CTV Ad Portfolio extension container, at their existing severities, most of them
+errors. No rule id is new and no setting changed, so a tag that validated clean
+on 0.11.3 can report errors without anything on your side changing. Only VAST
+2.0 and 3.0 tags using `<Extension type="ctv_ad_portfolio">` are affected. If
+you gate CI on vastlint and serve the CTV Ad Portfolio on the legacy path,
+validate a sample before you bump.
+
+### Fixed
+
+- **The CTV Ad Portfolio extension container now reuses the element rules that
+  already existed.** This is the same defect 0.11.1 fixed for the 4.x
+  `<NonLinear>` content model, one container over. That release taught the
+  element rules to traverse `<NonLinear><MediaFiles>`; the VAST 2.0 container
+  has the identical shape and did not get the same treatment, so everything
+  inside it arrived with no validation at all.
+
+  `<Extension type="ctv_ad_portfolio">` exists to give VAST 2.0 and 3.0 the
+  media delivery model those versions have no element for. Its children are the
+  ad's real media, duration, icons and tracking, not a vendor payload. A
+  `<MediaFile>` in there with no `delivery`, `type`, `width` or `height`
+  produced nothing; the identical element under `<Linear>` produces three
+  errors. Since the container is the only delivery vehicle on the legacy path,
+  a portfolio tag could carry an unusable media file and validate clean.
+
+  No new rule ids. `VAST-2.0-mediafile-delivery`, `-type`, `-dimensions`, the
+  `VAST-2.0-mediafile-*` value rules, `VAST-4.1-mezzanine-*`,
+  `VAST-4.0-interactive-creative-no-api`, `VAST-4.1-interactive-creative-type`,
+  `VAST-3.0-icon-program`, `-width`, `-height`, `-xposition`, `-yposition`,
+  `-attrs`, `VAST-2.0-duration-format` and `VAST-4.1-tracking-event-value` now
+  fire wherever their element appears. Catalog stays at 220. Both the `InLine`
+  and `Wrapper` containers are covered.
+
+  Unlike the NonLinear traversal, this one is **not** version gated. The
+  container is the legacy encoding, so gating on 4.x would switch the checks off
+  in the only place it is ever used. Per-rule version gating still applies:
+  `VAST-4.1-mezzanine-*` stays 4.1+, so a 2.0 document is not told about a
+  requirement its schema never had.
+
+  Scoped by `Node::is_standardised_iab_extension` rather than by a literal type
+  string. A vendor `<Extension>` carrying its own private `<MediaFile>` is left
+  alone, and a future IAB container inherits the traversal by being added to
+  that one allowlist rather than by hand-writing another walk.
+
+### Added
+
+- `err_ctv_portfolio_legacy_all_modes.xml`, which exercises every failure mode
+  of the legacy extension path in one document, nine ads isolating rules that
+  are mutually exclusive inside a single container. Three tests read it: an
+  exact-set assertion that fails in both directions, a guard that every
+  legacy-reachable rule in the category appears in it (checked against the
+  catalog, so the fixture cannot fall behind), and a 2.0-versus-3.0 comparison.
+- Regression tests that the extension path is not version gated: both 2.0
+  fixtures re-declared as 3.0 must report identical issue sets, and the 4.x
+  `<Extension ext="adcom">` shape rules must stay off below 4.0 whichever
+  legacy version the document declares.
+- A test that the two gating models compose. The traversal ignores the document
+  version; the rules it reaches do not. `<Mezzanine>` proves it, firing inside
+  the container on 4.2 and staying silent on 2.0, which has no such requirement.
+  A traversal that deliberately ignores the version is exactly where the 0.11.2
+  bug class would come back.
+- A test that a vendor `<Extension>` carrying its own `<MediaFile>` and
+  `<Duration>` is left alone, so the traversal cannot start reporting private
+  payloads as defective VAST.
+
 ## [0.11.3] - 2026-08-04
 
 Dependency maintenance. No rule changed, nothing was added or removed from the
