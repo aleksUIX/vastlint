@@ -10,7 +10,7 @@
   },
   "documentation": "https://vastlint.org/docs/rules",
   "license": "Apache-2.0",
-  "version": "0.11.5",
+  "version": "0.11.6",
   "remotes": [
     {
       "type": "sse",

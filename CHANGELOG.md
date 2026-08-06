@@ -6,6 +6,58 @@ GitHub Releases: <https://github.com/aleksUIX/vastlint/releases>
 
 ---
 
+## [0.11.6] - 2026-08-05
+
+**Two new rules and one newly-reachable existing rule.** A tag that validated
+clean on 0.11.5 can report findings here: `<Duration>` is now format-checked
+under `<NonLinear>`, and QR geometry without an image is reported. Catalog:
+220 to 222.
+
+### Added
+
+- `VAST-4.4-qrcode-missing-image-url` (warning). The mirror of
+  `-missing-scan-url` for the other asset. Geometry tells the platform where to
+  draw a QR code and how big; without `<QrCodeImageUrl>` there is nothing to
+  draw. Like every rule in that group it comes from the guidance rather than the
+  XSD, which requires none of the four QR children (they sit in an unbounded
+  choice with `minOccurs="0"`).
+- `VAST-3.0-adparameters-xmlencoded-value` (warning). `xmlEncoded` is a boolean
+  that nothing had ever looked at, so `xmlEncoded="yes"` validated clean. The
+  player reads it to decide whether to XML decode the payload before handing it
+  to VPAID or SIMID, and a value it cannot parse means it guesses. Accepts
+  `true`, `false`, `1` and `0`, case-insensitively.
+
+### Fixed
+
+- **`<Duration>` is format-checked under `<NonLinear>`.** The CTV Ad Portfolio
+  put a `<Duration>` there on 4.x, and the format rule had only ever been
+  reached under `<Linear>` and, since 0.11.4, inside the extension container. No
+  traversal was written for the NonLinear case and no fixture covered it, so
+  nothing failed. Migrating the rule to element dispatch covered it without a
+  line of code aimed at the case, which is the clearest evidence so far that the
+  0.11.5 architecture does what it claims.
+
+### Changed
+
+- **`<Icon>`, `<Tracking>` and `<Duration>` migrated to element dispatch**,
+  removing the last of the duplicated element traversals. `<Icon>` had three
+  call sites across two modules; `<Tracking>` had two.
+
+  Two constraints surfaced doing it, both now explicit and tested. `<Tracking>`
+  is genuinely position-dependent: `<Verification>` tracking uses its own
+  vocabulary (`verificationNotExecuted`) and its own checker, so the Linear and
+  NonLinear event enum must not be applied there. And the element gates had to
+  become per element rather than per subtree, because `<AdParameters>` is valid
+  under a VAST 2.0 `<NonLinear>` while the 4.x content model around it is not.
+
+  Both were found by diffing the full fixture corpus rather than by the test
+  suite, which is the argument for running that diff on every migration of this
+  kind. Regression tests added for each.
+
+  Rules whose subject really is a location keep their own traversals:
+  `VAST-2.0-nonlinear-resource`, `SIMID-1.0-simid-mediafile-required`, the
+  quartile-coverage warning, and the CTV Ad Portfolio container rules.
+
 ## [0.11.5] - 2026-08-05
 
 **No rule changed and no finding moved.** All 631 findings across the
