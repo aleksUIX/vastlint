@@ -4,7 +4,7 @@
 //! enforce it, so validation must happen in code. Also covers best-practice
 //! guidance that has a meaningful impact on ad serving.
 
-use super::{allows_ctv_nonlinear, emit};
+use super::emit;
 use crate::parse::{Node, VastDocument};
 use crate::{DetectedVersion, Issue, Severity, ValidationContext, VastVersion};
 
@@ -58,19 +58,6 @@ fn check_inline(
                     issues,
                 );
             }
-
-            // <Icons> under <NonLinearAds> is the CTV Ad Portfolio location for
-            // an ad-choices icon. The recommended-attribute advice is about the
-            // element, not about where it hangs.
-            if allows_ctv_nonlinear(v.copied()) {
-                if let Some(icons) = non_linear_ads.child("Icons") {
-                    for (icon_idx, icon) in icons.children_named("Icon").enumerate() {
-                        let icon_path = format!("{}/Icons/Icon[{}]", nl_ads_path, icon_idx);
-                        check_icon(icon, &icon_path, ctx, issues);
-                        check_icon_fallback_images(icon, &icon_path, v, ctx, issues);
-                    }
-                }
-            }
         }
 
         if let Some(companion_ads) = creative.child("CompanionAds") {
@@ -82,49 +69,6 @@ fn check_inline(
                     issues,
                 );
             }
-        }
-    }
-
-    check_standardised_extension_icons(inline, inline_path, v, ctx, issues);
-}
-
-/// The recommended-attribute advice for `<Icons>` carried by a standardised IAB
-/// extension container.
-///
-/// The counterpart to the `<NonLinearAds>` traversal above. `<Extension
-/// type="ctv_ad_portfolio">` is where a VAST 2.0 or 3.0 ad declares its
-/// ad-choices icon, since those versions have no `<Icons>` under
-/// `<NonLinearAds>` to put it in. The advice is about the element, not about
-/// where it hangs.
-///
-/// Not version gated, unlike the NonLinearAds traversal: the container is the
-/// legacy encoding and only appears where the 4.x location does not exist.
-fn check_standardised_extension_icons(
-    node: &Node,
-    path: &str,
-    v: Option<&VastVersion>,
-    ctx: &ValidationContext,
-    issues: &mut Vec<Issue>,
-) {
-    let Some(extensions) = node.child("Extensions") else {
-        return;
-    };
-
-    for (ext_idx, ext) in extensions.children_named("Extension").enumerate() {
-        if !ext.is_standardised_iab_extension() {
-            continue;
-        }
-        let Some(icons) = ext.child("Icons") else {
-            continue;
-        };
-
-        for (icon_idx, icon) in icons.children_named("Icon").enumerate() {
-            let icon_path = format!(
-                "{}/Extensions/Extension[{}]/Icons/Icon[{}]",
-                path, ext_idx, icon_idx
-            );
-            check_icon(icon, &icon_path, ctx, issues);
-            check_icon_fallback_images(icon, &icon_path, v, ctx, issues);
         }
     }
 }
@@ -192,21 +136,17 @@ fn check_linear(
             );
         }
     }
-
-    // Check icon attributes.
-    if let Some(icons) = linear.child("Icons") {
-        for (icon_idx, icon) in icons.children_named("Icon").enumerate() {
-            let icon_path = format!("{}/Icons/Icon[{}]", path, icon_idx);
-            check_icon(icon, &icon_path, ctx, issues);
-            check_icon_fallback_images(icon, &icon_path, _v, ctx, issues);
-        }
-    }
 }
 
 /// VAST-3.0-icon-attrs: Icons should declare program, width, height and
 /// position. The XSD marks these optional but the spec says they are required
 /// for ad pods and strongly recommended everywhere.
-fn check_icon(icon: &Node, path: &str, ctx: &ValidationContext, issues: &mut Vec<Issue>) {
+pub(super) fn check_icon(
+    icon: &Node,
+    path: &str,
+    ctx: &ValidationContext,
+    issues: &mut Vec<Issue>,
+) {
     const RECOMMENDED_ATTRS: &[&str] = &["program", "width", "height", "xPosition", "yPosition"];
 
     for attr in RECOMMENDED_ATTRS {
@@ -228,7 +168,7 @@ fn check_icon(icon: &Node, path: &str, ctx: &ValidationContext, issues: &mut Vec
 
 /// VAST-4.2-icon-fallback-image-width-height: IconClickFallbackImage should
 /// have width and height so the player can size the overlay correctly.
-fn check_icon_fallback_images(
+pub(super) fn check_icon_fallback_images(
     icon: &Node,
     icon_path: &str,
     v: Option<&VastVersion>,
@@ -344,6 +284,4 @@ fn check_wrapper(
             }
         }
     }
-
-    check_standardised_extension_icons(wrapper, path, v, ctx, issues);
 }

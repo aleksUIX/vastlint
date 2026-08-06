@@ -340,50 +340,6 @@ fn check_inline(
     if let Some(extensions) = inline.child("Extensions") {
         let extensions_path = format!("{}/Extensions", path);
         check_embedded_ad_verifications(extensions, &extensions_path, version, ctx, issues);
-        check_standardised_extension_assets(extensions, &extensions_path, version, ctx, issues);
-    }
-}
-
-/// Attribute rules for the VAST content a standardised IAB extension carries.
-///
-/// `<Extension type="ctv_ad_portfolio">` exists to give VAST 2.0 and 3.0 the
-/// `<MediaFiles>` delivery model those versions have no element for, so its
-/// children are the ad's real media and icons rather than a vendor payload.
-/// The requirements belong to those elements wherever they sit, which is the
-/// same reasoning that took the element rules into `<NonLinear>` in 0.11.1.
-///
-/// Deliberately **not** version gated, unlike the NonLinear traversal. The
-/// container is the legacy encoding, so gating on 4.x would switch these checks
-/// off in the only place the container is ever used.
-///
-/// Scoped by [`Node::is_standardised_iab_extension`] rather than by a literal
-/// type string, so a vendor `<Extension>` carrying its own private `<MediaFile>`
-/// is left alone, and a future IAB container inherits the traversal by being
-/// added to that one allowlist.
-fn check_standardised_extension_assets(
-    extensions: &Node,
-    extensions_path: &str,
-    version: &DetectedVersion,
-    ctx: &ValidationContext,
-    issues: &mut Vec<Issue>,
-) {
-    for (i, ext) in extensions.children_named("Extension").enumerate() {
-        if !ext.is_standardised_iab_extension() {
-            continue;
-        }
-        let ext_path = format!("{}/Extension[{}]", extensions_path, i);
-
-        if let Some(icons) = ext.child("Icons") {
-            for (ii, icon) in icons.children_named("Icon").enumerate() {
-                check_icon_required_attrs(
-                    icon,
-                    &format!("{}/Icons/Icon[{}]", ext_path, ii),
-                    version,
-                    ctx,
-                    issues,
-                );
-            }
-        }
     }
 }
 
@@ -452,7 +408,7 @@ fn check_inline_creative(
     // VAST-2.0-nonlinear-resource: InLine NonLinear must have a resource.
     if let Some(nl_ads) = creative.child("NonLinearAds") {
         let nl_ads_path = format!("{}/NonLinearAds", creative_path);
-        let ctv_model = allows_ctv_nonlinear(version.best().copied());
+        let _ctv_model = allows_ctv_nonlinear(version.best().copied());
 
         for (ni, nl) in nl_ads.children_named("NonLinear").enumerate() {
             let nl_path = format!("{}/NonLinear[{}]", nl_ads_path, ni);
@@ -464,23 +420,6 @@ fn check_inline_creative(
             // height is new in 4.4; only the location is, and IAB's own Pause,
             // Screensaver, Overlay and Squeezeback examples declare the full
             // set.
-        }
-
-        // <Icons> moved under <NonLinearAds> so a NonLinear placement can carry
-        // an ad-choices icon. Same element, same required attributes as under
-        // <Linear>; without them the player has no way to size or place it.
-        if ctv_model {
-            if let Some(icons) = nl_ads.child("Icons") {
-                for (ii, icon) in icons.children_named("Icon").enumerate() {
-                    check_icon_required_attrs(
-                        icon,
-                        &format!("{}/Icons/Icon[{}]", nl_ads_path, ii),
-                        version,
-                        ctx,
-                        issues,
-                    );
-                }
-            }
         }
     }
 
@@ -501,7 +440,7 @@ fn check_inline_creative(
 fn check_inline_linear(
     linear: &Node,
     linear_path: &str,
-    version: &DetectedVersion,
+    _version: &DetectedVersion,
     ctx: &ValidationContext,
     issues: &mut Vec<Issue>,
 ) {
@@ -547,19 +486,6 @@ fn check_inline_linear(
                     Some(linear),
                 )
             }
-        }
-    }
-
-    // Icon required attrs (VAST 3.0+).
-    if let Some(icons) = linear.child("Icons") {
-        for (ii, icon) in icons.children_named("Icon").enumerate() {
-            check_icon_required_attrs(
-                icon,
-                &format!("{}/Icons/Icon[{}]", linear_path, ii),
-                version,
-                ctx,
-                issues,
-            );
         }
     }
 }
@@ -759,7 +685,6 @@ fn check_wrapper(
     if let Some(extensions) = wrapper.child("Extensions") {
         let extensions_path = format!("{}/Extensions", path);
         check_embedded_ad_verifications(extensions, &extensions_path, version, ctx, issues);
-        check_standardised_extension_assets(extensions, &extensions_path, version, ctx, issues);
     }
 }
 

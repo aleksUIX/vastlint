@@ -224,27 +224,15 @@ fn taxonomy_authority_host(value: &str) -> Option<String> {
 fn check_standardised_extension_values(
     extensions: &Node,
     extensions_path: &str,
-    v: Option<&VastVersion>,
-    ctx: &ValidationContext,
-    issues: &mut Vec<Issue>,
+    _v: Option<&VastVersion>,
+    _ctx: &ValidationContext,
+    _issues: &mut Vec<Issue>,
 ) {
     for (i, ext) in extensions.children_named("Extension").enumerate() {
         if !ext.is_standardised_iab_extension() {
             continue;
         }
-        let ext_path = format!("{}/Extension[{}]", extensions_path, i);
-
-        if let Some(tracking_events) = ext.child("TrackingEvents") {
-            for (ti, tracking) in tracking_events.children_named("Tracking").enumerate() {
-                check_tracking_value(
-                    tracking,
-                    &format!("{}/TrackingEvents/Tracking[{}]", ext_path, ti),
-                    v,
-                    ctx,
-                    issues,
-                );
-            }
-        }
+        let _ext_path = format!("{}/Extension[{}]", extensions_path, i);
     }
 }
 
@@ -291,7 +279,7 @@ fn check_creative(
 fn check_linear(
     node: &Node,
     path: &str,
-    v: Option<&VastVersion>,
+    _v: Option<&VastVersion>,
     ctx: &ValidationContext,
     issues: &mut Vec<Issue>,
 ) {
@@ -331,17 +319,9 @@ fn check_linear(
             }
         }
     }
-
-    // VAST-3.0-progress-offset-format: progress offset format check.
-    if let Some(events) = node.child("TrackingEvents") {
-        for (ti, tracking) in events.children_named("Tracking").enumerate() {
-            let tp = format!("{}/TrackingEvents/Tracking[{}]", path, ti);
-            check_tracking_value(tracking, &tp, v, ctx, issues);
-        }
-    }
 }
 
-fn check_tracking_value(
+pub(super) fn check_tracking_value(
     tracking: &Node,
     path: &str,
     v: Option<&VastVersion>,

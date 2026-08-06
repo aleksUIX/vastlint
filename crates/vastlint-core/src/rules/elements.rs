@@ -10,8 +10,8 @@
 //! `<Extension type="ctv_ad_portfolio">` in 0.11.4. Three traversals, one set
 //! of requirements. Now there is one dispatch and no traversal to forget.
 
-use super::walk::{visit_vast_elements, Location};
-use super::{required, values};
+use super::walk::visit_vast_elements;
+use super::{ambiguous, required, values};
 use crate::parse::VastDocument;
 use crate::{DetectedVersion, Issue, ValidationContext, VastVersion};
 
@@ -25,11 +25,21 @@ pub fn check(
     let v = version.best().copied();
 
     visit_vast_elements(vast, "/VAST", &mut |node, loc| {
-        if !subtree_is_valid_here(loc, v) {
-            return;
-        }
-
         match node.name.as_str() {
+            // The CTV Ad Portfolio content model is 4.x. Below 4.0 these live
+            // in a <NonLinear> that has no such container, so structure.rs
+            // already reports them as unknown children and adding the attribute
+            // rules would describe one defect twice. The extension container is
+            // deliberately not gated: it is the legacy encoding, valid exactly
+            // where the NonLinear model is not.
+            "MediaFile" | "Mezzanine" | "InteractiveCreativeFile" | "Duration"
+                if loc.inside("NonLinear") && !is_v4(v) => {}
+
+            // <Icons> under <NonLinearAds> is likewise a 4.x location. Under
+            // <Linear> it has been valid since 3.0, so only the NonLinearAds
+            // case is gated.
+            "Icon" if loc.inside("NonLinearAds") && !is_v4(v) => {}
+
             "MediaFile" => {
                 let path = loc.path();
                 required::check_mediafile(node, &path, ctx, issues);
@@ -42,6 +52,25 @@ pub fn check(
             // hand a 4.0 or 2.0 document a requirement its schema never had.
             "Mezzanine" if at_least(v, VastVersion::V4_1) => {
                 required::check_mezzanine_required_attrs(node, &loc.path(), ctx, issues);
+            }
+
+            "Icon" => {
+                let path = loc.path();
+                required::check_icon_required_attrs(node, &path, version, ctx, issues);
+                ambiguous::check_icon(node, &path, ctx, issues);
+                ambiguous::check_icon_fallback_images(node, &path, v.as_ref(), ctx, issues);
+            }
+
+            // <Verification> tracking has its own vocabulary
+            // (verificationNotExecuted) and its own checker in required.rs.
+            // The event enum this rule validates against is the Linear and
+            // NonLinear one, so applying it here reports a conforming
+            // AdVerifications block as defective. <Tracking> is one of the few
+            // elements whose meaning really does depend on where it sits.
+            "Tracking" if loc.inside("Verification") => {}
+
+            "Tracking" => {
+                values::check_tracking_value(node, &loc.path(), v.as_ref(), ctx, issues);
             }
 
             "Duration" => {
@@ -61,23 +90,8 @@ pub fn check(
     });
 }
 
-/// Whether the element rules should run on this subtree at all.
-///
-/// The CTV Ad Portfolio content model is 4.x. Below 4.0 a `<MediaFiles>` under
-/// `<NonLinear>` is not a relocated element, it is an unknown child, and
-/// `structure.rs` already reports it as exactly that. Running the attribute
-/// rules there as well would describe one defect twice, which is the
-/// double-reporting 0.11.1 was careful to avoid.
-///
-/// The `<Extension type="ctv_ad_portfolio">` container is deliberately absent
-/// from this check. It is the legacy encoding: its whole purpose is to carry
-/// this content model on versions that have no other way to express it, so it
-/// is valid precisely where the NonLinear model is not.
-fn subtree_is_valid_here(loc: &Location, v: Option<VastVersion>) -> bool {
-    if loc.inside("NonLinear") && !v.map(|x| x.is_v4()).unwrap_or(false) {
-        return false;
-    }
-    true
+fn is_v4(v: Option<VastVersion>) -> bool {
+    v.map(|x| x.is_v4()).unwrap_or(false)
 }
 
 fn at_least(v: Option<VastVersion>, min: VastVersion) -> bool {

@@ -3396,6 +3396,51 @@ fn duration_format_is_checked_under_nonlinear_too() {
     assert!(has_issue(&validate(xml), "VAST-2.0-duration-format"));
 }
 
+/// `<Tracking>` is one of the few elements whose meaning depends on where it
+/// sits. `<Verification>` tracking uses its own vocabulary
+/// (`verificationNotExecuted`) and has its own checker, so the Linear and
+/// NonLinear event enum must not be applied there.
+///
+/// Dispatching it by name without this guard reported a conforming
+/// AdVerifications block as defective. Caught by the corpus diff, not by any
+/// existing test, which is why this one exists.
+#[test]
+fn verification_tracking_events_keep_their_own_vocabulary() {
+    let result = validate(&load("warn_verification_tracking_reason.xml"));
+    let on_verification = result.issues.iter().any(|i| {
+        i.id == "VAST-4.1-tracking-event-value"
+            && i.path
+                .as_deref()
+                .is_some_and(|p| p.contains("Verification"))
+    });
+    assert!(
+        !on_verification,
+        "the Linear tracking enum must not be applied to <Verification> tracking: {:?}",
+        result.issues.iter().map(|i| i.id).collect::<Vec<_>>()
+    );
+}
+
+/// The element gates have to be per element, not per subtree.
+///
+/// `<AdParameters>` is valid under a VAST 2.0 `<NonLinear>`. An early version of
+/// the dispatch skipped everything inside a `<NonLinear>` below 4.0, to avoid
+/// double-reporting the 4.x-only content model, and silently took this with it.
+#[test]
+fn adparameters_is_still_checked_under_a_vast_2_0_nonlinear() {
+    let xml = r#"<VAST version="2.0"><Ad id="a"><InLine>
+         <AdSystem version="1.0">X</AdSystem><AdTitle>T</AdTitle>
+         <Impression><![CDATA[https://t.example.com/i]]></Impression>
+         <Creatives><Creative id="c1"><NonLinearAds><NonLinear id="nl" width="1" height="1">
+           <StaticResource creativeType="image/png"><![CDATA[https://cdn.example.com/a.png]]></StaticResource>
+           <AdParameters xmlEncoded="yes">x</AdParameters>
+         </NonLinear></NonLinearAds></Creative></Creatives>
+       </InLine></Ad></VAST>"#;
+    assert!(has_issue(
+        &validate(xml),
+        "VAST-3.0-adparameters-xmlencoded-value"
+    ));
+}
+
 /// The property that makes the traversal class of bug impossible rather than
 /// merely fixed.
 ///
