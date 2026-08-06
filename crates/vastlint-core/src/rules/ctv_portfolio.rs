@@ -821,6 +821,7 @@ fn check_qr_creative_extension(
     let position = ext.child("QrCodePosition");
     let size = ext.child("QrCodeSize");
     let scan_url = ext.child("QrCodeScanUrl");
+    let image_url = ext.child("QrCodeImageUrl");
 
     if position.is_none() && size.is_none() && scan_url.is_none() {
         return;
@@ -895,6 +896,25 @@ fn check_qr_creative_extension(
             "VAST-4.4-qrcode-missing-scan-url",
             Severity::Warning,
             "<CreativeExtension> declares QR code geometry but no <QrCodeScanUrl>: the platform has position and size for a destination it does not know",
+            Some(path.to_string()),
+            "IAB CTV Ad Portfolio §QR Code Signaling",
+            Some(ext),
+        );
+    }
+
+    // VAST-4.4-qrcode-missing-image-url
+    // The mirror of the rule above, for the other asset. Geometry says where to
+    // draw the code and how big; without <QrCodeImageUrl> there is no code to
+    // draw. The schema requires neither (all four QR children sit in an
+    // unbounded choice with minOccurs="0"), so like every other rule in this
+    // group it comes from the guidance rather than the XSD.
+    if image_url.is_none() && (position.is_some() || size.is_some()) {
+        emit(
+            ctx,
+            issues,
+            "VAST-4.4-qrcode-missing-image-url",
+            Severity::Warning,
+            "<CreativeExtension> declares QR code geometry but no <QrCodeImageUrl>: the platform has position and size for an image it was never given",
             Some(path.to_string()),
             "IAB CTV Ad Portfolio §QR Code Signaling",
             Some(ext),

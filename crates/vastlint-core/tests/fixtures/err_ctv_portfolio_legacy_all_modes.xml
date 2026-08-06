@@ -19,7 +19,7 @@
   Ad 5  SIMID with no fallback    interactive only, and no Duration
   Ad 6  AdCOM payload defects     non-integer, two out-of-range, foreign attr
   Ad 7  signals contradict        Pause plcmt against a Squeezeback position
-  Ad 8  QR geometry defects       pixels, missing coordinate, no destination
+  Ad 8  QR geometry defects       pixels, missing coordinate, no destination or image
   Ad 9  plcmt out of range        and the pairing checks correctly staying quiet
 
   20 findings, 19 distinct rule ids. That is 18 of the 25 rules in the CTV Ad
@@ -261,7 +261,6 @@
           </NonLinearAds>
           <CreativeExtensions>
             <CreativeExtension type="tl_qrcode">
-              <QrCodeImageUrl><![CDATA[https://cdn.example.com/qr/brand_qr.png]]></QrCodeImageUrl>
               <QrCodePosition xPosition="120"/>
               <QrCodeSize size="200"/>
             </CreativeExtension>

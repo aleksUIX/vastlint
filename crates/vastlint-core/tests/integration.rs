@@ -2102,7 +2102,7 @@ fn linear_with_quartile_tracking_does_not_fire() {
 fn all_rules_catalog_has_expected_count() {
     assert_eq!(
         vastlint_core::all_rules().len(),
-        220,
+        222,
         "catalog count changed — update this assertion and bump RULES.md"
     );
 }
@@ -3223,6 +3223,7 @@ fn ctv_portfolio_legacy_path_covers_every_reachable_rule() {
         "VAST-4.4-adcom-pos-format-mismatch",
         "VAST-4.4-adcom-pos-value",
         "VAST-4.4-adcom-signal-not-integer",
+        "VAST-4.4-qrcode-missing-image-url",
         "VAST-4.4-qrcode-missing-scan-url",
         "VAST-4.4-qrcode-position-attrs",
         "VAST-4.4-qrcode-position-percent",
@@ -3295,6 +3296,104 @@ fn ctv_portfolio_legacy_fixture_is_identical_on_vast_3_0() {
     ids_3_0.sort_unstable();
 
     assert_eq!(ids_2_0, ids_3_0);
+}
+
+/// Geometry with no image is the same defect as geometry with no destination,
+/// for the other asset. The schema requires neither, so both come from the
+/// guidance.
+#[test]
+fn ctv_qrcode_geometry_without_an_image_url_fires() {
+    let xml = load("err_ctv_qrcode_geometry.xml");
+    assert!(has_issue(
+        &validate(&xml),
+        "VAST-4.4-qrcode-missing-image-url"
+    ));
+
+    // A QR extension that supplies the image must not be reported.
+    let with_image = load("ok_ctv_portfolio_vast_2_0.xml");
+    assert!(!has_issue(
+        &validate(&with_image),
+        "VAST-4.4-qrcode-missing-image-url"
+    ));
+}
+
+/// `xmlEncoded` is a boolean the player reads to decide whether to XML decode
+/// the payload before handing it to VPAID or SIMID. Nothing looked at the value
+/// before, so `xmlEncoded="yes"` validated clean.
+///
+/// Dispatched by element name, so the same rule covers `<Linear>` and the CTV
+/// Ad Portfolio extension container without a second traversal. That is the
+/// architecture paying for itself.
+#[test]
+fn adparameters_xmlencoded_must_be_a_boolean() {
+    let creative = |ad_params: &str| {
+        format!(
+            r#"<VAST version="3.0"><Ad id="a"><InLine>
+                 <AdSystem version="1.0">X</AdSystem><AdTitle>T</AdTitle>
+                 <Impression><![CDATA[https://t.example.com/i]]></Impression>
+                 <Creatives><Creative id="c1"><Linear>
+                   <Duration>00:00:15</Duration>
+                   {ad_params}
+                   <MediaFiles><MediaFile delivery="progressive" type="video/mp4" width="640" height="360"><![CDATA[https://cdn.example.com/a.mp4]]></MediaFile></MediaFiles>
+                 </Linear></Creative></Creatives>
+               </InLine></Ad></VAST>"#
+        )
+    };
+
+    const ID: &str = "VAST-3.0-adparameters-xmlencoded-value";
+    assert!(has_issue(
+        &validate(&creative(
+            r#"<AdParameters xmlEncoded="yes">x</AdParameters>"#
+        )),
+        ID
+    ));
+    for ok in ["true", "false", "1", "0", "TRUE"] {
+        let xml = creative(&format!(
+            r#"<AdParameters xmlEncoded="{ok}">x</AdParameters>"#
+        ));
+        assert!(!has_issue(&validate(&xml), ID), "{ok} is a valid boolean");
+    }
+    // Absent is legal; the attribute is optional.
+    assert!(!has_issue(
+        &validate(&creative("<AdParameters>x</AdParameters>")),
+        ID
+    ));
+
+    // The same rule inside the legacy container, reached by dispatch rather
+    // than by a second hand-written traversal.
+    let in_container = r#"<VAST version="2.0"><Ad id="a"><InLine>
+         <AdSystem version="1.0">X</AdSystem><AdTitle>T</AdTitle>
+         <Impression><![CDATA[https://t.example.com/i]]></Impression>
+         <Creatives><Creative id="c1"><NonLinearAds><NonLinear id="nl" width="1" height="1">
+           <StaticResource creativeType="image/png"><![CDATA[https://cdn.example.com/a.png]]></StaticResource>
+         </NonLinear></NonLinearAds></Creative></Creatives>
+         <Extensions><Extension type="ctv_ad_portfolio"><CreativeId>c1</CreativeId><plcmt>5</plcmt>
+           <AdParameters xmlEncoded="yes">x</AdParameters>
+           <MediaFiles><MediaFile delivery="progressive" type="image/png" width="1" height="1"><![CDATA[https://cdn.example.com/a.png]]></MediaFile></MediaFiles>
+         </Extension></Extensions>
+       </InLine></Ad></VAST>"#;
+    assert!(has_issue(&validate(in_container), ID));
+}
+
+/// Migrating `<Duration>` to name dispatch closed a gap nobody had filed.
+///
+/// The old code checked it under `<Linear>` and, since 0.11.4, inside the
+/// extension container. The CTV Ad Portfolio also put a `<Duration>` under
+/// `<NonLinear>` on 4.x, and that one was never format-checked. No traversal
+/// was written for it and no fixture covered it, so nothing failed. Dispatching
+/// by element name covered it without a line of code aimed at the case.
+#[test]
+fn duration_format_is_checked_under_nonlinear_too() {
+    let xml = r#"<VAST version="4.2"><Ad id="a"><InLine>
+         <AdSystem version="1.0">X</AdSystem><AdTitle>T</AdTitle><AdServingId>s</AdServingId>
+         <Impression><![CDATA[https://t.example.com/i]]></Impression>
+         <Creatives><Creative id="c1"><UniversalAdId idRegistry="ad-id">A</UniversalAdId>
+           <NonLinearAds><NonLinear id="nl" width="1" height="1">
+             <Duration>banana</Duration>
+             <MediaFiles><MediaFile delivery="progressive" type="video/mp4" width="1" height="1"><![CDATA[https://cdn.example.com/a.mp4]]></MediaFile></MediaFiles>
+           </NonLinear></NonLinearAds>
+         </Creative></Creatives></InLine></Ad></VAST>"#;
+    assert!(has_issue(&validate(xml), "VAST-2.0-duration-format"));
 }
 
 /// The property that makes the traversal class of bug impossible rather than

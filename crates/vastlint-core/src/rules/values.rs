@@ -234,25 +234,6 @@ fn check_standardised_extension_values(
         }
         let ext_path = format!("{}/Extension[{}]", extensions_path, i);
 
-        // VAST-2.0-duration-format. The container's <Duration> is what drives
-        // quartile and overlayViewDuration tracking, so a value the player
-        // cannot parse costs the same measurement as one under <Linear>.
-        if let Some(dur) = ext.child("Duration") {
-            let text = dur.text.trim();
-            if !text.is_empty() && !is_valid_duration(text) {
-                emit(
-                    ctx,
-                    issues,
-                    "VAST-2.0-duration-format",
-                    Severity::Error,
-                    "<Duration> value does not match required format HH:MM:SS or HH:MM:SS.mmm",
-                    Some(format!("{}/Duration", ext_path)),
-                    "IAB VAST 2.0 §2.3.5.1",
-                    Some(dur),
-                )
-            }
-        }
-
         if let Some(tracking_events) = ext.child("TrackingEvents") {
             for (ti, tracking) in tracking_events.children_named("Tracking").enumerate() {
                 check_tracking_value(
@@ -314,23 +295,6 @@ fn check_linear(
     ctx: &ValidationContext,
     issues: &mut Vec<Issue>,
 ) {
-    // VAST-2.0-duration-format: Duration text must match HH:MM:SS[.mmm].
-    if let Some(dur) = node.child("Duration") {
-        let text = dur.text.trim();
-        if !text.is_empty() && !is_valid_duration(text) {
-            emit(
-                ctx,
-                issues,
-                "VAST-2.0-duration-format",
-                Severity::Error,
-                "<Duration> value does not match required format HH:MM:SS or HH:MM:SS.mmm",
-                Some(format!("{}/Duration", path)),
-                "IAB VAST 2.0 §2.3.5.1",
-                Some(dur),
-            )
-        }
-    }
-
     // VAST-3.0-skipoffset-format: skipoffset must be HH:MM:SS[.mmm] or n%.
     if let Some(offset) = node.attr("skipoffset") {
         if !is_valid_time_or_percent(offset) {
@@ -721,5 +685,73 @@ fn valid_tracking_events(v: &VastVersion) -> &'static [&'static str] {
             "acceptInvitation",
             "close",
         ]
+    }
+}
+
+/// `<AdParameters xmlEncoded>` is a boolean in every schema that defines it.
+///
+/// `schema.rs` already allows the attribute to exist and rejects unexpected
+/// children, but nothing has ever looked at the value, so `xmlEncoded="yes"`
+/// validated clean. A receiving player reads this to decide whether to XML
+/// decode the payload before handing it to VPAID or SIMID, and a value it
+/// cannot parse as a boolean means it guesses.
+///
+/// Dispatched by `elements.rs`, so it applies wherever `<AdParameters>` appears:
+/// `<Linear>`, `<NonLinear>`, `<Companion>` and the CTV Ad Portfolio extension
+/// container, which carries one by design.
+pub(super) fn check_adparameters_value(
+    node: &Node,
+    path: &str,
+    ctx: &ValidationContext,
+    issues: &mut Vec<Issue>,
+) {
+    let Some(raw) = node.attr("xmlEncoded") else {
+        return;
+    };
+    // xs:boolean accepts true/false/1/0. Case-insensitive is a deliberate
+    // leniency: the value's meaning is unambiguous either way, and reporting
+    // "TRUE" would be pedantry rather than a defect anyone can act on.
+    if !matches!(
+        raw.trim().to_ascii_lowercase().as_str(),
+        "true" | "false" | "1" | "0"
+    ) {
+        emit(
+            ctx,
+            issues,
+            "VAST-3.0-adparameters-xmlencoded-value",
+            Severity::Warning,
+            "<AdParameters> xmlEncoded must be a boolean (true, false, 1 or 0); the player uses it to decide whether to XML decode the payload",
+            Some(format!("{}[@xmlEncoded]", path)),
+            "IAB VAST 3.0 §2.3.5.3",
+            Some(node),
+        )
+    }
+}
+
+/// `<Duration>` must be `HH:MM:SS[.mmm]` wherever it appears.
+///
+/// Dispatched by element name. The format is a property of the element, not of
+/// its parent, and the CTV Ad Portfolio put a `<Duration>` in two new places
+/// (under `<NonLinear>` on 4.x, inside the extension container on 2.0 and 3.0)
+/// without changing what a valid one looks like. Reaching it by name means the
+/// next relocation needs no code at all.
+pub(super) fn check_duration_value(
+    node: &Node,
+    path: &str,
+    ctx: &ValidationContext,
+    issues: &mut Vec<Issue>,
+) {
+    let text = node.text.trim();
+    if !text.is_empty() && !is_valid_duration(text) {
+        emit(
+            ctx,
+            issues,
+            "VAST-2.0-duration-format",
+            Severity::Error,
+            "<Duration> value does not match required format HH:MM:SS or HH:MM:SS.mmm",
+            Some(path.to_owned()),
+            "IAB VAST 2.0 §2.3.5.1",
+            Some(node),
+        )
     }
 }

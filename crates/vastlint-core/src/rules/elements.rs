@@ -44,6 +44,14 @@ pub fn check(
                 required::check_mezzanine_required_attrs(node, &loc.path(), ctx, issues);
             }
 
+            "Duration" => {
+                values::check_duration_value(node, &loc.path(), ctx, issues);
+            }
+
+            "AdParameters" => {
+                values::check_adparameters_value(node, &loc.path(), ctx, issues);
+            }
+
             "InteractiveCreativeFile" => {
                 required::check_interactive_creative_file(node, &loc.path(), ctx, issues);
             }

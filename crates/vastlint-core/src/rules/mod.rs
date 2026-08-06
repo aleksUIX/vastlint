@@ -291,6 +291,8 @@ pub static CATALOG: &[RuleMeta] = &[
     RuleMeta { id: "VAST-4.4-qrcode-size-attr",               default_severity: Severity::Error,   description: "<QrCodeSize> requires a size attribute",                                                 source: VastXsd },
     RuleMeta { id: "VAST-4.4-qrcode-size-percent",            default_severity: Severity::Error,   description: "<QrCodeSize> size must be a percentage",                                                 source: VastXsd },
     RuleMeta { id: "VAST-4.4-qrcode-missing-scan-url",        default_severity: Severity::Warning, description: "QR code geometry declared without a <QrCodeScanUrl> destination",                        source: CtvAdPortfolio },
+    RuleMeta { id: "VAST-4.4-qrcode-missing-image-url",       default_severity: Severity::Warning, description: "QR code geometry declared without a <QrCodeImageUrl> image",                             source: CtvAdPortfolio },
+    RuleMeta { id: "VAST-3.0-adparameters-xmlencoded-value",  default_severity: Severity::Warning, description: "<AdParameters> xmlEncoded must be a boolean",                                            source: VastXsd },
     // ctv_portfolio.rs — the VAST 2.0 extension path (extensions/ctv_ad_portfolio.md, 2026-07-17)
     RuleMeta { id: "VAST-2.0-ctv-portfolio-creative-id-required",  default_severity: Severity::Error,   description: "<Extension type=\"ctv_ad_portfolio\"> needs <CreativeId> when the ad has multiple creatives", source: CtvAdPortfolio },
     RuleMeta { id: "VAST-2.0-ctv-portfolio-creative-id-unmatched", default_severity: Severity::Error,   description: "<Extension type=\"ctv_ad_portfolio\"> <CreativeId> matches no <Creative> id in the ad",       source: CtvAdPortfolio },

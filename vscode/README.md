@@ -12,7 +12,7 @@ Supports VAST 2.0 through 4.4 with clean Problems entries, concise hovers, fix g
 - **Multi-block** — validates every `<VAST>...</VAST>` block in a file independently
 - **Live as you type** — re-validates 500 ms after you stop typing, and on every save
 - **CLI backend** — uses the `vastlint` CLI binary when available, falls back to WASM in-process
-- **220 rules** across VAST 2.0–4.4 plus SIMID and OMID validation: required fields, schema structure, URLs, verification semantics, deprecations, and CTV/SSAI advisories
+- **222 rules** across VAST 2.0–4.4 plus SIMID and OMID validation: required fields, schema structure, URLs, verification semantics, deprecations, and CTV/SSAI advisories
 
 ## How it looks
 
@@ -59,7 +59,7 @@ Docs: vastlint.org/docs/rules/VAST-2.0-inline-adsystem
 
 ## Rules
 
-VASTlint checks 220 rules across:
+VASTlint checks 222 rules across:
 - Required elements and attributes (VAST 2.0–4.4)
 - Value formats (durations, URLs, enums)
 - Schema conformance (unknown elements/attributes)
@@ -80,7 +80,7 @@ Canonical rule catalog:
 - [vastlint.org/docs/rules](https://vastlint.org/docs/rules/) for the hosted per-rule pages
 
 <details>
-<summary>All 220 rules</summary>
+<summary>All 222 rules</summary>
 
 ### VAST 2.0
 
@@ -271,6 +271,8 @@ The NonLinear content model these rules cover is accepted on any VAST 4.x docume
 | [VAST-4.4-qrcode-size-attr](https://vastlint.org/docs/rules/VAST-4.4-qrcode-size-attr/) | error | `<QrCodeSize>` requires a `size` attribute |
 | [VAST-4.4-qrcode-size-percent](https://vastlint.org/docs/rules/VAST-4.4-qrcode-size-percent/) | error | `<QrCodeSize>` `size` must be a percentage |
 | [VAST-4.4-qrcode-missing-scan-url](https://vastlint.org/docs/rules/VAST-4.4-qrcode-missing-scan-url/) | warning | QR code geometry declared without a `<QrCodeScanUrl>` destination |
+| [VAST-4.4-qrcode-missing-image-url](https://vastlint.org/docs/rules/VAST-4.4-qrcode-missing-image-url/) | warning | QR code geometry declared without a `<QrCodeImageUrl>` image |
+| [VAST-3.0-adparameters-xmlencoded-value](https://vastlint.org/docs/rules/VAST-3.0-adparameters-xmlencoded-value/) | warning | `<AdParameters>` xmlEncoded must be a boolean |
 | [VAST-2.0-ctv-portfolio-creative-id-required](https://vastlint.org/docs/rules/VAST-2.0-ctv-portfolio-creative-id-required/) | error | `<Extension type="ctv_ad_portfolio">` needs `<CreativeId>` when the ad has multiple creatives |
 | [VAST-2.0-ctv-portfolio-creative-id-unmatched](https://vastlint.org/docs/rules/VAST-2.0-ctv-portfolio-creative-id-unmatched/) | error | `<Extension type="ctv_ad_portfolio">` `<CreativeId>` matches no `<Creative>` id in the ad |
 | [VAST-2.0-ctv-portfolio-mediafiles-required](https://vastlint.org/docs/rules/VAST-2.0-ctv-portfolio-mediafiles-required/) | error | `<Extension type="ctv_ad_portfolio">` carries no `<MediaFiles>` |

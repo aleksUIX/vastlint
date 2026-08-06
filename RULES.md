@@ -2,7 +2,7 @@
 
 Full reference documentation for every rule is at **[vastlint.org/docs/rules](https://vastlint.org/docs/rules/)**.
 
-220 rules across IAB VAST 2.0 – 4.4, VMAP 1.0, DAAST 1.0, and SIMID 1.0 – 1.1. Each rule has a stable ID, a default severity (`error` / `warning` / `info`), and a dedicated docs page with the spec reference, examples, and fix guidance.
+222 rules across IAB VAST 2.0 – 4.4, VMAP 1.0, DAAST 1.0, and SIMID 1.0 – 1.1. Each rule has a stable ID, a default severity (`error` / `warning` / `info`), and a dedicated docs page with the spec reference, examples, and fix guidance.
 
 The severity below is the default. A few rules resolve theirs from the document's declared version, because the schemas disagree about what is required: the `<Icon>` placement attributes are errors under VAST 3.0, which required them, and warnings under 4.x, whose XSDs declare them optional. `VAST-4.1-verification-vendor` and `VAST-4.1-js-resource-apiframework` behave the same way across 4.0 and 4.1. Config overrides always win over both.
 
@@ -211,6 +211,8 @@ The two `-format-mismatch` rules read the signals as a set. `plcmt`, `pos` and `
 | [VAST-4.4-qrcode-size-attr](https://vastlint.org/docs/rules/VAST-4.4-qrcode-size-attr/) | error | `<QrCodeSize>` requires a `size` attribute |
 | [VAST-4.4-qrcode-size-percent](https://vastlint.org/docs/rules/VAST-4.4-qrcode-size-percent/) | error | `<QrCodeSize>` `size` must be a percentage |
 | [VAST-4.4-qrcode-missing-scan-url](https://vastlint.org/docs/rules/VAST-4.4-qrcode-missing-scan-url/) | warning | QR code geometry declared without a `<QrCodeScanUrl>` destination |
+| [VAST-4.4-qrcode-missing-image-url](https://vastlint.org/docs/rules/VAST-4.4-qrcode-missing-image-url/) | warning | QR code geometry declared without a `<QrCodeImageUrl>` image |
+| [VAST-3.0-adparameters-xmlencoded-value](https://vastlint.org/docs/rules/VAST-3.0-adparameters-xmlencoded-value/) | warning | `<AdParameters>` xmlEncoded must be a boolean |
 | [VAST-2.0-ctv-portfolio-creative-id-required](https://vastlint.org/docs/rules/VAST-2.0-ctv-portfolio-creative-id-required/) | error | `<Extension type="ctv_ad_portfolio">` needs `<CreativeId>` when the ad has multiple creatives |
 | [VAST-2.0-ctv-portfolio-creative-id-unmatched](https://vastlint.org/docs/rules/VAST-2.0-ctv-portfolio-creative-id-unmatched/) | error | `<Extension type="ctv_ad_portfolio">` `<CreativeId>` matches no `<Creative>` id in the ad |
 | [VAST-2.0-ctv-portfolio-mediafiles-required](https://vastlint.org/docs/rules/VAST-2.0-ctv-portfolio-mediafiles-required/) | error | `<Extension type="ctv_ad_portfolio">` carries no `<MediaFiles>` |
