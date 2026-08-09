@@ -48,6 +48,25 @@ const EXEMPT_PREFIXES: [&str; 3] = [
     "/grpc.reflection.v1alpha.",
 ];
 
+/// Streaming calls, which this layer must not govern.
+///
+/// This layer works per HTTP request, and a bidirectional stream is one HTTP
+/// request that lives for as long as the client keeps it open. Two things go
+/// wrong if it is treated like any other call.
+///
+/// It would hold one concurrency slot for the whole stream, so a handful of
+/// idle long-lived streams could exhaust the limit while doing no work at all.
+///
+/// Worse, the latency sample taken when the stream ends would be the stream's
+/// entire lifetime. A sixty-second stream reports sixty seconds, which is
+/// enormously past any sane target, so every stream that ends drives the limit
+/// down multiplicatively. A server with steady streaming traffic would ratchet
+/// itself to the floor and shed unary requests it could serve easily.
+///
+/// Admission for streams happens per message inside the handler instead, where
+/// the unit of work actually is one document.
+const UNGOVERNED_PATHS: [&str; 1] = ["/openadtech.vastlint.v1.VastlintService/ValidateStream"];
+
 /// The AIMD controller and its in-flight count.
 #[derive(Debug)]
 pub struct AdaptiveLimiter {
@@ -82,7 +101,10 @@ impl AdaptiveLimiter {
     /// panics still releases its slot and still feeds the controller. Losing
     /// in-flight accounting on the error path is how a limiter ratchets itself
     /// down to the floor and stays there.
-    fn try_admit(self: &Arc<Self>) -> Option<Admitted> {
+    ///
+    /// Public because the streaming handler admits per message rather than per
+    /// call, for the reasons in [`UNGOVERNED_PATHS`].
+    pub fn try_admit(self: &Arc<Self>) -> Option<Admitted> {
         if !self.config.enabled {
             return Some(Admitted {
                 limiter: Arc::clone(self),
@@ -142,7 +164,7 @@ impl AdaptiveLimiter {
 }
 
 /// An admitted request. Releases its slot and records a sample on drop.
-struct Admitted {
+pub struct Admitted {
     limiter: Arc<AdaptiveLimiter>,
     started: Instant,
     /// False when the limiter is disabled, in which case nothing was counted on
@@ -209,9 +231,11 @@ where
     }
 
     fn call(&mut self, request: http::Request<ReqBody>) -> Self::Future {
+        let path = request.uri().path();
         let exempt = EXEMPT_PREFIXES
             .iter()
-            .any(|prefix| request.uri().path().starts_with(prefix));
+            .any(|prefix| path.starts_with(prefix))
+            || UNGOVERNED_PATHS.contains(&path);
 
         // The standard tower dance: `poll_ready` was called on `self`, so the
         // reservation belongs to this instance and the clone is what must be
@@ -525,6 +549,69 @@ mod tests {
         assert!(
             health.is_err(),
             "the health path should have reached the inner service rather than being shed"
+        );
+    }
+
+    /// The bug this guards is subtle and would have been invisible in
+    /// production until streaming traffic arrived: a stream is one HTTP request
+    /// that lives for minutes, so treating it like a unary call means its
+    /// latency sample is its entire lifetime. Every stream that ended would
+    /// drive the limit down multiplicatively until unary callers were being
+    /// shed by a server doing almost nothing.
+    #[test]
+    fn a_long_lived_stream_cannot_poison_the_limit() {
+        let limiter = limiter(config());
+        let before = limiter.limit();
+
+        // What the layer would have recorded for a one-minute stream.
+        limiter.sample(Duration::from_secs(60), 0);
+        let after_one = limiter.limit();
+
+        for _ in 0..20 {
+            limiter.sample(Duration::from_secs(60), 0);
+        }
+
+        assert!(
+            after_one < before,
+            "sanity: a sample that long does drive the limit down"
+        );
+        assert_eq!(
+            limiter.limit(),
+            config().min,
+            "which is exactly why the streaming path must not be sampled by the layer"
+        );
+
+        assert!(
+            UNGOVERNED_PATHS.contains(&"/openadtech.vastlint.v1.VastlintService/ValidateStream"),
+            "the streaming path must be ungoverned by this layer"
+        );
+    }
+
+    #[tokio::test]
+    async fn the_streaming_path_is_not_shed_by_the_layer() {
+        let limiter = limiter(LimitConfig {
+            initial: 1,
+            min: 1,
+            max: 1,
+            ..config()
+        });
+        let mut service = AdaptiveConcurrencyLayer::new(Arc::clone(&limiter)).layer(NeverCompletes);
+
+        let _occupied = service.call(request("/openadtech.vastlint.v1.VastlintService/Validate"));
+
+        // Reaching the inner service means hanging, which the timeout observes.
+        // Being shed would resolve immediately with a status.
+        let streaming = tokio::time::timeout(
+            Duration::from_millis(50),
+            service.call(request(
+                "/openadtech.vastlint.v1.VastlintService/ValidateStream",
+            )),
+        )
+        .await;
+
+        assert!(
+            streaming.is_err(),
+            "streams admit per message inside the handler, not per call here"
         );
     }
 

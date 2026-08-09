@@ -5,30 +5,69 @@
 //! decision is made here.
 
 use std::pin::Pin;
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
+use tokio::sync::mpsc;
 use tokio::time::timeout;
+use tokio_stream::StreamExt;
 use tonic::{Code, Request, Response, Status, Streaming};
 use vastlint_core as core;
 
 use crate::convert;
 use crate::deadline;
+use crate::limit::AdaptiveLimiter;
 use crate::metrics;
 use crate::proto::vastlint_service_server::VastlintService;
 use crate::proto::{
-    FixRequest, FixResponse, ListRulesRequest, ListRulesResponse, RuleSource, ValidateRequest,
-    ValidateResponse, ValidateStreamRequest, ValidateStreamResponse,
+    FixRequest, FixResponse, ListRulesRequest, ListRulesResponse, RuleSource, StreamError,
+    ValidateRequest, ValidateResponse, ValidateStreamRequest, ValidateStreamResponse,
 };
 use crate::provenance::provenance;
 
-/// The service. Stateless: the rule catalog is static and validation carries no
-/// session, so one instance serves every connection and cloning is free.
+/// Default in-flight bound for a stream when none is configured.
+const DEFAULT_STREAM_BUFFER: usize = 32;
+
+/// The service.
+///
+/// Stateless apart from the limiter, which is shared: the rule catalog is
+/// static and validation carries no session, so one instance serves every
+/// connection.
 #[derive(Debug, Clone, Default)]
-pub struct VastlintApi;
+pub struct VastlintApi {
+    /// Used for per-message admission on streams. `None` means streaming admits
+    /// everything, which is what the unit tests want and what a deployment
+    /// running with the limiter disabled gets.
+    limiter: Option<Arc<AdaptiveLimiter>>,
+    stream_buffer: usize,
+}
 
 impl VastlintApi {
     pub fn new() -> Self {
-        Self
+        Self {
+            limiter: None,
+            stream_buffer: DEFAULT_STREAM_BUFFER,
+        }
+    }
+
+    /// Sets the in-flight bound for streams without attaching a limiter.
+    ///
+    /// Separate from [`Self::with_limiter`] so a test can exercise the buffer
+    /// bound on its own, without admission control also being in play.
+    pub fn with_stream_buffer(mut self, stream_buffer: usize) -> Self {
+        self.stream_buffer = stream_buffer.max(1);
+        self
+    }
+
+    /// Shares the server's concurrency limiter with the streaming handler.
+    ///
+    /// Streams are exempt from the tower layer that governs unary calls, so
+    /// without this a stream would be the one path into the validator with no
+    /// admission control at all.
+    pub fn with_limiter(mut self, limiter: Arc<AdaptiveLimiter>, stream_buffer: usize) -> Self {
+        self.limiter = Some(limiter);
+        self.stream_buffer = stream_buffer.max(1);
+        self
     }
 }
 
@@ -150,21 +189,156 @@ impl VastlintService for VastlintApi {
     type ValidateStreamStream =
         Pin<Box<dyn tokio_stream::Stream<Item = Result<ValidateStreamResponse, Status>> + Send>>;
 
-    /// Not implemented yet.
+    /// Bulk validation over a bidirectional stream.
     ///
-    /// Deliberately absent rather than naively present. A streaming
-    /// implementation that reads as fast as the client writes has an unbounded
-    /// buffer, which is worse than no streaming at all: it converts a fast
-    /// producer into server memory exhaustion. The bounded channel it needs
-    /// belongs with the concurrency limiter, so both arrive together.
+    /// ## Backpressure
+    ///
+    /// The outbound channel is bounded, and a slot on it is reserved *before*
+    /// the next inbound message is read. When the buffer is full the handler
+    /// stops reading, which stalls the HTTP/2 receive window and blocks the
+    /// client's writes. That is what makes the backpressure real rather than
+    /// decorative: the alternative, reading as fast as the client can write,
+    /// has an unbounded buffer and converts a fast producer into server memory
+    /// exhaustion while reporting excellent throughput right up to the moment
+    /// it dies.
+    ///
+    /// ## Ordering
+    ///
+    /// Responses are not ordered. Messages are dispatched concurrently and a
+    /// light document behind a heavy one will finish first, which is the point
+    /// of streaming. Callers correlate on `request_id`, which the contract
+    /// requires for exactly this reason.
+    ///
+    /// ## Admission
+    ///
+    /// Per message, not per stream. See `limit::UNGOVERNED_PATHS` for why the
+    /// tower layer must not govern this call. A shed message becomes a
+    /// `StreamError` on its own `request_id` and the stream continues: one
+    /// document being refused is not a reason to tear down a connection that is
+    /// successfully validating everything else.
     async fn validate_stream(
         &self,
-        _request: Request<Streaming<ValidateStreamRequest>>,
+        request: Request<Streaming<ValidateStreamRequest>>,
     ) -> Result<Response<Self::ValidateStreamStream>, Status> {
-        Err(Status::unimplemented(
-            "ValidateStream is not implemented yet; use Validate. \
-             Streaming lands with the bounded worker channel and the concurrency limiter",
-        ))
+        let budget = deadline::remaining(request.metadata());
+        let mut inbound = request.into_inner();
+
+        let (tx, rx) = mpsc::channel::<Result<ValidateStreamResponse, Status>>(self.stream_buffer);
+        let limiter = self.limiter.clone();
+
+        tokio::spawn(async move {
+            while let Some(message) = inbound.next().await {
+                let message = match message {
+                    Ok(message) => message,
+                    // The client hung up or sent something undecodable. Report
+                    // it once on the call and stop; there is no request_id to
+                    // attribute it to.
+                    Err(status) => {
+                        let _ = tx.send(Err(status)).await;
+                        return;
+                    }
+                };
+
+                // Reserving before doing any work is what applies the
+                // backpressure. `reserve_owned` waits for a free slot, so a slow
+                // reader stops this loop rather than growing a queue behind it.
+                let Ok(permit) = tx.clone().reserve_owned().await else {
+                    // Receiver dropped: the client is gone and every remaining
+                    // message is work nobody will read.
+                    return;
+                };
+
+                let request_id = message.request_id;
+
+                let context = match convert::validation_context(message.context) {
+                    Ok(context) => context,
+                    Err(status) => {
+                        permit.send(Ok(ValidateStreamResponse {
+                            request_id,
+                            verdict: None,
+                            error: Some(StreamError {
+                                code: status.code() as i32,
+                                message: status.message().to_string(),
+                            }),
+                        }));
+                        continue;
+                    }
+                };
+
+                let admitted = match &limiter {
+                    Some(limiter) => match limiter.try_admit() {
+                        Some(admitted) => Some(admitted),
+                        None => {
+                            metrics::record_shed();
+                            permit.send(Ok(ValidateStreamResponse {
+                                request_id,
+                                verdict: None,
+                                error: Some(StreamError {
+                                    code: Code::ResourceExhausted as i32,
+                                    message: "server is at its concurrency limit; \
+                                              retry this document with backoff"
+                                        .to_string(),
+                                }),
+                            }));
+                            continue;
+                        }
+                    },
+                    None => None,
+                };
+
+                let (context, forced) = context;
+                let document = message.document;
+
+                tokio::spawn(async move {
+                    let started = Instant::now();
+                    let outcome = run(budget, move || {
+                        core::validate_with_context(&document, context)
+                    })
+                    .await;
+
+                    // Held until the work is done so the latency sample covers
+                    // the validation, then dropped before the send so a slow
+                    // reader does not count against the concurrency limit.
+                    drop(admitted);
+
+                    let response = match outcome {
+                        Ok(result) => {
+                            metrics::record_request(
+                                "ValidateStream",
+                                "ok",
+                                started.elapsed().as_secs_f64(),
+                            );
+                            ValidateStreamResponse {
+                                request_id,
+                                verdict: Some(convert::verdict(&result, forced)),
+                                error: None,
+                            }
+                        }
+                        Err(status) => {
+                            metrics::record_request(
+                                "ValidateStream",
+                                status_label(status.code()),
+                                started.elapsed().as_secs_f64(),
+                            );
+                            ValidateStreamResponse {
+                                request_id,
+                                verdict: None,
+                                error: Some(StreamError {
+                                    code: status.code() as i32,
+                                    message: status.message().to_string(),
+                                }),
+                            }
+                        }
+                    };
+
+                    permit.send(Ok(response));
+                });
+            }
+        });
+
+        Ok(Response::new(Box::pin(
+            tokio_stream::wrappers::ReceiverStream::new(rx),
+        )))
     }
 
     async fn fix(&self, request: Request<FixRequest>) -> Result<Response<FixResponse>, Status> {

@@ -23,6 +23,35 @@ pub struct Config {
     pub caller_header: String,
     /// Async runtime threads. `None` uses tokio's default of one per core.
     pub worker_threads: Option<usize>,
+    /// HTTP/2 receive window per stream, in bytes. `None` keeps tonic's default.
+    ///
+    /// This, not [`Self::stream_buffer`], is what actually bounds how far a
+    /// streaming server runs ahead of a client that has stopped reading. The
+    /// channel bounds the handler's own queue; the transport window bounds
+    /// everything between the handler and the socket, and it is the larger of
+    /// the two by orders of magnitude. Measured with the defaults, a client that
+    /// stops reading lets roughly 2,800 small responses accumulate before the
+    /// server stalls. See `tests/backpressure.rs`.
+    ///
+    /// Left at the default because shrinking it costs throughput on every
+    /// stream to bound memory that is, at a few megabytes per stream, usually
+    /// affordable. Exposed because "usually" is doing real work in that
+    /// sentence, and an operator running thousands of concurrent streams on a
+    /// small container needs the knob.
+    pub stream_window_bytes: Option<u32>,
+    /// HTTP/2 receive window per connection, in bytes. `None` keeps tonic's
+    /// default. Bounds the sum across all streams sharing one connection.
+    pub connection_window_bytes: Option<u32>,
+    /// In-flight messages permitted on one `ValidateStream` call.
+    ///
+    /// This is the bound that makes streaming backpressure real. The handler
+    /// reserves a slot on the outbound channel before reading the next inbound
+    /// message, so when the buffer is full it stops reading. That stall
+    /// propagates into HTTP/2 flow control and the client's writes block, which
+    /// is the correct answer to a producer faster than the server. An unbounded
+    /// buffer would accept the whole firehose into memory and call it
+    /// throughput.
+    pub stream_buffer: usize,
     /// Threads available to run validation.
     ///
     /// This is the server's real capacity, and it is worth being explicit about
@@ -79,6 +108,14 @@ impl Default for Config {
             max_message_bytes: 4 * 1024 * 1024,
             caller_header: "x-vastlint-caller".to_string(),
             worker_threads: None,
+            // Enough to keep the validation pool busy without letting one
+            // stream reserve more capacity than the server has. Larger buys
+            // nothing: the concurrency limiter is what decides how much work
+            // actually runs, and a deeper buffer only adds queueing time ahead
+            // of a decision that has already been made.
+            stream_buffer: 32,
+            stream_window_bytes: None,
+            connection_window_bytes: None,
             blocking_threads: default_blocking_threads(),
         }
     }
@@ -174,6 +211,15 @@ impl Config {
             max_message_bytes: env_parse("VASTLINT_MAX_MESSAGE_BYTES", defaults.max_message_bytes)?,
             caller_header: std::env::var("VASTLINT_CALLER_HEADER")
                 .unwrap_or(defaults.caller_header),
+            stream_buffer: env_parse("VASTLINT_STREAM_BUFFER", defaults.stream_buffer)?,
+            stream_window_bytes: match std::env::var("VASTLINT_STREAM_WINDOW_BYTES") {
+                Ok(raw) => Some(parse("VASTLINT_STREAM_WINDOW_BYTES", &raw)?),
+                Err(_) => defaults.stream_window_bytes,
+            },
+            connection_window_bytes: match std::env::var("VASTLINT_CONNECTION_WINDOW_BYTES") {
+                Ok(raw) => Some(parse("VASTLINT_CONNECTION_WINDOW_BYTES", &raw)?),
+                Err(_) => defaults.connection_window_bytes,
+            },
             worker_threads: match std::env::var("VASTLINT_WORKER_THREADS") {
                 Ok(raw) => Some(parse("VASTLINT_WORKER_THREADS", &raw)?),
                 Err(_) => defaults.worker_threads,
@@ -215,6 +261,28 @@ impl Config {
             return Err(ConfigError::Invalid {
                 name: "VASTLINT_MAX_MESSAGE_BYTES",
                 reason: "must be at least 1",
+            });
+        }
+
+        // HTTP/2 requires the connection window to be at least as large as a
+        // stream window; a smaller one would throttle every stream to a size
+        // the operator did not ask for.
+        if let (Some(stream), Some(connection)) =
+            (self.stream_window_bytes, self.connection_window_bytes)
+        {
+            if connection < stream {
+                return Err(ConfigError::Invalid {
+                    name: "VASTLINT_CONNECTION_WINDOW_BYTES",
+                    reason: "must be at least VASTLINT_STREAM_WINDOW_BYTES, or every stream is \
+                             throttled below its own window",
+                });
+            }
+        }
+
+        if self.stream_buffer == 0 {
+            return Err(ConfigError::Invalid {
+                name: "VASTLINT_STREAM_BUFFER",
+                reason: "must be at least 1, or a stream can never admit a message",
             });
         }
 

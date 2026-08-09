@@ -34,12 +34,30 @@ grpcurl -plaintext -d '{}' localhost:50051 grpc.health.v1.Health/Check
 | `Validate` | Validate one document. |
 | `Fix` | Apply deterministic repairs and return the corrected document. |
 | `ListRules` | The rule catalog, versioned independently of the wire contract. |
-| `ValidateStream` | Bulk validation. **Not implemented yet**, returns `UNIMPLEMENTED`. |
+| `ValidateStream` | Bulk validation over a bidirectional stream. |
 
-`ValidateStream` is deliberately absent rather than naively present: an
-implementation that reads as fast as the client writes has an unbounded buffer,
-which turns a fast producer into server memory exhaustion. It lands with the
-bounded worker channel and the concurrency limiter.
+`ValidateStream` dispatches messages concurrently and answers out of order, so
+callers correlate on `request_id`. A slot on the bounded outbound channel is
+reserved before the next inbound message is read, so a slow reader stalls the
+handler rather than growing a queue behind it. One bad message becomes a
+`StreamError` on its own `request_id` and the stream continues: a single
+document being refused is not a reason to tear down a connection that is
+validating everything else.
+
+Streams are admitted per message, not per call. That is not a detail: the tower
+layer works per HTTP request, and a stream is one request that lives for
+minutes, so treating it like a unary call would hold a concurrency slot for the
+stream's whole lifetime and report the entire lifetime as one latency sample.
+Every stream that ended would drive the adaptive limit down multiplicatively
+until the server was shedding unary callers while doing almost nothing.
+
+**Where the backpressure bound actually is.** The channel bounds the handler's
+queue. Between it and the client sit HTTP/2 flow-control windows, which are
+larger by orders of magnitude. Measured with the defaults, a client that stops
+reading lets roughly 2,800 small responses accumulate before the server stalls,
+and it does stall: progress stops completely and resumes the moment the client
+reads. Size per-stream memory from `VASTLINT_STREAM_WINDOW_BYTES`, not from
+`VASTLINT_STREAM_BUFFER`. See [`tests/backpressure.rs`](tests/backpressure.rs).
 
 ## The contract
 

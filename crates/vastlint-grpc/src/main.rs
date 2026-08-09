@@ -94,10 +94,25 @@ async fn serve(config: Config) -> Result<(), Box<dyn std::error::Error>> {
 
     // A message cap on the decoder, not just on the handler. Rejecting a 40 MB
     // body after decoding it has already paid the cost the cap exists to avoid.
-    let vastlint = VastlintServiceServer::new(VastlintApi::new())
-        .max_decoding_message_size(config.max_message_bytes);
+    // The streaming handler gets the limiter directly, because streams are
+    // exempt from the tower layer: one long-lived stream would otherwise hold a
+    // concurrency slot for its whole lifetime and report its entire duration as
+    // a latency sample, driving the limit to the floor. Admission for streams
+    // happens per message instead.
+    let vastlint = VastlintServiceServer::new(
+        VastlintApi::new().with_limiter(Arc::clone(&limiter), config.stream_buffer),
+    )
+    .max_decoding_message_size(config.max_message_bytes);
 
-    Server::builder()
+    let mut server = Server::builder();
+    if let Some(bytes) = config.stream_window_bytes {
+        server = server.initial_stream_window_size(bytes);
+    }
+    if let Some(bytes) = config.connection_window_bytes {
+        server = server.initial_connection_window_size(bytes);
+    }
+
+    server
         // Rate limiting sits outside the concurrency limiter on purpose. A
         // caller over its allowance should be refused before it can occupy a
         // concurrency slot, otherwise one client in a retry storm crowds out
@@ -153,6 +168,18 @@ fn banner(config: &Config, limiter: &AdaptiveLimiter) {
     }
 
     eprintln!("max message size: {} bytes", config.max_message_bytes);
+    eprintln!(
+        "stream buffer: {} messages in flight, windows {}/{}",
+        config.stream_buffer,
+        config
+            .stream_window_bytes
+            .map(|bytes| bytes.to_string())
+            .unwrap_or_else(|| "default".to_string()),
+        config
+            .connection_window_bytes
+            .map(|bytes| bytes.to_string())
+            .unwrap_or_else(|| "default".to_string()),
+    );
     eprintln!(
         "validation threads: {} ({} async workers)",
         config.blocking_threads,

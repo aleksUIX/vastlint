@@ -11,6 +11,7 @@ use std::time::Duration;
 
 use tokio::net::TcpListener;
 use tokio_stream::wrappers::TcpListenerStream;
+use tokio_stream::StreamExt;
 use tonic::transport::{Channel, Server};
 use tonic::Request;
 use vastlint_grpc::proto::vastlint_service_client::VastlintServiceClient;
@@ -187,23 +188,183 @@ async fn list_rules_serves_the_catalog() {
         .all(|rule| rule.source != RuleSource::Unspecified as i32));
 }
 
-/// The stub has to be visibly a stub. A caller that gets a stream which closes
-/// immediately would read it as "no findings".
 #[tokio::test]
-async fn validate_stream_reports_unimplemented() {
+async fn validate_stream_returns_a_verdict_per_document() {
     let mut client = start().await;
 
-    let outbound = tokio_stream::iter(vec![ValidateStreamRequest {
-        request_id: "1".to_string(),
-        document: INVALID_VAST.to_string(),
-        context: None,
-    }]);
+    let documents: Vec<_> = (0..20)
+        .map(|i| ValidateStreamRequest {
+            request_id: format!("req-{i}"),
+            document: INVALID_VAST.to_string(),
+            context: None,
+        })
+        .collect();
 
-    let status = client
-        .validate_stream(Request::new(outbound))
+    let mut inbound = client
+        .validate_stream(Request::new(tokio_stream::iter(documents)))
         .await
-        .expect_err("streaming is not implemented yet");
+        .expect("stream opens")
+        .into_inner();
 
-    assert_eq!(status.code(), tonic::Code::Unimplemented);
-    assert!(status.message().contains("Validate"));
+    let mut seen = std::collections::HashSet::new();
+    while let Some(response) = inbound.next().await {
+        let response = response.expect("no stream-level failure");
+        assert!(
+            response.error.is_none(),
+            "unexpected error: {:?}",
+            response.error
+        );
+
+        let verdict = response.verdict.expect("verdict present");
+        assert!(!verdict.valid);
+        assert!(!verdict.issues.is_empty());
+
+        assert!(
+            seen.insert(response.request_id.clone()),
+            "each request_id must be answered exactly once"
+        );
+    }
+
+    assert_eq!(seen.len(), 20, "every document must be answered");
+}
+
+/// The contract says responses may arrive out of order, so the correlation
+/// token is the only thing tying a verdict to its document. If the server
+/// echoed the wrong id, or dropped it, a caller would silently attribute
+/// findings to the wrong creative.
+#[tokio::test]
+async fn stream_responses_are_correlated_by_request_id() {
+    let mut client = start().await;
+
+    let valid = r#"<VAST version="4.1"><Ad id="1"><InLine><AdSystem>Example</AdSystem><AdTitle>Ad</AdTitle><AdServingId>abc</AdServingId><Impression><![CDATA[https://t.example.com/i]]></Impression><Creatives><Creative><UniversalAdId idRegistry="ad-id.org">UID</UniversalAdId><Linear><Duration>00:00:15</Duration><MediaFiles><MediaFile delivery="progressive" type="video/mp4" width="640" height="360"><![CDATA[https://cdn.example.com/a.mp4]]></MediaFile></MediaFiles></Linear></Creative></Creatives></InLine></Ad></VAST>"#;
+
+    // Interleaved so a server that answered positionally rather than by id
+    // would pair the wrong verdict with the wrong token.
+    let documents = vec![
+        ValidateStreamRequest {
+            request_id: "broken".to_string(),
+            document: INVALID_VAST.to_string(),
+            context: None,
+        },
+        ValidateStreamRequest {
+            request_id: "clean".to_string(),
+            document: valid.to_string(),
+            context: None,
+        },
+    ];
+
+    let mut inbound = client
+        .validate_stream(Request::new(tokio_stream::iter(documents)))
+        .await
+        .expect("stream opens")
+        .into_inner();
+
+    let mut verdicts = std::collections::HashMap::new();
+    while let Some(response) = inbound.next().await {
+        let response = response.expect("no stream-level failure");
+        verdicts.insert(
+            response.request_id,
+            response.verdict.expect("verdict present").valid,
+        );
+    }
+
+    assert_eq!(verdicts.get("broken"), Some(&false));
+    assert_eq!(verdicts.get("clean"), Some(&true));
+}
+
+/// A bad context on one message is that message's problem. Tearing down the
+/// stream would punish every other document on it for one caller mistake.
+#[tokio::test]
+async fn a_bad_message_fails_alone_and_the_stream_continues() {
+    let mut client = start().await;
+
+    let documents = vec![
+        ValidateStreamRequest {
+            request_id: "bad-context".to_string(),
+            document: INVALID_VAST.to_string(),
+            context: Some(ValidationContext {
+                rule_overrides: [("VAST-9.9-not-a-rule".to_string(), 4)]
+                    .into_iter()
+                    .collect(),
+                ..Default::default()
+            }),
+        },
+        ValidateStreamRequest {
+            request_id: "fine".to_string(),
+            document: INVALID_VAST.to_string(),
+            context: None,
+        },
+    ];
+
+    let mut inbound = client
+        .validate_stream(Request::new(tokio_stream::iter(documents)))
+        .await
+        .expect("stream opens")
+        .into_inner();
+
+    let mut responses = std::collections::HashMap::new();
+    while let Some(response) = inbound.next().await {
+        let response = response.expect("one bad message must not fail the call");
+        responses.insert(response.request_id.clone(), response);
+    }
+
+    let bad = responses.get("bad-context").expect("bad message answered");
+    let error = bad.error.as_ref().expect("error reported");
+    assert_eq!(error.code, tonic::Code::InvalidArgument as i32);
+    assert!(error.message.contains("VAST-9.9-not-a-rule"));
+    assert!(bad.verdict.is_none());
+
+    let fine = responses.get("fine").expect("good message answered");
+    assert!(fine.error.is_none());
+    assert!(fine.verdict.is_some(), "the stream kept working");
+}
+
+/// Streaming and unary must not disagree. If they did, a caller would get a
+/// different answer depending on how it asked, which is the drift the whole
+/// one-core-many-surfaces arrangement exists to prevent.
+#[tokio::test]
+async fn streaming_and_unary_agree() {
+    let mut client = start().await;
+
+    let unary = client
+        .validate(Request::new(ValidateRequest {
+            document: INVALID_VAST.to_string(),
+            context: None,
+        }))
+        .await
+        .expect("validate succeeds")
+        .into_inner()
+        .verdict
+        .expect("verdict present");
+
+    let mut inbound = client
+        .validate_stream(Request::new(tokio_stream::iter(vec![
+            ValidateStreamRequest {
+                request_id: "1".to_string(),
+                document: INVALID_VAST.to_string(),
+                context: None,
+            },
+        ])))
+        .await
+        .expect("stream opens")
+        .into_inner();
+
+    let streamed = inbound
+        .next()
+        .await
+        .expect("one response")
+        .expect("no failure")
+        .verdict
+        .expect("verdict present");
+
+    assert_eq!(unary.valid, streamed.valid);
+    assert_eq!(unary.summary, streamed.summary);
+    assert_eq!(
+        unary.issues.iter().map(|i| &i.rule_id).collect::<Vec<_>>(),
+        streamed
+            .issues
+            .iter()
+            .map(|i| &i.rule_id)
+            .collect::<Vec<_>>(),
+    );
 }
