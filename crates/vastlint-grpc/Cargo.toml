@@ -1,0 +1,61 @@
+[package]
+name = "vastlint-grpc"
+version = "0.11.7"
+edition = "2021"
+rust-version = "1.88"  # tonic-prost-build
+authors = ["Aleks <aleks@vastlint.org>"]
+description = "gRPC server for VASTlint — exposes VAST XML validation over openadtech.vastlint.v1, with server reflection and health checking"
+license = "Apache-2.0"
+repository = "https://github.com/aleksUIX/vastlint"
+homepage = "https://vastlint.org"
+readme = "README.md"
+keywords = ["vast", "grpc", "adtech", "iab", "validation"]
+categories = ["development-tools", "network-programming"]
+
+[[bin]]
+name = "vastlint-grpc"
+path = "src/main.rs"
+
+[dependencies]
+vastlint-core = { path = "../vastlint-core", version = "0.11.7" }
+
+# gRPC transport and codegen runtime.
+tonic = "0.14"
+tonic-prost = "0.14"
+prost = "0.14"
+
+# Server reflection, so grpcurl and friends work without a local copy of the
+# proto. Same capability added to the ARTF Rust reference implementation.
+tonic-reflection = "0.14"
+
+# grpc.health.v1, required by Kubernetes readiness probes and by any load
+# balancer that health checks its upstreams.
+tonic-health = "0.14"
+
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "signal", "time"] }
+
+# Stream trait for the streaming RPC's associated type. Already in the tree via
+# tonic; named directly so the dependency is honest.
+tokio-stream = "0.1"
+
+# Catalog digest. Hashed over the linked catalog at startup, not over the source
+# file at build time: the point is to identify what this binary will actually
+# enforce.
+sha2 = "0.10"
+
+# Fast allocator, matching vastlint-mcp. Validation is allocation-heavy on the
+# hot path and this is the same workload shape.
+mimalloc = { version = "0.1", default-features = false }
+
+[build-dependencies]
+tonic-prost-build = "0.14"
+
+# Pure-Rust protobuf compiler, so the build needs no `protoc` on PATH. See the
+# note at the top of build.rs.
+protox = "0.9"
+prost = "0.14"
+
+[dev-dependencies]
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "time", "net"] }
+tokio-stream = { version = "0.1", features = ["net"] }
+vastlint-core = { path = "../vastlint-core", version = "0.11.7" }

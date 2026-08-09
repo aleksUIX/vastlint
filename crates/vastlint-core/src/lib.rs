@@ -599,6 +599,17 @@ impl RuleMeta {
     }
 }
 
+/// The version of this engine and of the rule catalog it carries.
+///
+/// The catalog ships inside this crate, so a single version identifies both.
+/// Callers that report a verdict to someone else should record it: a finding is
+/// only reproducible against the ruleset that produced it.
+///
+/// This names a release. It does not identify what that release actually
+/// contained, which is a different question and needs a content hash of
+/// [`all_rules`] instead. See `vastlint-grpc`'s `Provenance` for both together.
+pub const VERSION: &str = env!("CARGO_PKG_VERSION");
+
 /// Returns the full catalog of known rules in definition order.
 ///
 /// Use this to power `vastlint rules` output or to validate config-file rule
