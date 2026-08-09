@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Two <VASTAdTagURI> in one wrapper: the next chain hop is ambiguous.
+     Schema-valid under vast_4.4.xsd, which is why the rule exists. -->
+<VAST version="4.2" xmlns="http://www.iab.com/VAST">
+  <Ad id="dup-tag-uri">
+    <Wrapper>
+      <AdSystem version="1.0">Example</AdSystem>
+      <Impression><![CDATA[https://example.com/imp]]></Impression>
+      <VASTAdTagURI><![CDATA[https://example.com/first.xml]]></VASTAdTagURI>
+      <VASTAdTagURI><![CDATA[https://example.com/second.xml]]></VASTAdTagURI>
+    </Wrapper>
+  </Ad>
+</VAST>

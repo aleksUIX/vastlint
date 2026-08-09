@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Two <Duration> in one <Linear>: which one does the player believe? -->
+<VAST version="4.2" xmlns="http://www.iab.com/VAST">
+  <Ad id="dup-duration">
+    <InLine>
+      <AdSystem version="1.0">Example</AdSystem>
+      <AdServingId>abc-123</AdServingId>
+      <AdTitle>Example</AdTitle>
+      <Impression><![CDATA[https://example.com/imp]]></Impression>
+      <Creatives>
+        <Creative id="c1">
+          <UniversalAdId idRegistry="Ad-ID">CASE-1</UniversalAdId>
+          <Linear>
+            <Duration>00:00:15</Duration>
+            <Duration>00:00:30</Duration>
+            <MediaFiles>
+              <MediaFile delivery="progressive" type="video/mp4" width="640" height="360"><![CDATA[https://cdn.example.com/a.mp4]]></MediaFile>
+            </MediaFiles>
+          </Linear>
+        </Creative>
+      </Creatives>
+    </InLine>
+  </Ad>
+</VAST>

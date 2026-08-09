@@ -1937,6 +1937,52 @@ fn ad_sequence_mixed_fires_warning() {
     );
 }
 
+// ── singular-element cardinality ─────────────────────────────────────────────
+
+// Nothing else catches these. The XSD enforced maxOccurs="1" for 2.0 through
+// 4.2, but vast_4.4.xsd dropped cardinality entirely (IAB VAST issue #58), so
+// for a 4.4 document neither the schema nor this validator used to notice.
+
+#[test]
+fn duplicate_vastadtaguri_fires() {
+    let result = validate(&load("err_duplicate_vastadtaguri.xml"));
+    assert!(
+        has_issue(&result, "VAST-2.0-duplicate-singular-element"),
+        "expected VAST-2.0-duplicate-singular-element, got: {:#?}",
+        result.issues
+    );
+}
+
+#[test]
+fn duplicate_linear_duration_fires() {
+    let result = validate(&load("err_duplicate_linear_duration.xml"));
+    assert!(
+        has_issue(&result, "VAST-2.0-duplicate-singular-element"),
+        "expected VAST-2.0-duplicate-singular-element, got: {:#?}",
+        result.issues
+    );
+}
+
+// Repeatable elements must not trip it. <Impression>, <Error>, <Tracking> and
+// <MediaFile> all legitimately repeat, and an earlier draft of the table that
+// keyed on element name alone would have flagged them.
+#[test]
+fn repeatable_elements_do_not_fire_duplicate_singular() {
+    for name in fixture_names() {
+        let result = validate(&load(&name));
+        let hit = result
+            .issues
+            .iter()
+            .find(|i| i.id == "VAST-2.0-duplicate-singular-element");
+        if let Some(issue) = hit {
+            assert!(
+                name.starts_with("err_duplicate_"),
+                "unexpected duplicate-singular-element in {name}: {issue:?}"
+            );
+        }
+    }
+}
+
 // ── large real-world warning fixtures ────────────────────────────────────────
 
 #[test]
@@ -2102,7 +2148,7 @@ fn linear_with_quartile_tracking_does_not_fire() {
 fn all_rules_catalog_has_expected_count() {
     assert_eq!(
         vastlint_core::all_rules().len(),
-        222,
+        223,
         "catalog count changed — update this assertion and bump RULES.md"
     );
 }

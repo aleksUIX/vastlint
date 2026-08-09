@@ -164,6 +164,7 @@ pub static CATALOG: &[RuleMeta] = &[
     // structure.rs
     RuleMeta { id: "VAST-2.0-wrapper-depth",           default_severity: Severity::Error,   description: "Wrapper chain depth exceeds the configured maximum",                                             source: VastSpec },
     RuleMeta { id: "VAST-2.0-ad-sequence",             default_severity: Severity::Warning, description: "Mixed use of sequence attribute across <Ad> elements in a pod",                                 source: VastSpec },
+    RuleMeta { id: "VAST-2.0-duplicate-singular-element", default_severity: Severity::Error, description: "Element appears more than once where the spec allows a single occurrence",                     source: VastXsd  },
     // schema.rs
     RuleMeta { id: "VAST-2.0-text-only-element",       default_severity: Severity::Error,   description: "Text-only element contains a child element",                                                    source: VastXsd  },
     RuleMeta { id: "VAST-2.0-unknown-attribute",       default_severity: Severity::Warning, description: "Element has an attribute not defined in the VAST spec",                                         source: VastXsd  },

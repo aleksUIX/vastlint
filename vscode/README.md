@@ -12,7 +12,7 @@ Supports VAST 2.0 through 4.4 with clean Problems entries, concise hovers, fix g
 - **Multi-block** — validates every `<VAST>...</VAST>` block in a file independently
 - **Live as you type** — re-validates 500 ms after you stop typing, and on every save
 - **CLI backend** — uses the `vastlint` CLI binary when available, falls back to WASM in-process
-- **222 rules** across VAST 2.0–4.4 plus SIMID and OMID validation: required fields, schema structure, URLs, verification semantics, deprecations, and CTV/SSAI advisories
+- **223 rules** across VAST 2.0–4.4 plus SIMID and OMID validation: required fields, schema structure, URLs, verification semantics, deprecations, and CTV/SSAI advisories
 
 ## How it looks
 
@@ -59,7 +59,7 @@ Docs: vastlint.org/docs/rules/VAST-2.0-inline-adsystem
 
 ## Rules
 
-VASTlint checks 222 rules across:
+VASTlint checks 223 rules across:
 - Required elements and attributes (VAST 2.0–4.4)
 - Value formats (durations, URLs, enums)
 - Schema conformance (unknown elements/attributes)
@@ -80,7 +80,7 @@ Canonical rule catalog:
 - [vastlint.org/docs/rules](https://vastlint.org/docs/rules/) for the hosted per-rule pages
 
 <details>
-<summary>All 222 rules</summary>
+<summary>All 223 rules</summary>
 
 ### VAST 2.0
 
@@ -111,6 +111,7 @@ Canonical rule catalog:
 | [VAST-2.0-nonlinear-resource](https://vastlint.org/docs/rules/VAST-2.0-nonlinear-resource/) | error | `<NonLinear>` must contain at least one resource element |
 | [VAST-2.0-nonlinear-dimensions](https://vastlint.org/docs/rules/VAST-2.0-nonlinear-dimensions/) | warning | `<NonLinear>` missing `width` or `height` |
 | [VAST-2.0-ad-sequence](https://vastlint.org/docs/rules/VAST-2.0-ad-sequence/) | warning | Inconsistent use of `sequence` attribute across `<Ad>` elements |
+| [VAST-2.0-duplicate-singular-element](https://vastlint.org/docs/rules/VAST-2.0-duplicate-singular-element/) | error | Element appears more than once where the spec allows a single occurrence |
 | [VAST-2.0-text-only-element](https://vastlint.org/docs/rules/VAST-2.0-text-only-element/) | error | Text-only element contains a child element |
 | [VAST-2.0-unknown-attribute](https://vastlint.org/docs/rules/VAST-2.0-unknown-attribute/) | warning | Attribute not defined in the VAST spec |
 | [VAST-2.0-inline-unknown-child](https://vastlint.org/docs/rules/VAST-2.0-inline-unknown-child/) | error | `<InLine>` contains an unrecognised child element |
