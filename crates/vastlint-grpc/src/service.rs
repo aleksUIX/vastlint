@@ -16,6 +16,7 @@ use vastlint_core as core;
 
 use crate::convert;
 use crate::deadline;
+use crate::events::{Publisher, ValidationEvent};
 use crate::limit::AdaptiveLimiter;
 use crate::metrics;
 use crate::proto::vastlint_service_server::VastlintService;
@@ -40,6 +41,10 @@ pub struct VastlintApi {
     /// running with the limiter disabled gets.
     limiter: Option<Arc<AdaptiveLimiter>>,
     stream_buffer: usize,
+    /// Results stream. `None` means no events are produced at all, which is the
+    /// default and what every test uses.
+    publisher: Option<Arc<Publisher>>,
+    schema_id: u32,
 }
 
 impl VastlintApi {
@@ -47,7 +52,33 @@ impl VastlintApi {
         Self {
             limiter: None,
             stream_buffer: DEFAULT_STREAM_BUFFER,
+            publisher: None,
+            schema_id: 0,
         }
+    }
+
+    /// Attaches the results stream.
+    ///
+    /// Publishing is best effort and never on the critical path: an event that
+    /// cannot be queued is dropped and counted rather than awaited.
+    pub fn with_publisher(mut self, publisher: Arc<Publisher>, schema_id: u32) -> Self {
+        self.publisher = Some(publisher);
+        self.schema_id = schema_id;
+        self
+    }
+
+    /// Publishes one verdict, if a stream is configured.
+    fn emit(&self, event_id: String, result: &core::ValidationResult, caller: Option<String>) {
+        let Some(publisher) = &self.publisher else {
+            return;
+        };
+
+        let version = result
+            .version
+            .best()
+            .map(|version| version.as_str().to_string());
+        let event = ValidationEvent::from_result(event_id, result, version, caller);
+        publisher.publish(&event, self.schema_id);
     }
 
     /// Sets the in-flight bound for streams without attaching a limiter.
@@ -143,6 +174,42 @@ where
     result
 }
 
+/// Monotonic counter behind event ids.
+///
+/// Not a UUID. An event id has to be unique within this process's output and
+/// traceable back to a log line; a counter with the process start time folded
+/// in gives both without a dependency, and consumers deduplicate on the whole
+/// string rather than parsing it.
+fn next_event_id() -> u64 {
+    use std::sync::atomic::{AtomicU64, Ordering};
+    static COUNTER: AtomicU64 = AtomicU64::new(0);
+    static EPOCH: std::sync::OnceLock<u64> = std::sync::OnceLock::new();
+
+    let epoch = *EPOCH.get_or_init(|| {
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|since| since.as_secs())
+            .unwrap_or(0)
+    });
+
+    epoch
+        .wrapping_shl(24)
+        .wrapping_add(COUNTER.fetch_add(1, Ordering::Relaxed))
+}
+
+/// Caller identity from request metadata, for event attribution.
+///
+/// Self-asserted, like the rate limiter's view of it. Fine for attributing a
+/// stream of rejections back to whoever submitted them, not fine for anything
+/// that needs to be true.
+fn caller_identity(metadata: &tonic::metadata::MetadataMap) -> Option<String> {
+    metadata
+        .get("x-vastlint-caller")
+        .and_then(|value| value.to_str().ok())
+        .filter(|value| !value.is_empty())
+        .map(str::to_string)
+}
+
 /// Stable label for a gRPC status code.
 ///
 /// Written out rather than derived from `Debug`, because a metric label is a
@@ -170,6 +237,8 @@ impl VastlintService for VastlintApi {
     ) -> Result<Response<ValidateResponse>, Status> {
         observed("Validate", async move {
             let budget = deadline::remaining(request.metadata());
+            let caller = caller_identity(request.metadata());
+            let event_id = format!("{:016x}", next_event_id());
             let request = request.into_inner();
             let (context, forced) = convert::validation_context(request.context)?;
             let document = request.document;
@@ -178,6 +247,8 @@ impl VastlintService for VastlintApi {
                 core::validate_with_context(&document, context)
             })
             .await?;
+
+            self.emit(event_id, &result, caller);
 
             Ok(Response::new(ValidateResponse {
                 verdict: Some(convert::verdict(&result, forced)),

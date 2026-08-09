@@ -42,6 +42,8 @@ struct Metrics {
     latency: HistogramVec,
     shed: IntCounter,
     rate_limited: IntCounter,
+    events_published: IntCounter,
+    events_dropped: IntCounter,
     concurrency_limit: IntGauge,
 }
 
@@ -82,6 +84,18 @@ fn metrics() -> &'static Metrics {
         )
         .expect("valid metric definition");
 
+        let events_published = IntCounter::new(
+            "vastlint_grpc_events_published_total",
+            "Validation events encoded and handed to the results-stream sink",
+        )
+        .expect("valid metric definition");
+
+        let events_dropped = IntCounter::new(
+            "vastlint_grpc_events_dropped_total",
+            "Validation events discarded because the publish queue was full",
+        )
+        .expect("valid metric definition");
+
         let concurrency_limit = IntGauge::new(
             "vastlint_grpc_concurrency_limit",
             "Current adaptive concurrency limit",
@@ -95,6 +109,12 @@ fn metrics() -> &'static Metrics {
             .register(Box::new(rate_limited.clone()))
             .expect("unique metric");
         registry
+            .register(Box::new(events_published.clone()))
+            .expect("unique metric");
+        registry
+            .register(Box::new(events_dropped.clone()))
+            .expect("unique metric");
+        registry
             .register(Box::new(concurrency_limit.clone()))
             .expect("unique metric");
 
@@ -104,6 +124,8 @@ fn metrics() -> &'static Metrics {
             latency,
             shed,
             rate_limited,
+            events_published,
+            events_dropped,
             concurrency_limit,
         }
     })
@@ -132,6 +154,25 @@ pub fn record_shed() {
 /// Records a request refused by the rate limiter.
 pub fn record_rate_limited() {
     metrics().rate_limited.inc();
+}
+
+/// Records a validation event encoded and handed to the sink.
+///
+/// Counted even when the sink discards, because the number worth watching is
+/// how many events the server believes it produced. A gap between this and what
+/// a consumer receives is a delivery problem; a gap between this and the request
+/// count is a bug here.
+pub fn record_event_published() {
+    metrics().events_published.inc();
+}
+
+/// Records a validation event dropped because the publish queue was full.
+///
+/// Telemetry loss has to be visible. A results stream that silently skips
+/// events under load is worse than one that is switched off, because a consumer
+/// counting rejections would read the gap as a drop in rejections.
+pub fn record_event_dropped() {
+    metrics().events_dropped.inc();
 }
 
 /// Publishes the current adaptive limit.

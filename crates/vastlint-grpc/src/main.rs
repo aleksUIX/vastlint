@@ -14,6 +14,7 @@ use std::sync::Arc;
 use mimalloc::MiMalloc;
 use tonic::transport::Server;
 use vastlint_grpc::config::Config;
+use vastlint_grpc::events::{NullSink, Publisher, Sink};
 use vastlint_grpc::limit::{AdaptiveConcurrencyLayer, AdaptiveLimiter};
 use vastlint_grpc::metrics;
 use vastlint_grpc::proto::vastlint_service_server::VastlintServiceServer;
@@ -81,6 +82,20 @@ async fn serve(config: Config) -> Result<(), Box<dyn std::error::Error>> {
         .register_encoded_file_descriptor_set(tonic_health::pb::FILE_DESCRIPTOR_SET)
         .build_v1alpha()?;
 
+    // Built before anything is bound or printed. A misconfigured results stream
+    // should fail while the process is still obviously starting up, not after a
+    // banner that says the server is listening.
+    let publisher = if config.events.enabled {
+        let sink: Arc<dyn Sink> = build_sink(&config)?;
+        Some(Arc::new(Publisher::spawn(
+            sink,
+            config.events.buffer,
+            config.events.schema_id,
+        )))
+    } else {
+        None
+    };
+
     if let Some(metrics_addr) = config.metrics_addr {
         tokio::spawn(async move {
             if let Err(error) = metrics::serve(metrics_addr).await {
@@ -99,10 +114,13 @@ async fn serve(config: Config) -> Result<(), Box<dyn std::error::Error>> {
     // concurrency slot for its whole lifetime and report its entire duration as
     // a latency sample, driving the limit to the floor. Admission for streams
     // happens per message instead.
-    let vastlint = VastlintServiceServer::new(
-        VastlintApi::new().with_limiter(Arc::clone(&limiter), config.stream_buffer),
-    )
-    .max_decoding_message_size(config.max_message_bytes);
+    let mut api = VastlintApi::new().with_limiter(Arc::clone(&limiter), config.stream_buffer);
+    if let Some(publisher) = publisher {
+        api = api.with_publisher(publisher, config.events.schema_id);
+    }
+
+    let vastlint =
+        VastlintServiceServer::new(api).max_decoding_message_size(config.max_message_bytes);
 
     let mut server = Server::builder();
     if let Some(bytes) = config.stream_window_bytes {
@@ -130,6 +148,45 @@ async fn serve(config: Config) -> Result<(), Box<dyn std::error::Error>> {
         .await?;
 
     Ok(())
+}
+
+/// Chooses where validation events go.
+///
+/// With the `kafka` feature off, or with no brokers configured, events are
+/// still built and encoded and then discarded. That is deliberate: it keeps the
+/// encoding path exercised in every deployment, so a schema problem surfaces
+/// wherever the server runs rather than only where a broker happens to exist.
+fn build_sink(config: &Config) -> Result<Arc<dyn Sink>, Box<dyn std::error::Error>> {
+    if config.events.brokers.is_empty() {
+        eprintln!("events: enabled with no brokers, encoding and discarding");
+        return Ok(Arc::new(NullSink::default()));
+    }
+
+    #[cfg(feature = "kafka")]
+    {
+        let sink = vastlint_grpc::events::kafka::KafkaSink::new(
+            &config.events.brokers,
+            &config.events.topic,
+        )?;
+        eprintln!(
+            "events: publishing to {} topic {}",
+            config.events.brokers, config.events.topic
+        );
+        Ok(Arc::new(sink))
+    }
+
+    #[cfg(not(feature = "kafka"))]
+    {
+        // Refusing rather than silently discarding. An operator who set brokers
+        // expects records to arrive, and a binary built without the feature
+        // cannot deliver them. Starting anyway would look like success.
+        Err(format!(
+            "VASTLINT_KAFKA_BROKERS is set to {:?} but this binary was built without the \
+             `kafka` feature; rebuild with --features kafka or unset the brokers",
+            config.events.brokers
+        )
+        .into())
+    }
 }
 
 /// Prints the effective configuration at startup.

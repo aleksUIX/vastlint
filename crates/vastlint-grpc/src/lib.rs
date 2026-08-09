@@ -11,6 +11,7 @@
 pub mod config;
 pub mod convert;
 pub mod deadline;
+pub mod events;
 pub mod limit;
 pub mod metrics;
 pub mod provenance;

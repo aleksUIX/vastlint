@@ -150,6 +150,72 @@ worker thread runs to completion. For vastlint that is bounded and short. It is
 still real, and it is why capacity protection needs a concurrency limit rather
 than deadlines alone. A deadline stops the waiting, not the working.
 
+## Results stream (Avro over Kafka)
+
+Off by default. A topic nobody consumes is pure cost, and turning it on should
+be a decision somebody made rather than something a default did.
+
+```sh
+VASTLINT_EVENTS_ENABLED=true \
+VASTLINT_SCHEMA_ID=42 \
+VASTLINT_KAFKA_BROKERS=localhost:9092 \
+VASTLINT_KAFKA_TOPIC=vastlint.validation.v1 \
+  cargo run --release -p vastlint-grpc --features kafka
+```
+
+The motivating case is an SSP that wants a stream of creative rejections rather
+than a request-response call: it has no document to ask about, it wants to know
+which ones are failing.
+
+**Why Avro here and protobuf on the wire.** Not inconsistency. A gRPC contract
+is a *call* contract between two parties who are both present, and both can be
+told to upgrade, which is what `buf breaking` enforces at commit time. A topic
+is a *storage* contract with readers who are not present: records written today
+are read months later by consumers running schema versions nobody chose. Avro
+carries the writer schema's identity in every record and resolves readers
+against it, which is built for exactly that.
+
+**BACKWARD compatibility is proven, not just configured.** The subject is
+registered BACKWARD, so a reader on the current schema can read every record
+ever written. A registry enforces that once, at registration, when somebody
+remembers to register. [`tests/schema_compatibility.rs`](tests/schema_compatibility.rs)
+enforces it on every commit, including the cases that must fail: adding a field
+without a default, and renaming one. Same argument as `buf breaking` versus a
+review convention, reached from the other direction.
+
+**Publishing never blocks validation.** Events go onto a bounded queue and are
+dropped when it is full, counted in `vastlint_grpc_events_dropped_total`.
+Telemetry that adds latency to a bid path is worse than no telemetry, and a full
+queue must shed events rather than requests. `vastlint_grpc_events_published_total`
+is the other half: a gap between the two is delivery, a gap between published
+and the request count is a bug here.
+
+**Two things are deliberately manual.** The schema ID is configured rather than
+fetched, because a server that self-registers on startup can quietly create a
+new schema version during a rollback. And registration itself is an operational
+step:
+
+```sh
+curl -X PUT $REGISTRY/config/vastlint.validation.v1-value \
+  -H 'Content-Type: application/json' -d '{"compatibility":"BACKWARD"}'
+
+curl -X POST $REGISTRY/subjects/vastlint.validation.v1-value/versions \
+  -H 'Content-Type: application/vnd.schemaregistry.v1+json' \
+  -d "$(jq -Rs '{schema: .}' < schemas/openadtech/vastlint/v1/validation_event.avsc)"
+```
+
+The `kafka` feature is off by default because `rdkafka` builds a vendored
+librdkafka, a multi-minute C build every developer and CI job would otherwise
+pay for. Without it, events are still built, encoded, and discarded, so the
+encoding path stays exercised in every deployment and a schema problem surfaces
+wherever the server runs. Setting brokers on a binary built without the feature
+is a startup error rather than silent discarding.
+
+**Not tested against a live broker.** No Kafka was available in the environment
+this was written in. The encoding, the framing, the compatibility guarantee, the
+drop policy, and the configuration errors are all covered by tests and verified
+by hand; the producer's behaviour against a real cluster is not.
+
 ## Building
 
 No `protoc` required. Code generation goes through `protox`, a protobuf compiler

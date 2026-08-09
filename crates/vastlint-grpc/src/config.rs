@@ -52,6 +52,8 @@ pub struct Config {
     /// buffer would accept the whole firehose into memory and call it
     /// throughput.
     pub stream_buffer: usize,
+    /// Results stream settings.
+    pub events: EventConfig,
     /// Threads available to run validation.
     ///
     /// This is the server's real capacity, and it is worth being explicit about
@@ -83,6 +85,29 @@ pub struct LimitConfig {
     pub backoff_ratio: f64,
 }
 
+/// Validation event stream settings.
+///
+/// Off by default. A results topic nobody consumes is pure cost, and turning it
+/// on should be a decision somebody made rather than something that happens
+/// because a default said so.
+#[derive(Debug, Clone, Default)]
+pub struct EventConfig {
+    pub enabled: bool,
+    /// Kafka bootstrap servers. Empty means events are encoded and discarded,
+    /// which is useful for measuring the cost of the encoding without a broker.
+    pub brokers: String,
+    pub topic: String,
+    /// Schema ID as registered in the schema registry.
+    ///
+    /// Configured rather than fetched. Registering the schema and reading back
+    /// its ID is an operational step, and a server that self-registers on
+    /// startup can quietly create a new schema version during a rollback. See
+    /// the README for the registration command.
+    pub schema_id: u32,
+    /// Events buffered before new ones are dropped.
+    pub buffer: usize,
+}
+
 /// Per-caller token bucket settings.
 ///
 /// Both fields default to zero, which disables the limiter. A rate limit with a
@@ -107,6 +132,13 @@ impl Default for Config {
             // 40 MB wrapper chain is an attack, not a creative.
             max_message_bytes: 4 * 1024 * 1024,
             caller_header: "x-vastlint-caller".to_string(),
+            events: EventConfig {
+                enabled: false,
+                brokers: String::new(),
+                topic: "vastlint.validation.v1".to_string(),
+                schema_id: 0,
+                buffer: 1024,
+            },
             worker_threads: None,
             // Enough to keep the validation pool busy without letting one
             // stream reserve more capacity than the server has. Larger buys
@@ -211,6 +243,13 @@ impl Config {
             max_message_bytes: env_parse("VASTLINT_MAX_MESSAGE_BYTES", defaults.max_message_bytes)?,
             caller_header: std::env::var("VASTLINT_CALLER_HEADER")
                 .unwrap_or(defaults.caller_header),
+            events: EventConfig {
+                enabled: env_flag("VASTLINT_EVENTS_ENABLED", defaults.events.enabled)?,
+                brokers: std::env::var("VASTLINT_KAFKA_BROKERS").unwrap_or(defaults.events.brokers),
+                topic: std::env::var("VASTLINT_KAFKA_TOPIC").unwrap_or(defaults.events.topic),
+                schema_id: env_parse("VASTLINT_SCHEMA_ID", defaults.events.schema_id)?,
+                buffer: env_parse("VASTLINT_EVENTS_BUFFER", defaults.events.buffer)?,
+            },
             stream_buffer: env_parse("VASTLINT_STREAM_BUFFER", defaults.stream_buffer)?,
             stream_window_bytes: match std::env::var("VASTLINT_STREAM_WINDOW_BYTES") {
                 Ok(raw) => Some(parse("VASTLINT_STREAM_WINDOW_BYTES", &raw)?),
@@ -277,6 +316,25 @@ impl Config {
                              throttled below its own window",
                 });
             }
+        }
+
+        // A schema ID of zero is not a valid Confluent registry ID, and
+        // publishing under it would produce records no consumer can resolve.
+        // Better to refuse at startup than to fill a topic with undecodable
+        // bytes.
+        if self.events.enabled && self.events.schema_id == 0 {
+            return Err(ConfigError::Invalid {
+                name: "VASTLINT_SCHEMA_ID",
+                reason: "must be set when events are enabled: records are framed with the \
+                         registry schema id, and 0 is not one",
+            });
+        }
+
+        if self.events.enabled && self.events.buffer == 0 {
+            return Err(ConfigError::Invalid {
+                name: "VASTLINT_EVENTS_BUFFER",
+                reason: "must be at least 1, or every event is dropped",
+            });
         }
 
         if self.stream_buffer == 0 {
@@ -419,6 +477,25 @@ mod tests {
             config.blocking_threads <= 256,
             "a CPU-bound pool should track cores, not tokio's blocking default"
         );
+    }
+
+    /// Framing every record with schema id 0 would fill a topic with bytes no
+    /// consumer can resolve, and the failure would surface days later in
+    /// somebody else's pipeline.
+    #[test]
+    fn enabling_events_without_a_schema_id_is_rejected() {
+        let mut config = Config::default();
+        config.events.enabled = true;
+        config.events.schema_id = 0;
+        assert!(config.validate().is_err());
+
+        config.events.schema_id = 42;
+        assert!(config.validate().is_ok());
+    }
+
+    #[test]
+    fn events_are_off_by_default() {
+        assert!(!Config::default().events.enabled);
     }
 
     #[test]

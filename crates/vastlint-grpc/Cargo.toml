@@ -43,6 +43,10 @@ tokio-stream = "0.1"
 # enforce.
 sha2 = "0.10"
 
+# Avro encoding for the results stream. See src/events.rs for why the topic
+# uses Avro while the wire contract uses protobuf.
+apache-avro = "0.21"
+
 # Fast allocator, matching vastlint-mcp. Validation is allocation-heavy on the
 # hot path and this is the same workload shape.
 mimalloc = { version = "0.1", default-features = false }
@@ -59,6 +63,9 @@ http = "1"
 # in that format is a poor trade.
 prometheus = { version = "0.14", default-features = false }
 
+# Optional Kafka producer. See the `kafka` feature.
+rdkafka = { version = "0.39", optional = true, default-features = false, features = ["libz", "tokio"] }
+
 [build-dependencies]
 tonic-prost-build = "0.14"
 
@@ -67,7 +74,15 @@ tonic-prost-build = "0.14"
 protox = "0.9"
 prost = "0.14"
 
+[features]
+default = []
+# Publishes validation events to Kafka. Off by default because rdkafka builds a
+# vendored librdkafka, which is a minutes-long C build that every developer and
+# CI job would otherwise pay for to get a feature most deployments do not use.
+kafka = ["dep:rdkafka"]
+
 [dev-dependencies]
+serde_json = "1"
 hdrhistogram = "7.6.0"
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "time", "net"] }
 tokio-stream = { version = "0.1", features = ["net"] }

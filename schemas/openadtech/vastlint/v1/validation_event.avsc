@@ -1,0 +1,95 @@
+{
+  "type": "record",
+  "name": "ValidationEvent",
+  "namespace": "org.openadtech.vastlint.v1",
+  "doc": "One completed validation, published for consumers that want a stream of creative verdicts rather than a request-response call. An SSP watching for rejections is the motivating case: it wants to know which creatives are failing, not to ask about one at a time.\n\nCOMPATIBILITY: the subject is registered BACKWARD, meaning a reader on the current schema can read every record written under an older one. In practice that means fields are only ever added, and every added field carries a default. Removing a field, renaming one, or narrowing a type breaks it. Enforced by tests in this repository, not only by the registry: a registry checks at registration time, while the tests check on every commit.",
+  "fields": [
+    {
+      "name": "event_id",
+      "type": "string",
+      "doc": "Unique per event. Consumers deduplicate on this, because at-least-once delivery is the only guarantee on offer."
+    },
+    {
+      "name": "occurred_at_ms",
+      "type": "long",
+      "doc": "Unix milliseconds when validation completed. Not a logical timestamp: events can arrive out of order."
+    },
+    {
+      "name": "document_type",
+      "type": {
+        "type": "enum",
+        "name": "DocumentType",
+        "symbols": ["VAST", "VMAP", "DAAST", "UNKNOWN"],
+        "default": "UNKNOWN",
+        "doc": "The enum default matters. A consumer on an older schema that meets a document type added later resolves it to UNKNOWN instead of failing to decode the record."
+      }
+    },
+    {
+      "name": "effective_version",
+      "type": ["null", "string"],
+      "default": null,
+      "doc": "The VAST version validation ran against, e.g. \"4.1\". Null when it could not be determined."
+    },
+    {
+      "name": "valid",
+      "type": "boolean",
+      "doc": "True when no finding was at error severity."
+    },
+    {
+      "name": "errors",
+      "type": "int",
+      "default": 0,
+      "doc": "Finding counts, carried alongside the findings so a consumer aggregating rejection rates never has to decode the array."
+    },
+    { "name": "warnings", "type": "int", "default": 0 },
+    { "name": "infos", "type": "int", "default": 0 },
+    {
+      "name": "findings",
+      "type": {
+        "type": "array",
+        "items": {
+          "type": "record",
+          "name": "Finding",
+          "fields": [
+            {
+              "name": "rule_id",
+              "type": "string",
+              "doc": "A string for the same reason it is a string in the protobuf contract: the catalog moves faster than the schema. An Avro enum here would need a schema revision per rule, and the catalog went from 108 rules to 222 in four months."
+            },
+            {
+              "name": "severity",
+              "type": {
+                "type": "enum",
+                "name": "Severity",
+                "symbols": ["ERROR", "WARNING", "INFO", "UNKNOWN"],
+                "default": "UNKNOWN"
+              }
+            },
+            { "name": "message", "type": "string" },
+            {
+              "name": "path",
+              "type": ["null", "string"],
+              "default": null,
+              "doc": "XPath-like location. Null for findings about the document as a whole."
+            },
+            { "name": "spec_ref", "type": ["null", "string"], "default": null }
+          ]
+        }
+      },
+      "default": []
+    },
+    {
+      "name": "catalog_version",
+      "type": "string",
+      "doc": "Provenance, carried on every event for the same reason it is on every gRPC response: a verdict is only reproducible against the ruleset that produced it, and a consumer reading a topic weeks later has no other way to know which one that was."
+    },
+    { "name": "catalog_digest", "type": "string" },
+    { "name": "engine_version", "type": "string" },
+    {
+      "name": "caller",
+      "type": ["null", "string"],
+      "default": null,
+      "doc": "Caller identity from request metadata, when supplied. Self-asserted, so useful for attribution and not for authorization."
+    }
+  ]
+}
