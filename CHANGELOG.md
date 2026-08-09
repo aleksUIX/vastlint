@@ -6,6 +6,45 @@ GitHub Releases: <https://github.com/aleksUIX/vastlint/releases>
 
 ---
 
+## [0.11.7] - 2026-08-09
+
+**One new rule for a class nothing was checking: elements that repeat where the
+spec allows one.** A tag that validated clean on 0.11.6 can report findings
+here. Catalog: 222 to 223.
+
+### Added
+
+- `VAST-2.0-duplicate-singular-element` (error). Every VAST schema from 2.0 to
+  4.2 caps children such as `<AdSystem>`, `<AdTitle>`, `<AdServingId>`,
+  `<VASTAdTagURI>`, `<Duration>` and `<ClickThrough>` at one occurrence per
+  parent. Nothing here had ever counted them, and a repeat is genuinely
+  ambiguous: two `<VASTAdTagURI>` in a wrapper do not say which chain hop the
+  player should follow, and two `<Duration>` in a `<Linear>` do not say how long
+  the ad is.
+
+  The gap was invisible while the XSD covered it. `vast_4.4.xsd` wraps
+  `vastInLine_type` and `vastWrapper_type` in
+  `<xs:choice minOccurs="0" maxOccurs="unbounded">`, which drops cardinality for
+  every child it contains, so on a 4.4 document neither the schema nor this
+  validator noticed. Reported upstream as IAB VAST issue #58 with a fix in PR
+  #59; the rule stands regardless of how that lands, because the prose has
+  required these cardinalities since 2.0.
+
+  Forty (parent, child) pairs, derived from `vast_4.2.xsd` rather than by hand,
+  dispatched through the element walker so a container is covered wherever it
+  appears. Verified against the full IAB `VAST_Samples` corpus and every fixture
+  in this repo: 196 files, zero false positives. A guard test fails the build if
+  the rule ever fires on a fixture not named `err_duplicate_*`.
+
+### Changed
+
+- Rule count corrected across the surfaces that had drifted: `ROADMAP.md`,
+  `docs/tutorial.md`, `docs/mcp-agentic.md`, the `vastlint-core` crate
+  description, the MCP `server.json`, and the Chrome, VS Code and npm package
+  manifests all quoted 220 against a catalog of 222.
+
+---
+
 ## [0.11.6] - 2026-08-05
 
 **Two new rules and one newly-reachable existing rule.** A tag that validated

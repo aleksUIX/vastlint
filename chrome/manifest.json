@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "VASTlint",
-  "version": "0.11.6",
-  "description": "Detect and validate VAST, VMAP, and DAAST XML on any page. 220 rules, wrapper chains, SIMID and OMID. By VASTlint.",
+  "version": "0.11.7",
+  "description": "Detect and validate VAST, VMAP, and DAAST XML on any page. 223 rules, wrapper chains, SIMID and OMID. By VASTlint.",
   "permissions": ["activeTab", "storage"],
   "host_permissions": ["<all_urls>"],
   "icons": {

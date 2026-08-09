@@ -1,6 +1,6 @@
 [package]
 name = "vastlint-cli"
-version = "0.11.6"
+version = "0.11.7"
 edition = "2021"
 rust-version = "1.86"
 authors = ["Aleks <aleks@vastlint.org>"]
@@ -17,7 +17,7 @@ name = "vastlint"
 path = "src/main.rs"
 
 [dependencies]
-vastlint-core = { path = "../vastlint-core", version = "0.11.6" }
+vastlint-core = { path = "../vastlint-core", version = "0.11.7" }
 # High-throughput allocator — eliminates system-allocator contention when
 # validating many large VAST documents concurrently (see vastlint-core docs).
 mimalloc = { version = "0.1", default-features = false }

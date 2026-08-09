@@ -1,10 +1,10 @@
 [package]
 name = "vastlint-core"
-version = "0.11.6"
+version = "0.11.7"
 edition = "2021"
 rust-version = "1.86"
 authors = ["Aleks <aleks@vastlint.org>"]
-description = "VAST XML validator, SIMID linter, OMID validator, and VPAID detector. IAB VAST 2.0–4.4, 220 rules, pure Rust"
+description = "VAST XML validator, SIMID linter, OMID validator, and VPAID detector. IAB VAST 2.0–4.4, 223 rules, pure Rust"
 license = "Apache-2.0"
 repository = "https://github.com/aleksUIX/vastlint"
 homepage = "https://vastlint.org"
