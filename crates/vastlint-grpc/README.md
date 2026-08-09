@@ -64,6 +64,63 @@ it can be identified later. The digest is computed over the linked catalog at
 runtime rather than over the rule source at build time, so it still differs if
 rules were compiled out.
 
+## Ingress control
+
+Everything here is off the critical path when the server is healthy and only
+engages under load.
+
+| Control | Behaviour | Default |
+| --- | --- | --- |
+| Adaptive concurrency limit | AIMD over observed latency. Excess is shed with `RESOURCE_EXHAUSTED`, never queued. | on, starting at 32 in [4, 1024] |
+| Per-caller rate limit | Token bucket keyed on a request header. | off |
+| Request size cap | Enforced at the decoder, not after decoding. | 4 MiB |
+| Validation thread pool | The server's real capacity. | one thread per core |
+
+Health and reflection are exempt from shedding. Shedding a health check makes a
+busy instance look dead, so a load balancer pulls it from rotation and moves its
+traffic onto instances that are equally busy.
+
+Rate limiting sits outside the concurrency limiter, so a caller over its
+allowance is refused before it can occupy a concurrency slot. Caller identity
+comes from a header, which is a fairness mechanism and not authentication: the
+failure it prevents is an honest client in a retry storm, not a determined
+attacker.
+
+Configuration is environment-driven and every value is printed at startup, so a
+latency graph can be matched to the settings that produced it. See
+[`src/config.rs`](src/config.rs) for the full list.
+
+## Measured behaviour and SLO
+
+[`LOAD-TEST.md`](LOAD-TEST.md) has the method, the full ramp, and the raw
+numbers. Summary, at offered concurrency well past capacity:
+
+| | limiter off | limiter on |
+| --- | ---: | ---: |
+| p999 at concurrency 128 | 47.42 ms | 7.79 ms |
+| p999 at concurrency 256 | 34.40 ms | 11.28 ms |
+| worst observed | 51.62 ms | 17.57 ms |
+| goodput | baseline | 5 to 7% lower |
+| requests refused | 0% | 2.4% |
+
+Below capacity the two are within noise of each other, which is the point: a
+limiter that taxed the healthy case would not be worth running.
+
+Two things the experiment changed. The original 50ms target latency was reasoned
+from per-tag benchmarks rather than measured, and it turned out to be inert: the
+server's own handling time never approaches it, so the limiter shed 0.02% of
+requests and behaved like no limiter at all. And the real capacity knob was
+tokio's blocking pool, whose 512-thread default is sized for blocking I/O;
+sizing it to the core count raised saturated goodput by roughly 10%.
+
+**SLO**, derived from those measurements rather than asserted:
+
+- 99.9% of requests answered with a verdict or an explicit `RESOURCE_EXHAUSTED`.
+  A refusal a caller can act on is not an outage; a hang is.
+- p99 under 15ms and p999 under 25ms at offered concurrency up to 256, measured
+  client-side.
+- The verdict for a document does not depend on load.
+
 ## Deadlines
 
 The `grpc-timeout` header is honoured. A request whose deadline has already

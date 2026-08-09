@@ -8,9 +8,13 @@
 //! The wire contract lives in `proto/openadtech/vastlint/v1/vastlint.proto` and
 //! is not generated from the Rust types. `buf breaking` guards it in CI.
 
+pub mod config;
 pub mod convert;
 pub mod deadline;
+pub mod limit;
+pub mod metrics;
 pub mod provenance;
+pub mod ratelimit;
 pub mod service;
 
 /// Generated bindings for `openadtech.vastlint.v1`.

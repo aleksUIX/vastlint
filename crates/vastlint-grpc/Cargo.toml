@@ -47,6 +47,18 @@ sha2 = "0.10"
 # hot path and this is the same workload shape.
 mimalloc = { version = "0.1", default-features = false }
 
+# Middleware stack for the concurrency limiter and the rate limiter. The limit
+# layer is written here rather than taken from tower, because tower's is static
+# and the whole point is that the right limit is not knowable in advance.
+tower = { version = "0.5", features = ["util"] }
+http = "1"
+
+# Metrics. default-features off drops the protobuf exposition format and the
+# `protobuf` crate with it: only the text format is served, and pulling in a
+# second protobuf implementation alongside prost to render metrics nobody reads
+# in that format is a poor trade.
+prometheus = { version = "0.14", default-features = false }
+
 [build-dependencies]
 tonic-prost-build = "0.14"
 
@@ -56,6 +68,7 @@ protox = "0.9"
 prost = "0.14"
 
 [dev-dependencies]
+hdrhistogram = "7.6.0"
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "time", "net"] }
 tokio-stream = { version = "0.1", features = ["net"] }
 vastlint-core = { path = "../vastlint-core", version = "0.11.7" }

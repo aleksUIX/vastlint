@@ -3,17 +3,22 @@
 //! ```text
 //! VASTLINT_GRPC_ADDR=0.0.0.0:50051 vastlint-grpc
 //! grpcurl -plaintext localhost:50051 list
+//! curl localhost:9090/metrics
 //! ```
 //!
 //! Reflection is enabled, so `grpcurl` needs no local copy of the proto, and
 //! `grpc.health.v1` is served for readiness probes.
 
-use std::net::SocketAddr;
+use std::sync::Arc;
 
 use mimalloc::MiMalloc;
 use tonic::transport::Server;
+use vastlint_grpc::config::Config;
+use vastlint_grpc::limit::{AdaptiveConcurrencyLayer, AdaptiveLimiter};
+use vastlint_grpc::metrics;
 use vastlint_grpc::proto::vastlint_service_server::VastlintServiceServer;
 use vastlint_grpc::proto::FILE_DESCRIPTOR_SET;
+use vastlint_grpc::ratelimit::{RateLimitLayer, RateLimiter};
 use vastlint_grpc::service::VastlintApi;
 
 /// Validation builds an owned document tree per call, so under concurrency the
@@ -22,17 +27,31 @@ use vastlint_grpc::service::VastlintApi;
 #[global_allocator]
 static GLOBAL: MiMalloc = MiMalloc;
 
-/// Default listen address. Binds all interfaces because the deployment target
-/// is a container.
-const DEFAULT_ADDR: &str = "0.0.0.0:50051";
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let config = Config::from_env()?;
 
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let addr: SocketAddr = std::env::var("VASTLINT_GRPC_ADDR")
-        .unwrap_or_else(|_| DEFAULT_ADDR.to_string())
-        .parse()?;
+    // The runtime is built by hand rather than through `#[tokio::main]` so the
+    // blocking pool can be sized. That pool is where validation actually runs,
+    // and its default ceiling of 512 threads is sized for blocking I/O, not for
+    // CPU-bound work. Leaving it at the default means 512 concurrent
+    // validations on a machine with a dozen cores, which does not raise
+    // throughput, only latency and context switches, and it puts the real
+    // admission decision somewhere nobody configured.
+    let mut runtime = tokio::runtime::Builder::new_multi_thread();
+    runtime
+        .enable_all()
+        .max_blocking_threads(config.blocking_threads);
+    if let Some(threads) = config.worker_threads {
+        runtime.worker_threads(threads);
+    }
 
-    let service = VastlintApi::new();
+    runtime.build()?.block_on(serve(config))
+}
+
+async fn serve(config: Config) -> Result<(), Box<dyn std::error::Error>> {
+    let limiter = Arc::new(AdaptiveLimiter::new(config.limit.clone()));
+    let rate_limiter = Arc::new(RateLimiter::new(config.rate_limit.clone()));
+    metrics::set_concurrency_limit(limiter.limit());
 
     // Health reporting. Marked serving immediately: the rule catalog is static
     // and there is no warm-up, so there is no state in which the process is up
@@ -62,21 +81,86 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .register_encoded_file_descriptor_set(tonic_health::pb::FILE_DESCRIPTOR_SET)
         .build_v1alpha()?;
 
-    eprintln!(
-        "vastlint-grpc {} listening on {addr}",
-        env!("CARGO_PKG_VERSION")
-    );
-    eprintln!("catalog {}", vastlint_grpc::provenance::catalog_digest());
+    if let Some(metrics_addr) = config.metrics_addr {
+        tokio::spawn(async move {
+            if let Err(error) = metrics::serve(metrics_addr).await {
+                eprintln!("metrics endpoint stopped: {error}");
+            }
+        });
+        eprintln!("metrics on http://{metrics_addr}/metrics");
+    }
+
+    banner(&config, &limiter);
+
+    // A message cap on the decoder, not just on the handler. Rejecting a 40 MB
+    // body after decoding it has already paid the cost the cap exists to avoid.
+    let vastlint = VastlintServiceServer::new(VastlintApi::new())
+        .max_decoding_message_size(config.max_message_bytes);
 
     Server::builder()
+        // Rate limiting sits outside the concurrency limiter on purpose. A
+        // caller over its allowance should be refused before it can occupy a
+        // concurrency slot, otherwise one client in a retry storm crowds out
+        // everyone else while staying under the aggregate limit.
+        .layer(RateLimitLayer::new(
+            Arc::clone(&rate_limiter),
+            config.caller_header.clone(),
+        ))
+        .layer(AdaptiveConcurrencyLayer::new(Arc::clone(&limiter)))
         .add_service(health_service)
         .add_service(reflection_v1)
         .add_service(reflection_v1alpha)
-        .add_service(VastlintServiceServer::new(service))
-        .serve_with_shutdown(addr, shutdown())
+        .add_service(vastlint)
+        .serve_with_shutdown(config.addr, shutdown())
         .await?;
 
     Ok(())
+}
+
+/// Prints the effective configuration at startup.
+///
+/// Every value that changes how the server behaves under load, printed once, so
+/// that a latency graph can be matched to the settings that produced it. An
+/// experiment whose configuration was never recorded is an anecdote.
+fn banner(config: &Config, limiter: &AdaptiveLimiter) {
+    eprintln!(
+        "vastlint-grpc {} listening on {}",
+        env!("CARGO_PKG_VERSION"),
+        config.addr
+    );
+    eprintln!("catalog {}", vastlint_grpc::provenance::catalog_digest());
+
+    if config.limit.enabled {
+        eprintln!(
+            "concurrency limit: adaptive, starting at {} in [{}, {}], target latency {:?}, backoff {}",
+            limiter.limit(),
+            config.limit.min,
+            config.limit.max,
+            config.limit.target_latency,
+            config.limit.backoff_ratio,
+        );
+    } else {
+        eprintln!("concurrency limit: DISABLED, no shedding");
+    }
+
+    if config.rate_limit.per_second > 0 {
+        eprintln!(
+            "rate limit: {}/s per caller, burst {}, identified by {}",
+            config.rate_limit.per_second, config.rate_limit.burst, config.caller_header,
+        );
+    } else {
+        eprintln!("rate limit: disabled");
+    }
+
+    eprintln!("max message size: {} bytes", config.max_message_bytes);
+    eprintln!(
+        "validation threads: {} ({} async workers)",
+        config.blocking_threads,
+        config
+            .worker_threads
+            .map(|threads| threads.to_string())
+            .unwrap_or_else(|| "default".to_string())
+    );
 }
 
 /// Stops accepting on SIGINT so in-flight requests finish rather than being cut

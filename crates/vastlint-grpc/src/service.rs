@@ -5,14 +5,15 @@
 //! decision is made here.
 
 use std::pin::Pin;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use tokio::time::timeout;
-use tonic::{Request, Response, Status, Streaming};
+use tonic::{Code, Request, Response, Status, Streaming};
 use vastlint_core as core;
 
 use crate::convert;
 use crate::deadline;
+use crate::metrics;
 use crate::proto::vastlint_service_server::VastlintService;
 use crate::proto::{
     FixRequest, FixResponse, ListRulesRequest, ListRulesResponse, RuleSource, ValidateRequest,
@@ -81,25 +82,69 @@ where
     })
 }
 
+/// Times one RPC and records its outcome.
+///
+/// Instrumentation lives here rather than in a middleware layer because this is
+/// where the gRPC `Status` exists. In a layer the status is in the response
+/// trailers, so labelling by status code would mean buffering the body to
+/// recover something the handler already had in hand.
+async fn observed<T, F>(method: &'static str, work: F) -> Result<Response<T>, Status>
+where
+    F: std::future::Future<Output = Result<Response<T>, Status>>,
+{
+    let started = Instant::now();
+    let result = work.await;
+
+    let status = match &result {
+        Ok(_) => "ok",
+        Err(status) => status_label(status.code()),
+    };
+    metrics::record_request(method, status, started.elapsed().as_secs_f64());
+
+    result
+}
+
+/// Stable label for a gRPC status code.
+///
+/// Written out rather than derived from `Debug`, because a metric label is a
+/// contract with whatever dashboard consumes it: a formatting change upstream
+/// must not silently rename a time series and orphan the panel built on it.
+fn status_label(code: Code) -> &'static str {
+    match code {
+        Code::Ok => "ok",
+        Code::InvalidArgument => "invalid_argument",
+        Code::DeadlineExceeded => "deadline_exceeded",
+        Code::ResourceExhausted => "resource_exhausted",
+        Code::Unimplemented => "unimplemented",
+        Code::Internal => "internal",
+        Code::Unavailable => "unavailable",
+        Code::Cancelled => "cancelled",
+        _ => "other",
+    }
+}
+
 #[tonic::async_trait]
 impl VastlintService for VastlintApi {
     async fn validate(
         &self,
         request: Request<ValidateRequest>,
     ) -> Result<Response<ValidateResponse>, Status> {
-        let budget = deadline::remaining(request.metadata());
-        let request = request.into_inner();
-        let (context, forced) = convert::validation_context(request.context)?;
-        let document = request.document;
+        observed("Validate", async move {
+            let budget = deadline::remaining(request.metadata());
+            let request = request.into_inner();
+            let (context, forced) = convert::validation_context(request.context)?;
+            let document = request.document;
 
-        let result = run(budget, move || {
-            core::validate_with_context(&document, context)
+            let result = run(budget, move || {
+                core::validate_with_context(&document, context)
+            })
+            .await?;
+
+            Ok(Response::new(ValidateResponse {
+                verdict: Some(convert::verdict(&result, forced)),
+            }))
         })
-        .await?;
-
-        Ok(Response::new(ValidateResponse {
-            verdict: Some(convert::verdict(&result, forced)),
-        }))
+        .await
     }
 
     type ValidateStreamStream =
@@ -123,22 +168,34 @@ impl VastlintService for VastlintApi {
     }
 
     async fn fix(&self, request: Request<FixRequest>) -> Result<Response<FixResponse>, Status> {
-        let budget = deadline::remaining(request.metadata());
-        let request = request.into_inner();
-        let (context, _) = convert::validation_context(request.context)?;
-        let document = request.document;
+        observed("Fix", async move {
+            let budget = deadline::remaining(request.metadata());
+            let request = request.into_inner();
+            let (context, _) = convert::validation_context(request.context)?;
+            let document = request.document;
 
-        let result = run(budget, move || core::fix_with_context(&document, context)).await?;
+            let result = run(budget, move || core::fix_with_context(&document, context)).await?;
 
-        Ok(Response::new(FixResponse {
-            document: result.xml,
-            applied: result.applied.iter().map(convert::applied_fix).collect(),
-            remaining: result.remaining.iter().map(convert::issue).collect(),
-            provenance: Some(provenance()),
-        }))
+            Ok(Response::new(FixResponse {
+                document: result.xml,
+                applied: result.applied.iter().map(convert::applied_fix).collect(),
+                remaining: result.remaining.iter().map(convert::issue).collect(),
+                provenance: Some(provenance()),
+            }))
+        })
+        .await
     }
 
     async fn list_rules(
+        &self,
+        request: Request<ListRulesRequest>,
+    ) -> Result<Response<ListRulesResponse>, Status> {
+        observed("ListRules", async move { self.list_rules_inner(request) }).await
+    }
+}
+
+impl VastlintApi {
+    fn list_rules_inner(
         &self,
         request: Request<ListRulesRequest>,
     ) -> Result<Response<ListRulesResponse>, Status> {
