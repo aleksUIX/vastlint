@@ -32,3 +32,13 @@ toml = { version = "1.1", default-features = false, features = ["parse", "serde"
 ureq = { version = "2", default-features = false, features = ["tls"] }
 # Template placeholder replacement for --ignore-pattern
 regex = { version = "1", default-features = false, features = ["std"] }
+
+[dev-dependencies]
+# The gRPC surface, so the conformance test can compare the two surfaces
+# directly. This test lives here rather than in vastlint-grpc because cargo only
+# exposes CARGO_BIN_EXE_* for a package's own binaries, and comparing against a
+# copy of the CLI's JSON writer would prove nothing.
+vastlint-grpc = { path = "../vastlint-grpc", version = "0.11.7" }
+serde_json = "1"
+tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
+tonic = "0.14"

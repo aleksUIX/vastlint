@@ -1,0 +1,62 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# vastlint-grpc — gRPC server image
+#
+# Separate from the CLI image on purpose. They have different entrypoints,
+# different runtime shapes (one exits, one listens), and different reasons to be
+# pulled. One image with two behaviours selected by argument would make the
+# health check, the exposed ports, and the restart policy all conditional on
+# something the orchestrator cannot see.
+#
+# Stage 1 — build a fully-static musl binary
+#
+# rust:alpine is the right base for musl static builds: Alpine ships a native
+# musl toolchain so crates with C code compile cleanly. The debian-slim +
+# musl-tools approach breaks ring because that musl-gcc wrapper does not support
+# the -m64 flag ring's build script passes.
+#
+# Notably absent: protoc. Code generation goes through protox, a protobuf
+# compiler written in Rust, so the builder needs no protobuf toolchain and the
+# image has one fewer version to keep in step with the host.
+# ─────────────────────────────────────────────────────────────────────────────
+FROM rust:alpine@sha256:606fd313a0f49743ee2a7bd49a0914bab7deedb12791f3a846a34a4711db7ed2 AS builder
+
+RUN apk add --no-cache musl-dev gcc make perl
+
+WORKDIR /build
+
+COPY Cargo.toml Cargo.lock ./
+COPY crates/ crates/
+# The wire contract lives outside the crate, and build.rs reads it from here.
+COPY proto/ proto/
+
+RUN cargo build --release --bin vastlint-grpc
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Stage 2 — final image: scratch plus the static binary
+#
+# No OS, no shell, no package manager. There is nothing in this image to
+# exploit that is not the binary itself.
+#
+# The absence of a shell is why there is no HEALTHCHECK instruction: it would
+# need one. Health checking is served over gRPC at grpc.health.v1.Health, which
+# is what Kubernetes, Envoy, and any gRPC-aware load balancer will use anyway.
+# A shell-based HTTP probe would be strictly worse and would cost the scratch
+# base to provide.
+# ─────────────────────────────────────────────────────────────────────────────
+FROM scratch
+
+COPY --from=builder \
+     /build/target/release/vastlint-grpc \
+     /vastlint-grpc
+
+# gRPC and the Prometheus scrape endpoint.
+EXPOSE 50051 9090
+
+# Bind all interfaces: the only consumer of this image is a container runtime,
+# where localhost would make the server unreachable from anywhere useful.
+ENV VASTLINT_GRPC_ADDR=0.0.0.0:50051 \
+    VASTLINT_METRICS_ADDR=0.0.0.0:9090
+
+# No CMD. The server takes no arguments and everything is configured through the
+# environment, so an argument vector here could only be wrong.
+ENTRYPOINT ["/vastlint-grpc"]

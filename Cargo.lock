@@ -2690,9 +2690,13 @@ dependencies = [
  "clap",
  "mimalloc",
  "regex",
+ "serde_json",
+ "tokio",
  "toml",
+ "tonic",
  "ureq",
  "vastlint-core",
+ "vastlint-grpc",
 ]
 
 [[package]]
