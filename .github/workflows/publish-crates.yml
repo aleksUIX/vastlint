@@ -31,7 +31,7 @@ jobs:
           ref: ${{ inputs.tag }}
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@2c7215f132e9ebf062739d9130488b56d53c060c  # v (pinned SHA)
+        uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772  # v (pinned SHA)
         with:
           toolchain: stable
 
