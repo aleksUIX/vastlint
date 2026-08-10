@@ -123,7 +123,7 @@
     "@types/node": "^26.1.2",
     "@types/vscode": "1.85.0",
     "esbuild": "^0.28.1",
-    "ovsx": "1.0.2",
+    "ovsx": "1.1.0",
     "typescript": "^7.0.2"
   },
   "overrides": {
