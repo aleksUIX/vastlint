@@ -6,6 +6,29 @@ GitHub Releases: <https://github.com/aleksUIX/vastlint/releases>
 
 ---
 
+## [0.11.8] - 2026-08-10
+
+**Dependency maintenance only.** No rule changes, no behaviour changes; the
+catalog stays at 223 and any tag that validated on 0.11.7 validates identically
+here.
+
+### Security
+
+- `js-yaml` override raised to 4.3.1, closing GHSA-5p4m-2wfm-xmqj (quadratic CPU
+  consumption resolving `!!omap`). The package reaches this repo only as a
+  transitive `@vscode/vsce` dev dependency, so exposure was limited to
+  extension packaging, never to shipped code.
+
+### Changed
+
+- `clap` 4.6.4 to 4.6.6, `rmcp` 3.0.1 to 3.1.1.
+- `ovsx` 1.0.2 to 1.1.0 (VS Code publishing, dev only).
+- CI actions: `github/codeql-action/upload-sarif` 4.37.4 to 4.37.6,
+  `actions/attest-build-provenance` 4.1.1 to 4.2.2, `Swatinem/rust-cache` 2.9.1
+  to 2.9.2, and `dtolnay/rust-toolchain` moved to a newer pinned commit.
+
+---
+
 ## [0.11.7] - 2026-08-09
 
 **One new rule for a class nothing was checking: elements that repeat where the
