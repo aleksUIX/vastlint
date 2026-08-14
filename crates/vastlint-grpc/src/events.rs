@@ -460,65 +460,19 @@ mod tests {
     }
 }
 
-/// Kafka producer sink.
-///
-/// Behind the `kafka` feature because `rdkafka` builds a vendored librdkafka,
-/// which is a multi-minute C build that every developer and CI job would
-/// otherwise pay for. Everything else in this module, including the encoding
-/// and the compatibility tests, works without it.
-#[cfg(feature = "kafka")]
-pub mod kafka {
-    use super::Sink;
-
-    /// Publishes to a Kafka topic, fire and forget.
-    pub struct KafkaSink {
-        producer: rdkafka::producer::FutureProducer,
-        topic: String,
-    }
-
-    impl KafkaSink {
-        pub fn new(brokers: &str, topic: &str) -> Result<Self, rdkafka::error::KafkaError> {
-            use rdkafka::config::ClientConfig;
-
-            let producer: rdkafka::producer::FutureProducer = ClientConfig::new()
-                .set("bootstrap.servers", brokers)
-                // Bounded, and small. The publisher already has a bounded queue
-                // in front of this; letting librdkafka buffer another hundred
-                // thousand messages would move the unboundedness one layer down
-                // rather than removing it.
-                .set("queue.buffering.max.messages", "10000")
-                // Batch briefly. Publishing every event individually would turn
-                // a results stream into a syscall per validation.
-                .set("linger.ms", "50")
-                // Do not block the producer thread when the queue is full. The
-                // send fails immediately and the event is dropped and counted,
-                // which is the same policy as everywhere else here.
-                .set("queue.buffering.max.ms", "50")
-                .create()?;
-
-            Ok(Self {
-                producer,
-                topic: topic.to_string(),
-            })
-        }
-    }
-
-    impl Sink for KafkaSink {
-        fn publish(&self, key: &str, payload: &[u8]) {
-            use rdkafka::producer::FutureRecord;
-
-            let record = FutureRecord::to(&self.topic).key(key).payload(payload);
-
-            // `send_result` queues without awaiting delivery. Awaiting here
-            // would put broker round trips on the drain task and make a slow
-            // broker into a growing queue upstream.
-            if self.producer.send_result(record).is_err() {
-                crate::metrics::record_event_dropped();
-            }
-
-            // Deliberately not flushing per message. Flushing is a shutdown
-            // concern, and doing it here would serialise the whole stream on
-            // broker acknowledgement.
-        }
-    }
-}
+// A Kafka producer sink used to live here, behind a `kafka` feature. It was
+// removed, and the reason is worth keeping.
+//
+// CI runs `cargo clippy --all-targets --all-features`, so an optional feature
+// is not optional in CI: every platform built the vendored librdkafka on every
+// run, and Windows could not build it at all (`rdkafka-sys` panics with "%1 is
+// not a valid Win32 application"). A dependency that breaks a third of the
+// build matrix has to earn its place, and this one could not: it had never been
+// run against a broker, so nothing here was verified by having it.
+//
+// What it was protecting is unaffected. The schema, the Confluent framing, the
+// encoding, the drop policy, and the BACKWARD compatibility proof in
+// tests/schema_compatibility.rs are all still here and all still tested. `Sink`
+// is the seam: adding a real producer is an implementation of one trait method,
+// and it should land as its own change, on a branch with a broker to test it
+// against.

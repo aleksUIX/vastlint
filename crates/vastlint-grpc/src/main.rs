@@ -152,41 +152,26 @@ async fn serve(config: Config) -> Result<(), Box<dyn std::error::Error>> {
 
 /// Chooses where validation events go.
 ///
-/// With the `kafka` feature off, or with no brokers configured, events are
-/// still built and encoded and then discarded. That is deliberate: it keeps the
-/// encoding path exercised in every deployment, so a schema problem surfaces
-/// wherever the server runs rather than only where a broker happens to exist.
+/// With no brokers configured, events are still built, encoded, and discarded.
+/// That is deliberate: it keeps the encoding path exercised in every
+/// deployment, so a schema problem surfaces wherever the server runs rather
+/// than only where a broker happens to exist.
 fn build_sink(config: &Config) -> Result<Arc<dyn Sink>, Box<dyn std::error::Error>> {
     if config.events.brokers.is_empty() {
         eprintln!("events: enabled with no brokers, encoding and discarding");
         return Ok(Arc::new(NullSink::default()));
     }
 
-    #[cfg(feature = "kafka")]
-    {
-        let sink = vastlint_grpc::events::kafka::KafkaSink::new(
-            &config.events.brokers,
-            &config.events.topic,
-        )?;
-        eprintln!(
-            "events: publishing to {} topic {}",
-            config.events.brokers, config.events.topic
-        );
-        Ok(Arc::new(sink))
-    }
-
-    #[cfg(not(feature = "kafka"))]
-    {
-        // Refusing rather than silently discarding. An operator who set brokers
-        // expects records to arrive, and a binary built without the feature
-        // cannot deliver them. Starting anyway would look like success.
-        Err(format!(
-            "VASTLINT_KAFKA_BROKERS is set to {:?} but this binary was built without the \
-             `kafka` feature; rebuild with --features kafka or unset the brokers",
-            config.events.brokers
-        )
-        .into())
-    }
+    // Refusing rather than silently discarding. An operator who set brokers
+    // expects records to arrive, and this binary has no producer to deliver
+    // them with. Starting anyway would look like success and lose every event.
+    Err(format!(
+        "VASTLINT_KAFKA_BROKERS is set to {:?} but this build has no Kafka producer. \
+         Events are encoded and discarded; unset the brokers to run that way \
+         deliberately, or implement events::Sink against a broker you can test.",
+        config.events.brokers
+    )
+    .into())
 }
 
 /// Prints the effective configuration at startup.

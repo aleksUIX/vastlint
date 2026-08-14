@@ -156,12 +156,21 @@ Off by default. A topic nobody consumes is pure cost, and turning it on should
 be a decision somebody made rather than something a default did.
 
 ```sh
-VASTLINT_EVENTS_ENABLED=true \
-VASTLINT_SCHEMA_ID=42 \
-VASTLINT_KAFKA_BROKERS=localhost:9092 \
-VASTLINT_KAFKA_TOPIC=vastlint.validation.v1 \
-  cargo run --release -p vastlint-grpc --features kafka
+VASTLINT_EVENTS_ENABLED=true VASTLINT_SCHEMA_ID=42 \
+  cargo run --release -p vastlint-grpc
 ```
+
+**There is no broker client in this build.** Events are built, encoded, framed,
+and discarded, and `vastlint_grpc_events_published_total` counts them. Setting
+`VASTLINT_KAFKA_BROKERS` is a startup error rather than silent discarding.
+
+An `rdkafka` producer lived here behind a feature flag and was removed. CI runs
+`clippy --all-features`, so an optional feature is not optional in CI: every
+platform built a vendored librdkafka on every run and Windows could not build it
+at all. A dependency that breaks a third of the build matrix has to earn its
+place, and one that had never been run against a broker had not. `Sink` is the
+seam; a real producer is one trait method and belongs on a branch with a broker
+to test against.
 
 The motivating case is an SSP that wants a stream of creative rejections rather
 than a request-response call: it has no document to ask about, it wants to know
@@ -204,17 +213,10 @@ curl -X POST $REGISTRY/subjects/vastlint.validation.v1-value/versions \
   -d "$(jq -Rs '{schema: .}' < schemas/openadtech/vastlint/v1/validation_event.avsc)"
 ```
 
-The `kafka` feature is off by default because `rdkafka` builds a vendored
-librdkafka, a multi-minute C build every developer and CI job would otherwise
-pay for. Without it, events are still built, encoded, and discarded, so the
-encoding path stays exercised in every deployment and a schema problem surfaces
-wherever the server runs. Setting brokers on a binary built without the feature
-is a startup error rather than silent discarding.
-
-**Not tested against a live broker.** No Kafka was available in the environment
-this was written in. The encoding, the framing, the compatibility guarantee, the
-drop policy, and the configuration errors are all covered by tests and verified
-by hand; the producer's behaviour against a real cluster is not.
+**What is verified and what is not.** The schema, the Confluent framing, the
+encoding, the BACKWARD compatibility guarantee, the drop policy, and the
+configuration errors are covered by tests and verified by hand. Delivery to a
+real cluster is not implemented here at all, so nothing about it is claimed.
 
 ## Building
 
