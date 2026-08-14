@@ -103,7 +103,9 @@ impl AdaptiveLimiter {
     /// down to the floor and stays there.
     ///
     /// Public because the streaming handler admits per message rather than per
-    /// call, for the reasons in [`UNGOVERNED_PATHS`].
+    /// call, for the reasons on the private `UNGOVERNED_PATHS` constant: a
+    /// stream is one HTTP request that lives for minutes, so sampling it as a
+    /// single call reports its whole lifetime as one latency measurement.
     pub fn try_admit(self: &Arc<Self>) -> Option<Admitted> {
         if !self.config.enabled {
             return Some(Admitted {

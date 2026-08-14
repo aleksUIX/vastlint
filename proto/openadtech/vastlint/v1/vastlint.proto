@@ -286,7 +286,8 @@ message Provenance {
   // Semantic version of the rule catalog, e.g. "0.11.7". Names a release.
   string catalog_version = 1;
 
-  // Content hash of the active ruleset, as "sha256:<hex>". Pins what the
+  // Content hash of the active ruleset, formatted as "sha256:" followed by
+  // lowercase hex. Pins what the
   // release actually carried, which is what catches a catalog modified between
   // tagged releases or a build with rules compiled out.
   string catalog_digest = 2;
