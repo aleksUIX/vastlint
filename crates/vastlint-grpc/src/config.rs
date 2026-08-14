@@ -1,0 +1,506 @@
+//! Server configuration, read from the environment.
+//!
+//! Every knob has a default that is safe to run with, and every default is
+//! stated here rather than scattered across the code. The limiter can be turned
+//! off entirely, which exists so the load harness can measure the same server
+//! with and without it: a shedding policy nobody has measured is a claim, not a
+//! result.
+
+use std::net::SocketAddr;
+use std::time::Duration;
+
+/// Everything the server reads from the environment at startup.
+#[derive(Debug, Clone)]
+pub struct Config {
+    pub addr: SocketAddr,
+    /// `None` disables the metrics endpoint entirely.
+    pub metrics_addr: Option<SocketAddr>,
+    pub limit: LimitConfig,
+    pub rate_limit: RateLimitConfig,
+    /// Largest request body the server will decode.
+    pub max_message_bytes: usize,
+    /// Header carrying the caller identity used for rate limiting.
+    pub caller_header: String,
+    /// Async runtime threads. `None` uses tokio's default of one per core.
+    pub worker_threads: Option<usize>,
+    /// HTTP/2 receive window per stream, in bytes. `None` keeps tonic's default.
+    ///
+    /// This, not [`Self::stream_buffer`], is what actually bounds how far a
+    /// streaming server runs ahead of a client that has stopped reading. The
+    /// channel bounds the handler's own queue; the transport window bounds
+    /// everything between the handler and the socket, and it is the larger of
+    /// the two by orders of magnitude. Measured with the defaults, a client that
+    /// stops reading lets roughly 2,800 small responses accumulate before the
+    /// server stalls. See `tests/backpressure.rs`.
+    ///
+    /// Left at the default because shrinking it costs throughput on every
+    /// stream to bound memory that is, at a few megabytes per stream, usually
+    /// affordable. Exposed because "usually" is doing real work in that
+    /// sentence, and an operator running thousands of concurrent streams on a
+    /// small container needs the knob.
+    pub stream_window_bytes: Option<u32>,
+    /// HTTP/2 receive window per connection, in bytes. `None` keeps tonic's
+    /// default. Bounds the sum across all streams sharing one connection.
+    pub connection_window_bytes: Option<u32>,
+    /// In-flight messages permitted on one `ValidateStream` call.
+    ///
+    /// This is the bound that makes streaming backpressure real. The handler
+    /// reserves a slot on the outbound channel before reading the next inbound
+    /// message, so when the buffer is full it stops reading. That stall
+    /// propagates into HTTP/2 flow control and the client's writes block, which
+    /// is the correct answer to a producer faster than the server. An unbounded
+    /// buffer would accept the whole firehose into memory and call it
+    /// throughput.
+    pub stream_buffer: usize,
+    /// Results stream settings.
+    pub events: EventConfig,
+    /// Threads available to run validation.
+    ///
+    /// This is the server's real capacity, and it is worth being explicit about
+    /// why. Validation is CPU-bound and runs on tokio's blocking pool, whose
+    /// default ceiling is 512 threads. That default is sized for blocking I/O,
+    /// where threads spend their lives waiting. Here they never wait, so 512 of
+    /// them on a machine with a dozen cores does not add throughput: it adds
+    /// context switching and turns what should be a queue into a stampede.
+    /// Sized to the core count instead, so concurrency past capacity shows up
+    /// as a decision the limiter gets to make rather than as latency nobody
+    /// chose.
+    pub blocking_threads: usize,
+}
+
+/// Adaptive concurrency limiter settings.
+#[derive(Debug, Clone)]
+pub struct LimitConfig {
+    /// When false, no concurrency limiting and no shedding happens at all. The
+    /// A side of the A/B run.
+    pub enabled: bool,
+    pub initial: usize,
+    pub min: usize,
+    pub max: usize,
+    /// Latency above which a completed request counts as evidence of overload.
+    /// Not a request timeout: the request still succeeds, it just votes to
+    /// lower the limit.
+    pub target_latency: Duration,
+    /// Multiplicative decrease factor applied on an overload signal.
+    pub backoff_ratio: f64,
+}
+
+/// Validation event stream settings.
+///
+/// Off by default. A results topic nobody consumes is pure cost, and turning it
+/// on should be a decision somebody made rather than something that happens
+/// because a default said so.
+#[derive(Debug, Clone, Default)]
+pub struct EventConfig {
+    pub enabled: bool,
+    /// Kafka bootstrap servers. Empty means events are encoded and discarded,
+    /// which is useful for measuring the cost of the encoding without a broker.
+    pub brokers: String,
+    pub topic: String,
+    /// Schema ID as registered in the schema registry.
+    ///
+    /// Configured rather than fetched. Registering the schema and reading back
+    /// its ID is an operational step, and a server that self-registers on
+    /// startup can quietly create a new schema version during a rollback. See
+    /// the README for the registration command.
+    pub schema_id: u32,
+    /// Events buffered before new ones are dropped.
+    pub buffer: usize,
+}
+
+/// Per-caller token bucket settings.
+///
+/// Both fields default to zero, which disables the limiter. A rate limit with a
+/// number nobody chose is worse than none: it either never fires, or it fires on
+/// a legitimate caller who had no way to know the number.
+#[derive(Debug, Clone, Default)]
+pub struct RateLimitConfig {
+    /// Sustained requests per second allowed per caller. 0 disables.
+    pub per_second: u32,
+    /// Burst capacity. Defaults to one second of sustained rate.
+    pub burst: u32,
+}
+
+impl Default for Config {
+    fn default() -> Self {
+        Self {
+            addr: "0.0.0.0:50051".parse().expect("valid default addr"),
+            metrics_addr: Some("0.0.0.0:9090".parse().expect("valid default metrics addr")),
+            limit: LimitConfig::default(),
+            rate_limit: RateLimitConfig::default(),
+            // 4 MiB, matching tonic's own default. A VAST tag is kilobytes; a
+            // 40 MB wrapper chain is an attack, not a creative.
+            max_message_bytes: 4 * 1024 * 1024,
+            caller_header: "x-vastlint-caller".to_string(),
+            events: EventConfig {
+                enabled: false,
+                brokers: String::new(),
+                topic: "vastlint.validation.v1".to_string(),
+                schema_id: 0,
+                buffer: 1024,
+            },
+            worker_threads: None,
+            // Enough to keep the validation pool busy without letting one
+            // stream reserve more capacity than the server has. Larger buys
+            // nothing: the concurrency limiter is what decides how much work
+            // actually runs, and a deeper buffer only adds queueing time ahead
+            // of a decision that has already been made.
+            stream_buffer: 32,
+            stream_window_bytes: None,
+            connection_window_bytes: None,
+            blocking_threads: default_blocking_threads(),
+        }
+    }
+}
+
+/// One validation thread per core.
+///
+/// Falls back to 4 when the core count is unavailable, which is a number
+/// chosen to be small enough not to thrash a constrained container and large
+/// enough that the server is not trivially serial.
+fn default_blocking_threads() -> usize {
+    std::thread::available_parallelism()
+        .map(|count| count.get())
+        .unwrap_or(4)
+}
+
+impl Default for LimitConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            // Starts optimistic. AIMD finds the real ceiling within a few
+            // seconds of load, and starting low would shed traffic the server
+            // could have served while it climbed.
+            initial: 32,
+            // Never shed everything. A server that has driven its own limit to
+            // zero cannot recover, because it needs completed requests to
+            // produce the evidence that would raise the limit again.
+            min: 4,
+            max: 1024,
+            // Calibrate this per deployment. See `LOAD-TEST.md`.
+            //
+            // The first value here was 50ms, reasoned from the per-tag
+            // benchmarks as "twenty-five heavy tags of headroom". Measurement
+            // showed that was inert: under saturation the server's own handling
+            // time stays under 1ms at p99, so a 50ms trigger never fired and the
+            // limiter shed 0.02% of requests while behaving like no limiter at
+            // all. 2ms was chosen from the measured distribution instead, and
+            // the difference between a number that engages and one that does not
+            // is the entire value of having run the experiment.
+            target_latency: Duration::from_millis(2),
+            // 0.9 rather than the more common 0.5. Halving is right when a
+            // breach means a hard dependency failed; here it means the box is
+            // busy, and overreacting turns a latency blip into a throughput
+            // collapse.
+            backoff_ratio: 0.9,
+        }
+    }
+}
+
+impl Config {
+    /// Reads configuration from the environment, falling back to defaults.
+    ///
+    /// A malformed value is an error rather than a silent fallback. Starting
+    /// with a default limit because someone typo'd the override is how a server
+    /// ends up unprotected while its operator believes otherwise.
+    pub fn from_env() -> Result<Self, ConfigError> {
+        let defaults = Self::default();
+
+        let metrics_addr = match std::env::var("VASTLINT_METRICS_ADDR") {
+            Err(_) => defaults.metrics_addr,
+            // An explicitly empty value disables the endpoint. Useful when
+            // something else already occupies the port.
+            Ok(raw) if raw.trim().is_empty() => None,
+            Ok(raw) => Some(parse("VASTLINT_METRICS_ADDR", &raw)?),
+        };
+
+        let per_second = env_parse("VASTLINT_RATE_LIMIT_RPS", defaults.rate_limit.per_second)?;
+        let burst = match std::env::var("VASTLINT_RATE_LIMIT_BURST") {
+            Ok(raw) => parse("VASTLINT_RATE_LIMIT_BURST", &raw)?,
+            // One second of sustained rate. Enough to absorb a caller that
+            // batches its requests without letting it sustain the burst rate.
+            Err(_) => per_second,
+        };
+
+        let config = Self {
+            addr: match std::env::var("VASTLINT_GRPC_ADDR") {
+                Ok(raw) => parse("VASTLINT_GRPC_ADDR", &raw)?,
+                Err(_) => defaults.addr,
+            },
+            metrics_addr,
+            limit: LimitConfig {
+                enabled: env_flag("VASTLINT_LIMIT_ENABLED", defaults.limit.enabled)?,
+                initial: env_parse("VASTLINT_LIMIT_INITIAL", defaults.limit.initial)?,
+                min: env_parse("VASTLINT_LIMIT_MIN", defaults.limit.min)?,
+                max: env_parse("VASTLINT_LIMIT_MAX", defaults.limit.max)?,
+                target_latency: Duration::from_millis(env_parse(
+                    "VASTLINT_LIMIT_TARGET_LATENCY_MS",
+                    defaults.limit.target_latency.as_millis() as u64,
+                )?),
+                backoff_ratio: env_parse("VASTLINT_LIMIT_BACKOFF", defaults.limit.backoff_ratio)?,
+            },
+            rate_limit: RateLimitConfig { per_second, burst },
+            max_message_bytes: env_parse("VASTLINT_MAX_MESSAGE_BYTES", defaults.max_message_bytes)?,
+            caller_header: std::env::var("VASTLINT_CALLER_HEADER")
+                .unwrap_or(defaults.caller_header),
+            events: EventConfig {
+                enabled: env_flag("VASTLINT_EVENTS_ENABLED", defaults.events.enabled)?,
+                brokers: std::env::var("VASTLINT_KAFKA_BROKERS").unwrap_or(defaults.events.brokers),
+                topic: std::env::var("VASTLINT_KAFKA_TOPIC").unwrap_or(defaults.events.topic),
+                schema_id: env_parse("VASTLINT_SCHEMA_ID", defaults.events.schema_id)?,
+                buffer: env_parse("VASTLINT_EVENTS_BUFFER", defaults.events.buffer)?,
+            },
+            stream_buffer: env_parse("VASTLINT_STREAM_BUFFER", defaults.stream_buffer)?,
+            stream_window_bytes: match std::env::var("VASTLINT_STREAM_WINDOW_BYTES") {
+                Ok(raw) => Some(parse("VASTLINT_STREAM_WINDOW_BYTES", &raw)?),
+                Err(_) => defaults.stream_window_bytes,
+            },
+            connection_window_bytes: match std::env::var("VASTLINT_CONNECTION_WINDOW_BYTES") {
+                Ok(raw) => Some(parse("VASTLINT_CONNECTION_WINDOW_BYTES", &raw)?),
+                Err(_) => defaults.connection_window_bytes,
+            },
+            worker_threads: match std::env::var("VASTLINT_WORKER_THREADS") {
+                Ok(raw) => Some(parse("VASTLINT_WORKER_THREADS", &raw)?),
+                Err(_) => defaults.worker_threads,
+            },
+            blocking_threads: env_parse("VASTLINT_BLOCKING_THREADS", defaults.blocking_threads)?,
+        };
+
+        config.validate()?;
+        Ok(config)
+    }
+
+    /// Rejects combinations that would leave the server in a state it cannot
+    /// recover from, rather than discovering them under load.
+    fn validate(&self) -> Result<(), ConfigError> {
+        if self.limit.min == 0 {
+            return Err(ConfigError::Invalid {
+                name: "VASTLINT_LIMIT_MIN",
+                reason: "must be at least 1: a limit of zero sheds every request, including the \
+                         ones whose completion would raise the limit again",
+            });
+        }
+
+        if self.limit.min > self.limit.max {
+            return Err(ConfigError::Invalid {
+                name: "VASTLINT_LIMIT_MIN",
+                reason: "must not exceed VASTLINT_LIMIT_MAX",
+            });
+        }
+
+        if !(0.0..1.0).contains(&self.limit.backoff_ratio) {
+            return Err(ConfigError::Invalid {
+                name: "VASTLINT_LIMIT_BACKOFF",
+                reason: "must be in [0.0, 1.0): 1.0 or above never decreases the limit, so \
+                         the limiter would only ever grow",
+            });
+        }
+
+        if self.max_message_bytes == 0 {
+            return Err(ConfigError::Invalid {
+                name: "VASTLINT_MAX_MESSAGE_BYTES",
+                reason: "must be at least 1",
+            });
+        }
+
+        // HTTP/2 requires the connection window to be at least as large as a
+        // stream window; a smaller one would throttle every stream to a size
+        // the operator did not ask for.
+        if let (Some(stream), Some(connection)) =
+            (self.stream_window_bytes, self.connection_window_bytes)
+        {
+            if connection < stream {
+                return Err(ConfigError::Invalid {
+                    name: "VASTLINT_CONNECTION_WINDOW_BYTES",
+                    reason: "must be at least VASTLINT_STREAM_WINDOW_BYTES, or every stream is \
+                             throttled below its own window",
+                });
+            }
+        }
+
+        // A schema ID of zero is not a valid Confluent registry ID, and
+        // publishing under it would produce records no consumer can resolve.
+        // Better to refuse at startup than to fill a topic with undecodable
+        // bytes.
+        if self.events.enabled && self.events.schema_id == 0 {
+            return Err(ConfigError::Invalid {
+                name: "VASTLINT_SCHEMA_ID",
+                reason: "must be set when events are enabled: records are framed with the \
+                         registry schema id, and 0 is not one",
+            });
+        }
+
+        if self.events.enabled && self.events.buffer == 0 {
+            return Err(ConfigError::Invalid {
+                name: "VASTLINT_EVENTS_BUFFER",
+                reason: "must be at least 1, or every event is dropped",
+            });
+        }
+
+        if self.stream_buffer == 0 {
+            return Err(ConfigError::Invalid {
+                name: "VASTLINT_STREAM_BUFFER",
+                reason: "must be at least 1, or a stream can never admit a message",
+            });
+        }
+
+        if self.blocking_threads == 0 {
+            return Err(ConfigError::Invalid {
+                name: "VASTLINT_BLOCKING_THREADS",
+                reason: "must be at least 1, or no validation can run at all",
+            });
+        }
+
+        if self.worker_threads == Some(0) {
+            return Err(ConfigError::Invalid {
+                name: "VASTLINT_WORKER_THREADS",
+                reason: "must be at least 1",
+            });
+        }
+
+        Ok(())
+    }
+}
+
+#[derive(Debug)]
+pub enum ConfigError {
+    Unparseable {
+        name: &'static str,
+        value: String,
+    },
+    Invalid {
+        name: &'static str,
+        reason: &'static str,
+    },
+}
+
+impl std::fmt::Display for ConfigError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Unparseable { name, value } => {
+                write!(f, "{name} is not a valid value: {value:?}")
+            }
+            Self::Invalid { name, reason } => write!(f, "{name} {reason}"),
+        }
+    }
+}
+
+impl std::error::Error for ConfigError {}
+
+fn parse<T: std::str::FromStr>(name: &'static str, raw: &str) -> Result<T, ConfigError> {
+    raw.trim().parse().map_err(|_| ConfigError::Unparseable {
+        name,
+        value: raw.to_string(),
+    })
+}
+
+fn env_parse<T: std::str::FromStr>(name: &'static str, fallback: T) -> Result<T, ConfigError> {
+    match std::env::var(name) {
+        Ok(raw) => parse(name, &raw),
+        Err(_) => Ok(fallback),
+    }
+}
+
+fn env_flag(name: &'static str, fallback: bool) -> Result<bool, ConfigError> {
+    match std::env::var(name) {
+        Err(_) => Ok(fallback),
+        Ok(raw) => match raw.trim().to_ascii_lowercase().as_str() {
+            "1" | "true" | "yes" | "on" => Ok(true),
+            "0" | "false" | "no" | "off" => Ok(false),
+            _ => Err(ConfigError::Unparseable { name, value: raw }),
+        },
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn defaults_are_valid() {
+        Config::default().validate().expect("defaults validate");
+    }
+
+    /// The limiter needs completed requests to raise its own limit, so a floor
+    /// of zero is an absorbing state: once there, no request is admitted, so no
+    /// evidence arrives, so the limit never rises.
+    #[test]
+    fn a_minimum_limit_of_zero_is_rejected() {
+        let mut config = Config::default();
+        config.limit.min = 0;
+        assert!(config.validate().is_err());
+    }
+
+    #[test]
+    fn an_inverted_limit_range_is_rejected() {
+        let mut config = Config::default();
+        config.limit.min = 100;
+        config.limit.max = 10;
+        assert!(config.validate().is_err());
+    }
+
+    #[test]
+    fn a_backoff_ratio_that_never_decreases_is_rejected() {
+        let mut config = Config::default();
+        config.limit.backoff_ratio = 1.0;
+        assert!(config.validate().is_err());
+
+        config.limit.backoff_ratio = 1.5;
+        assert!(config.validate().is_err());
+    }
+
+    #[test]
+    fn a_backoff_ratio_of_zero_is_allowed_if_aggressive() {
+        let mut config = Config::default();
+        config.limit.backoff_ratio = 0.0;
+        // Collapses straight to the floor on any overload signal. Extreme, but
+        // it is a choice an operator is entitled to make.
+        assert!(config.validate().is_ok());
+    }
+
+    #[test]
+    fn a_server_with_no_validation_threads_is_rejected() {
+        let config = Config {
+            blocking_threads: 0,
+            ..Default::default()
+        };
+        assert!(config.validate().is_err());
+    }
+
+    /// The blocking pool is the server's real capacity, so it must not silently
+    /// inherit tokio's I/O-shaped default of 512 threads for CPU-bound work.
+    #[test]
+    fn the_default_validation_pool_is_sized_to_the_machine() {
+        let config = Config::default();
+        assert!(config.blocking_threads >= 1);
+        assert!(
+            config.blocking_threads <= 256,
+            "a CPU-bound pool should track cores, not tokio's blocking default"
+        );
+    }
+
+    /// Framing every record with schema id 0 would fill a topic with bytes no
+    /// consumer can resolve, and the failure would surface days later in
+    /// somebody else's pipeline.
+    #[test]
+    fn enabling_events_without_a_schema_id_is_rejected() {
+        let mut config = Config::default();
+        config.events.enabled = true;
+        config.events.schema_id = 0;
+        assert!(config.validate().is_err());
+
+        config.events.schema_id = 42;
+        assert!(config.validate().is_ok());
+    }
+
+    #[test]
+    fn events_are_off_by_default() {
+        assert!(!Config::default().events.enabled);
+    }
+
+    #[test]
+    fn flags_accept_the_usual_spellings() {
+        assert!(env_flag("VASTLINT_TEST_MISSING_FLAG", true).unwrap());
+        assert!(!env_flag("VASTLINT_TEST_MISSING_FLAG", false).unwrap());
+    }
+}

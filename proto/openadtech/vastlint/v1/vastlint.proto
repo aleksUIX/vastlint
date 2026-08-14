@@ -1,0 +1,455 @@
+// vastlint gRPC contract, v1.
+//
+// This file is the wire contract for calling the vastlint validation engine as
+// a service. It mirrors the public types of `vastlint-core` but is deliberately
+// not generated from them: the Rust API may change shape within a minor release
+// in ways that must not reach consumers of this contract.
+//
+// STABILITY POSTURE
+//
+// Assume every consumer of this file will never upgrade. Within `v1`:
+//
+//   - Fields are added, never renumbered and never repurposed.
+//   - Deleted field numbers go into a `reserved` range in the same commit.
+//   - Enums gain values at the end. A consumer that receives an unknown enum
+//     value must treat it as the `_UNSPECIFIED` case rather than rejecting the
+//     message.
+//   - A breaking change means publishing `openadtech.vastlint.v2` alongside this
+//     package and serving both through a deprecation window.
+//
+// This is enforced by `buf breaking` in CI, not by review. See `buf.yaml`.
+
+syntax = "proto3";
+
+package openadtech.vastlint.v1;
+
+// Validation and repair of IAB ad documents: VAST, VMAP, and DAAST.
+service VastlintService {
+  // Validate a single document.
+  rpc Validate(ValidateRequest) returns (ValidateResponse);
+
+  // Bulk validation over a bidirectional stream: creative catalogs, backfills,
+  // CI sweeps. Responses may be returned out of order, so callers correlate on
+  // `request_id`. The server applies flow control, so a client that reads
+  // slowly will see its writes block rather than see the server buffer without
+  // limit.
+  rpc ValidateStream(stream ValidateStreamRequest) returns (stream ValidateStreamResponse);
+
+  // Apply deterministic repairs and return the corrected document. Separate
+  // from Validate because it produces a modified artifact rather than a
+  // verdict, and because a caller granted validation access is not necessarily
+  // granted repair.
+  rpc Fix(FixRequest) returns (FixResponse);
+
+  // The rule catalog. Versioned independently of this contract: see the note on
+  // `Issue.rule_id`.
+  rpc ListRules(ListRulesRequest) returns (ListRulesResponse);
+}
+
+// ── Requests and responses ───────────────────────────────────────────────────
+//
+// Each RPC gets its own request and response types even where the payloads
+// coincide today, so that a field added for one call cannot appear on another
+// by accident. The parts that genuinely are the same, notably the verdict
+// itself, are factored into shared messages rather than duplicated.
+
+// Input to a single validation.
+message ValidateRequest {
+  // The document source. Required. Root element decides which rule chain runs.
+  string document = 1;
+
+  // Optional. Server defaults apply when absent.
+  ValidationContext context = 2;
+}
+
+// Result of a single validation.
+message ValidateResponse {
+  Verdict verdict = 1;
+}
+
+// One document in a validation stream.
+message ValidateStreamRequest {
+  // Client-supplied correlation token, echoed back unchanged. Required: it is
+  // the only way to match a response to its request, since the server may
+  // answer out of order. Never interpreted by the server, and not required to
+  // be unique, though a client that reuses one cannot demultiplex the results.
+  string request_id = 1;
+
+  string document = 2;
+  ValidationContext context = 3;
+}
+
+// One result in a validation stream.
+message ValidateStreamResponse {
+  string request_id = 1;
+
+  // Absent when `error` is set.
+  Verdict verdict = 2;
+
+  // Set when this one document failed in a way that does not end the stream,
+  // for example a request exceeding the size cap. The stream continues; other
+  // documents are unaffected. Failures that do end the stream arrive as a gRPC
+  // status on the call itself instead.
+  StreamError error = 3;
+}
+
+// A per-document failure that does not terminate the stream.
+message StreamError {
+  // gRPC status code, as the numeric value from google.rpc.Code. Carried as an
+  // int rather than an imported enum to keep this file dependency-free.
+  int32 code = 1;
+
+  string message = 2;
+}
+
+// Input to a repair.
+message FixRequest {
+  string document = 1;
+  ValidationContext context = 2;
+}
+
+// Result of a repair.
+message FixResponse {
+  // The repaired document. Always well formed. May differ structurally from the
+  // input beyond the listed fixes: XML comments and processing instructions do
+  // not survive the round trip.
+  string document = 1;
+
+  // Applied in document order.
+  repeated AppliedFix applied = 2;
+
+  // Findings that survived the repair pass and need a human.
+  repeated Issue remaining = 3;
+
+  Provenance provenance = 4;
+}
+
+// Request for the rule catalog.
+message ListRulesRequest {
+  // Optional filter. Empty means every source.
+  repeated RuleSource sources = 1;
+}
+
+// The rule catalog.
+message ListRulesResponse {
+  // Definition order, which is stable across releases for rules present in
+  // both.
+  repeated RuleMeta rules = 1;
+
+  Provenance provenance = 2;
+}
+
+// The outcome of validating one document. Shared by the unary and streaming
+// calls so the two can never drift apart.
+message Verdict {
+  // True when the document produced no findings at ERROR severity. Warnings and
+  // info findings do not affect it. Equivalent to `summary.errors == 0`,
+  // carried explicitly so callers do not reimplement the rule.
+  bool valid = 1;
+
+  DocumentType document_type = 2;
+  DetectedVersion detected_version = 3;
+
+  // Ordered by document position, depth first.
+  repeated Issue issues = 4;
+
+  Summary summary = 5;
+  Provenance provenance = 6;
+}
+
+// ── Core types ───────────────────────────────────────────────────────────────
+
+// A single validation finding.
+message Issue {
+  // Stable rule identifier, e.g. "VAST-2.0-root-version".
+  //
+  // Deliberately a string rather than an enum. The catalog moves faster than
+  // this contract does (108 rules in April 2026, 222 in August), and binding a
+  // fast-moving catalog to a slow-moving wire contract makes every new rule a
+  // contract change. The cost is that consumers get no compile-time checking of
+  // rule IDs. What buys that back:
+  //
+  //   1. An ID, once published, is permanent. It is never reused for a
+  //      different rule, including after the original rule is withdrawn.
+  //   2. Rules deprecate rather than disappear. A withdrawn rule stays in
+  //      ListRules with `deprecated` set and, where one exists, `superseded_by`
+  //      populated. A consumer pinning an old ID gets an explanation instead of
+  //      silence.
+  //   3. The ID format is frozen even though the set of IDs is not. Consumers
+  //      may match on the version prefix.
+  //
+  // Validate IDs against ListRules at startup rather than trusting a hardcoded
+  // list.
+  string rule_id = 1;
+
+  // Effective severity, after any caller override in ValidationContext. This is
+  // not necessarily the rule's default severity: compare against
+  // `RuleMeta.default_severity` from ListRules if that distinction matters.
+  Severity severity = 2;
+
+  string message = 3;
+
+  // XPath-like location, e.g. "/VAST/Ad[0]/InLine/AdSystem". Empty when the
+  // finding applies to the document as a whole.
+  string path = 4;
+
+  // Short spec citation, e.g. "IAB VAST 4.1 §3.4.1". Human-readable and not
+  // machine-parseable: its shape is not part of this contract.
+  string spec_ref = 5;
+
+  // 1-based position of the element that triggered the finding. Both are unset
+  // for document-level findings such as parse failures. `column` is a byte
+  // offset within the line, not a character offset, so it will not line up with
+  // a cursor position in a UTF-8 document containing multi-byte characters.
+  optional uint32 line = 6;
+  optional uint32 column = 7;
+}
+
+// Finding counts by severity.
+message Summary {
+  uint32 errors = 1;
+  uint32 warnings = 2;
+  uint32 infos = 3;
+}
+
+// A repair that was applied to the document.
+message AppliedFix {
+  string rule_id = 1;
+  string description = 2;
+  string path = 3;
+}
+
+// Caller-supplied validation settings. Every field is optional and the server
+// substitutes a default for anything absent.
+message ValidationContext {
+  // Current position in a wrapper chain. 0 means this document is the root.
+  // Set this when validating a document that was fetched by following a
+  // VASTAdTagURI, otherwise depth limits cannot be enforced correctly.
+  uint32 wrapper_depth = 1;
+
+  // Maximum permitted wrapper depth. Server default is 5, the IAB VAST 4.x
+  // recommendation. 0 means "use the server default" rather than "no wrappers
+  // permitted", because a default-constructed message must not silently change
+  // validation behaviour.
+  uint32 max_wrapper_depth = 2;
+
+  // Per-rule severity overrides, keyed by rule ID. Absent keys keep their
+  // default severity. Use RULE_LEVEL_OFF to silence a rule entirely.
+  //
+  // An unknown rule ID here is a client error, not a silent no-op: the server
+  // rejects the request with INVALID_ARGUMENT naming the offending IDs. A typo
+  // in a rule ID that silently disabled nothing would be indistinguishable from
+  // a rule that never fires.
+  map<string, RuleLevel> rule_overrides = 3;
+
+  // Validate against this version regardless of what the document declares.
+  // Unset means detect from the document, which is what almost every caller
+  // wants. Useful for templates and for tags whose version attribute is absent
+  // or wrong.
+  VastVersion forced_version = 4;
+}
+
+// How the document's VAST version was determined.
+//
+// Detection runs in two passes: the root element's `version` attribute is read
+// (declared), then document structure is scanned for version-specific elements
+// (inferred). When both are available they are compared, and disagreement is
+// itself a finding.
+//
+// Always DETECTION_SOURCE_UNKNOWN for VMAP and DAAST documents, whose own
+// version attributes are checked by their own rules.
+message DetectedVersion {
+  DetectionSource source = 1;
+
+  // Set when `source` is DECLARED or DECLARED_AND_INFERRED.
+  VastVersion declared = 2;
+
+  // Set when `source` is INFERRED or DECLARED_AND_INFERRED.
+  VastVersion inferred = 3;
+
+  // Meaningful only when `source` is DECLARED_AND_INFERRED. False means the
+  // document declares one version and is structurally another.
+  bool consistent = 4;
+
+  // The version validation actually ran against: the declared value when there
+  // is one, otherwise the inferred value, overridden by
+  // `ValidationContext.forced_version` when that was set.
+  VastVersion effective = 5;
+}
+
+// Everything needed to reproduce a verdict later.
+//
+// A verdict without its ruleset is not auditable, in the same way that a
+// question about an entity hierarchy is not answerable without an as-of date.
+// Both are questions about the past being asked of a model that has since moved.
+message Provenance {
+  // Semantic version of the rule catalog, e.g. "0.11.7". Names a release.
+  string catalog_version = 1;
+
+  // Content hash of the active ruleset, formatted as "sha256:" followed by
+  // lowercase hex. Pins what the
+  // release actually carried, which is what catches a catalog modified between
+  // tagged releases or a build with rules compiled out.
+  string catalog_digest = 2;
+
+  // Version of the validation engine itself. Tracked separately from the
+  // catalog because the same ruleset evaluated by a different parser can reach
+  // a different verdict.
+  string engine_version = 3;
+}
+
+// Metadata for one rule in the catalog.
+message RuleMeta {
+  string rule_id = 1;
+  Severity default_severity = 2;
+  string description = 3;
+
+  // The external standard the rule derives from.
+  RuleSource source = 4;
+
+  // True when violating this rule has a direct revenue or measurement
+  // consequence: lost impressions, broken tracking, zero fill. Orthogonal to
+  // severity and to source. Some spec-mandated rules carry revenue impact and
+  // some best-practice rules do not.
+  bool revenue_impact = 5;
+
+  // Set when the rule is retained for identifier stability but no longer fires.
+  bool deprecated = 6;
+
+  // Rule ID that replaced this one, when there is a direct successor. Empty
+  // when the rule was withdrawn without replacement.
+  string superseded_by = 7;
+}
+
+// ── Enums ────────────────────────────────────────────────────────────────────
+
+// Severity assigned strictly on spec language.
+//
+//   ERROR   — the spec says "must" or "required". The tag will likely fail to
+//             serve.
+//   WARNING — the spec says "should" or "recommended", or the construct is
+//             deprecated.
+//   INFO    — advisory. Not a spec violation, but a known interoperability
+//             risk.
+enum Severity {
+  SEVERITY_UNSPECIFIED = 0;
+  SEVERITY_ERROR = 1;
+  SEVERITY_WARNING = 2;
+  SEVERITY_INFO = 3;
+}
+
+// A severity override. Mirrors Severity and adds OFF.
+//
+// A separate enum rather than a Severity plus a boolean, because "off" is not a
+// severity and modelling it as one invites a caller to send it where a real
+// severity is expected.
+enum RuleLevel {
+  RULE_LEVEL_UNSPECIFIED = 0;
+  RULE_LEVEL_ERROR = 1;
+  RULE_LEVEL_WARNING = 2;
+  RULE_LEVEL_INFO = 3;
+
+  // The rule does not run and produces no finding.
+  RULE_LEVEL_OFF = 4;
+}
+
+// IAB VAST versions.
+//
+// 4.4 is a working draft, not a published specification: `vast_4.4.xsd` landed
+// in the IAB VAST repository on 2026-07-17 annotated "DRAFT for working group
+// discussion". Documents declaring it validate rather than falling through as
+// unknown, but findings that exist only in 4.4 are reported at WARNING or INFO.
+enum VastVersion {
+  VAST_VERSION_UNSPECIFIED = 0;
+  VAST_VERSION_2_0 = 1;
+  VAST_VERSION_3_0 = 2;
+  VAST_VERSION_4_0 = 3;
+  VAST_VERSION_4_1 = 4;
+  VAST_VERSION_4_2 = 5;
+  VAST_VERSION_4_3 = 6;
+  VAST_VERSION_4_4 = 7;
+}
+
+// The kind of IAB ad document, decided by the root element. Any unrecognised
+// root is treated as VAST and validated as such, which is how a malformed VAST
+// document reports useful findings instead of one unhelpful one.
+enum DocumentType {
+  DOCUMENT_TYPE_UNSPECIFIED = 0;
+  DOCUMENT_TYPE_VAST = 1;
+  DOCUMENT_TYPE_VMAP = 2;
+  DOCUMENT_TYPE_DAAST = 3;
+}
+
+// How a document's version was established.
+enum DetectionSource {
+  DETECTION_SOURCE_UNSPECIFIED = 0;
+
+  // The version attribute was present and recognised.
+  DETECTION_SOURCE_DECLARED = 1;
+
+  // The version attribute was absent or unrecognised, so the version was
+  // inferred from document structure.
+  DETECTION_SOURCE_INFERRED = 2;
+
+  // Both were available. They may or may not agree: see
+  // DetectedVersion.consistent.
+  DETECTION_SOURCE_DECLARED_AND_INFERRED = 3;
+
+  // Neither could be established.
+  DETECTION_SOURCE_UNKNOWN = 4;
+}
+
+// The external standard a rule derives from.
+//
+// Callers filter on this to set their own alerting policy: hard-fail on
+// VAST_SPEC, log only on INFERRED. Values are added as vastlint implements
+// further standards, so treat an unrecognised value as UNSPECIFIED rather than
+// rejecting the response.
+enum RuleSource {
+  RULE_SOURCE_UNSPECIFIED = 0;
+
+  // IAB Tech Lab VAST specification, normative prose with section references.
+  RULE_SOURCE_VAST_SPEC = 1;
+
+  // IAB Tech Lab published VAST XSD schemas: structural and enum constraints.
+  RULE_SOURCE_VAST_XSD = 2;
+
+  // W3C XML 1.0 well-formedness.
+  RULE_SOURCE_XML = 3;
+
+  // RFC 3986 URI syntax.
+  RULE_SOURCE_RFC3986 = 4;
+
+  // IANA Media Types registry.
+  RULE_SOURCE_IANA_MEDIA_TYPES = 5;
+
+  // ISO 4217 currency codes.
+  RULE_SOURCE_ISO4217 = 6;
+
+  // Ad-ID registry format.
+  RULE_SOURCE_AD_ID = 7;
+
+  // A vastlint heuristic with no single external authority behind it.
+  RULE_SOURCE_INFERRED = 8;
+
+  // IAB Tech Lab SIMID specification.
+  RULE_SOURCE_SIMID_SPEC = 9;
+
+  // IAB Tech Lab VMAP 1.0.1 specification.
+  RULE_SOURCE_VMAP_SPEC = 10;
+
+  // IAB Tech Lab DAAST specification.
+  RULE_SOURCE_DAAST_SPEC = 11;
+
+  // IAB Tech Lab published DAAST XSD schema.
+  RULE_SOURCE_DAAST_XSD = 12;
+
+  // Industry practice derived from real ad serving behaviour, where violation
+  // has a direct revenue or measurement consequence.
+  RULE_SOURCE_INDUSTRY_BEST_PRACTICE = 13;
+
+  // IAB Tech Lab CTV Ad Portfolio signaling guidance, finalised 2026-07-22.
+  // Distinct from RULE_SOURCE_VAST_XSD because the guidance is a published
+  // final standard while the accompanying vast_4.4.xsd remains a draft.
+  RULE_SOURCE_CTV_AD_PORTFOLIO = 14;
+}

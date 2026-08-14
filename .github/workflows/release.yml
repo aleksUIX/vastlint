@@ -1338,6 +1338,68 @@ jobs:
           cache-from: type=gha
           cache-to:   type=gha,mode=max
 
+      # The gRPC server ships as its own image rather than as a second
+      # entrypoint on the CLI image. They have different runtime shapes, and one
+      # image whose behaviour depends on an argument makes the exposed ports and
+      # the health check conditional on something the orchestrator cannot see.
+      - name: Build and push gRPC server
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a  # v7.3.0
+        with:
+          context: .
+          file: Dockerfile.grpc
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            aleksuix/vastlint-grpc:latest
+            aleksuix/vastlint-grpc:${{ steps.version.outputs.version }}
+          cache-from: type=gha
+          cache-to:   type=gha,mode=max
+
+  # ── Buf Schema Registry ────────────────────────────────────────────────────
+  # Publishes proto/openadtech/vastlint/v1 so consumers generate a client in any
+  # language without vendoring the file. The fourteenth distribution channel,
+  # built from the same single source of truth as the other thirteen.
+  #
+  # Prerequisites (one-time setup):
+  #   1. Create the "openadtech" organization on buf.build.
+  #   2. Create a module named "vastlint" under it.
+  #   3. Create an API token (Settings -> API tokens) and add it as the
+  #      BUF_TOKEN secret in this repo.
+  #   4. Set ENABLE_BSR_PUBLISH to "true" in repo variables.
+  #
+  # Until then this job is skipped rather than failing, matching how the Docker
+  # and npm jobs handle their own unset credentials.
+  publish-proto:
+    name: Publish to Buf Schema Registry
+    needs: [approve, build]
+    runs-on: ubuntu-latest
+    if: vars.ENABLE_BSR_PUBLISH == 'true'
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7.0.0
+        with:
+          node-version: '20'
+
+      # buf comes from the npm devDependency, the same version CI already lints
+      # and breaking-checks with. Pulling a different buf here would mean the
+      # thing that publishes the contract is not the thing that validated it.
+      - name: Install buf
+        run: npm ci
+
+      # Publishing a contract that has not been checked would defeat the point
+      # of checking it.
+      - name: Verify the contract before publishing
+        run: |
+          npx buf lint
+          npx buf format --diff --exit-code
+
+      - name: Push to the registry
+        env:
+          BUF_TOKEN: ${{ secrets.BUF_TOKEN }}
+        run: npx buf push --label "${GITHUB_REF_NAME}"
+
   publish-npm:
     name: Publish to npm
     needs: [approve, build, build-wasm]

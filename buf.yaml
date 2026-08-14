@@ -1,0 +1,22 @@
+version: v2
+
+modules:
+  - path: proto
+    name: buf.build/openadtech/vastlint
+
+lint:
+  use:
+    - STANDARD
+    # Every declaration carries a comment. This file is the only documentation a
+    # consumer who generates a client and never reads the Rust will ever see.
+    - COMMENTS
+  except:
+    # Covered by COMMENTS on the enum itself. Requiring a comment on every enum
+    # value produces restatements of the value name, which is noise.
+    - COMMENT_ENUM_VALUE
+    - COMMENT_FIELD
+    - COMMENT_RPC
+
+breaking:
+  use:
+    - FILE

@@ -7,5 +7,8 @@
   "scripts": {
     "build": "npm run build --workspaces",
     "typecheck": "npm run typecheck --workspaces"
+  },
+  "devDependencies": {
+    "@bufbuild/buf": "^1.72.0"
   }
 }
