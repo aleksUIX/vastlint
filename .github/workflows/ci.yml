@@ -190,14 +190,21 @@ jobs:
       - name: buf breaking
         if: github.event_name == 'pull_request'
         run: |
-          if git ls-tree -r --name-only origin/main | grep -q '\.proto$'; then
-            npx buf breaking --against '.git#branch=main'
-          else
+          if ! git ls-tree -r --name-only origin/main | grep -q '\.proto$'; then
             echo "main carries no .proto files yet, so there is no prior contract to"
             echo "break. This branch should only be reachable on the PR that first"
             echo "adds the contract."
             exit 0
           fi
+
+          # buf resolves `branch=main` against a local branch, and checkout
+          # leaves the PR in a detached HEAD with only origin/main present, so
+          # the clone fails with "could not clone .git: exit status 128". The
+          # fetch creates the local branch buf is looking for. This did not show
+          # up on the pull request that introduced the contract, because the
+          # guard above short-circuited before buf ever ran.
+          git fetch --no-tags origin main:main
+          npx buf breaking --against '.git#branch=main'
 
   docker:
     name: Docker images build
