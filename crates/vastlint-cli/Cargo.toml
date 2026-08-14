@@ -38,7 +38,14 @@ regex = { version = "1", default-features = false, features = ["std"] }
 # directly. This test lives here rather than in vastlint-grpc because cargo only
 # exposes CARGO_BIN_EXE_* for a package's own binaries, and comparing against a
 # copy of the CLI's JSON writer would prove nothing.
-vastlint-grpc = { path = "../vastlint-grpc", version = "0.11.7" }
+# Path only, deliberately no version. A dev-dependency carrying a version must
+# resolve from crates.io at publish time, and vastlint-grpc is not published
+# there (same as vastlint-mcp: servers ship as images, libraries and the CLI
+# ship as crates). With a version, `cargo publish -p vastlint-cli` fails with
+# "no matching package named vastlint-grpc found" and the release stops on the
+# crate that matters most. Path-only dev-dependencies are stripped from the
+# published manifest, which is exactly what is wanted here.
+vastlint-grpc = { path = "../vastlint-grpc" }
 serde_json = "1"
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
 tonic = "0.14"
