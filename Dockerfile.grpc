@@ -26,8 +26,12 @@ WORKDIR /build
 
 COPY Cargo.toml Cargo.lock ./
 COPY crates/ crates/
-# The wire contract lives outside the crate, and build.rs reads it from here.
+# Both contracts live outside the crate. build.rs reads the proto, and the Avro
+# schema is include_str!'d into the binary so it cannot write records under a
+# schema it does not itself carry. Omitting either fails the build inside the
+# image only, which is why CI builds this file on every pull request now.
 COPY proto/ proto/
+COPY schemas/ schemas/
 
 RUN cargo build --release --bin vastlint-grpc
 
