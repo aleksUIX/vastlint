@@ -107,25 +107,36 @@ async fn a_client_that_does_not_read_stalls_the_server() {
 
     // Everything has been handed to the transport and nothing has been read
     // back. A server with no bound anywhere would work through all of it.
-    tokio::time::sleep(Duration::from_millis(400)).await;
-    let first = completed();
-
-    tokio::time::sleep(Duration::from_millis(400)).await;
-    let second = completed();
+    //
+    // Polled until two consecutive samples match rather than compared at two
+    // fixed instants. A fixed comparison assumes the plateau is reached within
+    // some wall-clock time, which is true on a quiet laptop and not necessarily
+    // true on a shared CI runner. Waiting for the plateau tests the property
+    // instead of the machine.
+    let mut previous = u64::MAX;
+    let mut stalled_at = 0;
+    for _ in 0..40 {
+        tokio::time::sleep(Duration::from_millis(150)).await;
+        let current = completed();
+        if current == previous {
+            stalled_at = current;
+            break;
+        }
+        previous = current;
+    }
 
     assert!(
-        first < MESSAGES as u64,
-        "the server validated all {MESSAGES} messages while the client read none, \
+        stalled_at > 0,
+        "the server never stopped making progress while the client read nothing, \
          so nothing is bounding it"
     );
-    assert_eq!(
-        first, second,
-        "progress must stop entirely while the client reads nothing, not merely slow down"
-    );
     assert!(
-        first > 0,
-        "the server should have made progress up to the bound, not stalled at zero"
+        stalled_at < MESSAGES as u64,
+        "the server validated all {MESSAGES} messages before stalling, which means the \
+         bound is above the offered work and this test proves nothing"
     );
+
+    let first = stalled_at;
 
     // The stall must be a stall, not a deadlock. Draining has to let the rest
     // through, or "backpressure" would just be a hang with a better name.

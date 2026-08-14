@@ -90,28 +90,48 @@ fn fixtures() -> Vec<(&'static str, String)> {
 /// `CARGO_BIN_EXE_vastlint` is why this test lives in the CLI crate: cargo only
 /// exposes that for the package's own binaries. Calling a copied version of the
 /// CLI's JSON writer would test that the copy matches itself.
+///
+/// The document goes in over stdin rather than through a temporary file. The
+/// first version wrote a file whose name was derived from the document's
+/// content, with a comment claiming that stopped parallel tests colliding. It
+/// does the exact opposite: a content-derived name is the *same* name for every
+/// test using the same fixture, so two tests would write it, one would delete
+/// it, and the other's CLI would read nothing and emit empty stdout. It passed
+/// on macOS and failed on Linux and Windows, which is how a race announces
+/// itself. Feeding stdin removes the shared resource rather than trying to name
+/// it uniquely.
 fn cli_findings(document: &str) -> (Value, Vec<Finding>) {
-    let mut file = std::env::temp_dir();
-    file.push(format!(
-        "vastlint-conformance-{}.xml",
-        // Content-derived so parallel test threads cannot collide on one path.
-        document.len() as u64 * 31 + document.bytes().map(u64::from).sum::<u64>()
-    ));
-    std::fs::write(&file, document).expect("write fixture");
+    use std::io::Write;
+    use std::process::Stdio;
 
-    let output = Command::new(env!("CARGO_BIN_EXE_vastlint"))
+    let mut child = Command::new(env!("CARGO_BIN_EXE_vastlint"))
         .arg("check")
-        .arg(&file)
+        // "-" reads the document from stdin.
+        .arg("-")
         .arg("--format")
         .arg("json")
-        .output()
-        .expect("run the CLI");
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("spawn the CLI");
 
-    let _ = std::fs::remove_file(&file);
+    child
+        .stdin
+        .take()
+        .expect("stdin is piped")
+        .write_all(document.as_bytes())
+        .expect("write the document to the CLI");
+
+    let output = child.wait_with_output().expect("run the CLI");
 
     let stdout = String::from_utf8(output.stdout).expect("CLI emits utf-8");
-    let json: Value = serde_json::from_str(stdout.trim())
-        .unwrap_or_else(|error| panic!("CLI JSON did not parse: {error}\n{stdout}"));
+    let json: Value = serde_json::from_str(stdout.trim()).unwrap_or_else(|error| {
+        panic!(
+            "CLI JSON did not parse: {error}\nstdout: {stdout}\nstderr: {}",
+            String::from_utf8_lossy(&output.stderr)
+        )
+    });
 
     let findings = json["issues"]
         .as_array()
