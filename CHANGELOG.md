@@ -6,6 +6,59 @@ GitHub Releases: <https://github.com/aleksUIX/vastlint/releases>
 
 ---
 
+## [0.12.0] - 2026-08-14
+
+**Adds a gRPC surface.** No rule changes and no behaviour changes to existing
+surfaces; the catalog stays at 223 and any tag that validated on 0.11.8
+validates identically here. The minor bump is for the new crate and the new
+wire contract, not for anything that moved underneath existing callers.
+
+### Added
+
+- **`openadtech.vastlint.v1` wire contract**, in `proto/`. Hand-written rather
+  than generated from the Rust types, so the Rust API can move within a minor
+  release without dragging consumers with it. Two decisions are argued in the
+  file itself: rule IDs are strings rather than a proto enum, with a stability
+  policy (IDs permanent and never reused, rules deprecate rather than
+  disappear, `ListRules` for discovery) that is what makes the string safe to
+  depend on; and every response carries `Provenance`, since a verdict is only
+  reproducible against the ruleset that produced it.
+- **`vastlint-grpc`**, a gRPC server exposing `Validate`, `Fix`, `ListRules`,
+  and a bidirectional `ValidateStream`. Server reflection on v1 and v1alpha,
+  `grpc.health.v1`, and client deadlines honoured from `grpc-timeout`.
+- **Ingress control** on that server: adaptive AIMD concurrency limiting that
+  sheds to `RESOURCE_EXHAUSTED` rather than queueing, a per-caller token
+  bucket, request size caps enforced at the decoder, and Prometheus metrics on
+  a separate port so they stay scrapeable when the main port is saturated.
+  Measured with a load harness: p999 improves 6.1x at offered concurrency 128
+  (47.42ms to 7.79ms) for 5 to 7% of goodput and 2.4% of requests refused.
+  Below capacity the limited and unlimited curves are within noise. Method,
+  full ramp, and the published SLO are in `crates/vastlint-grpc/LOAD-TEST.md`.
+- **An Avro schema for validation events**, in `schemas/`, with BACKWARD
+  compatibility enforced by tests on every commit rather than only by a
+  registry at registration time. No broker client ships: events are encoded and
+  discarded unless a `Sink` is implemented.
+- **`Dockerfile.grpc`**, a `FROM scratch` image for the server, published
+  alongside the CLI image from the existing tag-gated pipeline.
+
+### Changed
+
+- `vastlint_core::VERSION` is now public, so callers reporting a verdict to
+  someone else can record which engine produced it.
+
+### CI
+
+- `buf lint`, `buf format`, and `buf breaking` against `main` now run on every
+  pull request, so backward compatibility of the wire contract is a machine
+  check rather than a review convention.
+- Both Docker images are built on every pull request. Previously nothing built
+  them outside a release, so a broken Dockerfile surfaced during publishing.
+- A conformance test requires the CLI and the gRPC surface to report the same
+  verdict, counts, findings, and ordering for the same document. Presentation
+  may differ between them; meaning may not.
+
+---
+
 ## [0.11.8] - 2026-08-10
 
 **Dependency maintenance only.** No rule changes, no behaviour changes; the
