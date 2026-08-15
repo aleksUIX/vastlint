@@ -1361,8 +1361,12 @@ jobs:
   # built from the same single source of truth as the other thirteen.
   #
   # Prerequisites (one-time setup):
-  #   1. Create the "openadtech" organization on buf.build.
-  #   2. Create a module named "vastlint" under it.
+  #   1. Create the "open-adtech" organization on buf.build.
+  #   2. Create a module named "vastlint" under it, so the full module name is
+  #      buf.build/open-adtech/vastlint, matching buf.yaml. The hyphen is in the
+  #      registry org only; the protobuf package stays openadtech.vastlint.v1,
+  #      because those are different namespaces and renaming the package to
+  #      match would be a breaking wire change for cosmetic symmetry.
   #   3. Create an API token (Settings -> API tokens) and add it as the
   #      BUF_TOKEN secret in this repo.
   #   4. Set ENABLE_BSR_PUBLISH to "true" in repo variables.

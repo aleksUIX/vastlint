@@ -2,7 +2,11 @@ version: v2
 
 modules:
   - path: proto
-    name: buf.build/openadtech/vastlint
+    # The registry org is "open-adtech" with a hyphen. The proto package stays
+    # openadtech.vastlint.v1 without one: a BSR module name and a protobuf
+    # package are different namespaces with different rules, and renaming the
+    # package to match would be a breaking wire change for cosmetic symmetry.
+    name: buf.build/open-adtech/vastlint
 
 lint:
   use:
