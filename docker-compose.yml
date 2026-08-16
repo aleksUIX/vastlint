@@ -1,9 +1,16 @@
-# docker-compose.yml — local build and test helper
+# docker-compose.yml: local build and test helper
 #
-# Build:   docker compose build
-# Run:     docker compose run --rm vastlint check /data/tag.xml
-# Stdin:   cat tag.xml | docker compose run --rm -T vastlint check -
-# JSON:    docker compose run --rm vastlint check /data/tag.xml --format json
+# CLI:
+#   docker compose build vastlint
+#   docker compose run --rm vastlint check /data/tag.xml
+#   cat tag.xml | docker compose run --rm -T vastlint check -
+#
+# gRPC (what vastlint-java talks to):
+#   docker compose up grpc
+#   grpcurl -plaintext localhost:50051 list
+#
+# Published image, no local build:
+#   docker run --rm -p 50051:50051 aleksuix/vastlint-grpc:0.13.0
 
 services:
   vastlint:
@@ -11,10 +18,19 @@ services:
       context: .
       dockerfile: Dockerfile
     image: vastlint:local
-    # Mount a local directory of XML files at /data inside the container.
-    # Change ./scratch to any directory containing your VAST XML files.
     volumes:
       - ./scratch:/data:ro
-    # Keep stdin open so `check -` (piped input) works.
     stdin_open: true
     tty: false
+
+  grpc:
+    build:
+      context: .
+      dockerfile: Dockerfile.grpc
+    image: vastlint-grpc:local
+    ports:
+      - "50051:50051"
+      - "9090:9090"
+    environment:
+      VASTLINT_GRPC_ADDR: 0.0.0.0:50051
+      VASTLINT_METRICS_ADDR: 0.0.0.0:9090

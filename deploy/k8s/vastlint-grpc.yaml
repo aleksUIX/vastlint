@@ -1,0 +1,47 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vastlint-grpc
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: vastlint-grpc
+  template:
+    metadata:
+      labels:
+        app: vastlint-grpc
+    spec:
+      containers:
+        - name: vastlint-grpc
+          image: aleksuix/vastlint-grpc:0.13.0
+          ports:
+            - name: grpc
+              containerPort: 50051
+            - name: metrics
+              containerPort: 9090
+          env:
+            - name: VASTLINT_GRPC_ADDR
+              value: 0.0.0.0:50051
+            - name: VASTLINT_METRICS_ADDR
+              value: 0.0.0.0:9090
+          readinessProbe:
+            grpc:
+              port: 50051
+            initialDelaySeconds: 2
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vastlint-grpc
+spec:
+  selector:
+    app: vastlint-grpc
+  ports:
+    - name: grpc
+      port: 50051
+      targetPort: grpc
+    - name: metrics
+      port: 9090
+      targetPort: metrics

@@ -17,6 +17,20 @@ cargo run -p vastlint-grpc
 VASTLINT_GRPC_ADDR=0.0.0.0:50051 vastlint-grpc
 ```
 
+Local container, from the repo root:
+
+```sh
+docker compose up grpc
+```
+
+Published image, no local Rust toolchain:
+
+```sh
+docker run --rm -p 50051:50051 aleksuix/vastlint-grpc:0.13.0
+```
+
+Kubernetes: [`deploy/k8s/vastlint-grpc.yaml`](../../deploy/k8s/vastlint-grpc.yaml). Point [`vastlint-java`](https://github.com/aleksUIX/vastlint-java) at `vastlint-grpc:50051`.
+
 Reflection is on, so no local copy of the proto is needed:
 
 ```sh
