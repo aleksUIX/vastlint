@@ -26,16 +26,10 @@ Where vastlint is today and where it's going.
 | **Monitoring-friendly CLI** | `--fail-on-warning` exits non-zero on any warning (including all `$` revenue-impact rules). `--max-depth` controls wrapper chain follow depth. `--summary` prints aggregate pass/fail counts with a `$revenue` line. URL input with automatic wrapper chain following. |
 | **VAST macro validation** | Macro substitution tokens validated across tracking, click, error, impression, and media URLs: unknown `[MACRO]` detection, lowercase casing mistakes (players match case-sensitively), deprecated tokens (`[CONTENTPLAYHEAD]`/`[MEDIAPLAYHEAD]` folded into `[ADPLAYHEAD]` at VAST 4.1), context violations (`[ERRORCODE]` outside `<Error>`, `[REASON]` outside `verificationNotExecuted`), and missing RFC 3986 percent-encoding. Full per-macro reference with resolved values and valid contexts at [vastlint.org/docs/vast-macros](https://vastlint.org/docs/vast-macros/). |
 | **IAB Content Taxonomy authority validation** | `authority` attribute values on `<Category>` (4.0+) and `<BlockedAdCategories>` (4.1+) validated: URL well-formedness plus recognition against the IAB Content Taxonomy registry hosts (`iabtechlab.com` and subdomains, `iab.com`), including version-qualified forms such as `iabtechlab.com/IABTC/2.2`. Custom taxonomies stay legal: unrecognised authorities are Info, malformed ones are Warnings. |
-| **Language bindings** | Python on PyPI (`vastlint`), Ruby on RubyGems (`vastlint`), Elixir/Erlang on hex.pm (`vastlint`, Rustler DirtyCpu NIF with precompiled binaries), Go bindings on GitHub - all backed by the same `vastlint-core`. |
+| **Language bindings** | Python on PyPI (`vastlint`), Ruby on RubyGems (`vastlint`), Elixir/Erlang on hex.pm (`vastlint`, Rustler DirtyCpu NIF with precompiled binaries), Go bindings on GitHub, Java gRPC client on GitHub (`vastlint-java`) - all backed by the same `vastlint-core`. |
 | **Shareable report links** | `vastlint check --share` uploads the validation report (rule IDs and messages, never the raw XML) and prints a public `vastlint.org/r/<id>` link for Slack, tickets, and PRs. |
 | **Content quality rules** | Beyond presence and structure: placeholder `<AdTitle>` values (`test`, `Ad 1`, `untitled`) that make creatives unidentifiable in reporting, placeholder `<AdSystem>` values that break provenance tracing, and missing `AdSystem` `version` attributes. Conservative lists, near-zero false positives, each rule disableable in `vastlint.toml`. Plus a VMAP advisory when a `display` ad break carries inline VAST with no `<CompanionAds>`. |
 | **`vastlint init`** | Generates a starter `vastlint.toml` with all 228 rules listed at their default severities, commented out - a zero-behaviour-change starting point for tuning, and durable evidence of adoption in a repo. |
-
-## 🔧 In progress
-
-| Milestone | Detail |
-|---|---|
-| **Java bindings** | In progress - backed by the same `vastlint-core`. |
 
 ## 🗺️ Upcoming
 

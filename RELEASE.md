@@ -95,6 +95,7 @@ of its target repo.
 | `sync-go` | `aleksUIX/vastlint-go` | prebuilt `libs/` FFI artifacts | `ENABLE_GO_SYNC=true` |
 | `sync-python` | `aleksUIX/vastlint-python` | release commit + tag | `ENABLE_PYTHON_SYNC=true` |
 | `sync-erlang` | `aleksUIX/vastlint-erlang` | prebuilt NIFs and checksums | `ENABLE_ERLANG_SYNC=true` |
+| `sync-java` | `aleksUIX/vastlint-java` | vendored proto + Gradle version | `ENABLE_JAVA_SYNC=true` |
 
 Check each one landed rather than assuming: `gh api repos/aleksUIX/<repo>/commits -q '.[0].commit.message'`.
 
@@ -152,5 +153,5 @@ a human are the ones outside this repo.
 | `chrome/manifest.json` + `chrome/package.json` | CI (node, then asserted) | in-repo value is cosmetic |
 | `crates/vastlint-mcp/server.json` | CI (jq: version, URL, SHA-256) | in-repo value is cosmetic |
 | `homebrew-tap/Formula/vastlint.rb` | CI (`sync-homebrew-tap`) | version, URLs and SHA-256 values |
-| `vastlint-erlang`, `vastlint-go`, `vastlint-python` | CI (`sync-*` jobs) | prebuilt artifacts and release commits |
+| `vastlint-erlang`, `vastlint-go`, `vastlint-python`, `vastlint-java` | CI (`sync-*` jobs) | prebuilt artifacts, vendored proto, and release commits |
 | `vastlint-infra` `package.json` + `apps/vastlint-web/package.json` | manual | pins the `vastlint` npm package the web validator runs |

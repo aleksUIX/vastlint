@@ -6,7 +6,7 @@ A high-performance VAST XML validator built on a pure-Rust core. Checks ad tags 
 
 VASTlint ships a native **MCP server** - making VAST validation available as a callable tool from Claude, Cursor, the [AAMP Buyer Agent SDK](https://github.com/IABTechLab/buyer-agent), or any MCP-compatible client. Connect to `vastlint.org/mcp` and call `validate_vast`, `validate_vast_url`, `inspect_vast`, `list_rules`, `explain_rule`, or `fix_vast`. Each tool returns structured JSON with rule IDs, XPath locations, and spec references.
 
-Native bindings for realtime ad pipelines: [`vastlint-go`](https://github.com/aleksUIX/vastlint-go) (CGo, prebuilt static libs — no Rust toolchain needed), [`vastlint-erlang`](https://github.com/aleksUIX/vastlint-erlang) (Elixir/Erlang — OTP port mode for production ad delivery, DirtyCpu NIF for non-critical paths), and a WASM npm package for Node.js and browsers. All bindings share the same compiled Rust core — consistent results everywhere, sub-millisecond latency at scale.
+Native bindings for realtime ad pipelines: [`vastlint-go`](https://github.com/aleksUIX/vastlint-go) (CGo, prebuilt static libs, no Rust toolchain needed), [`vastlint-java`](https://github.com/aleksUIX/vastlint-java) (gRPC client for JVM ad servers), [`vastlint-erlang`](https://github.com/aleksUIX/vastlint-erlang) (Elixir/Erlang: OTP port mode for production ad delivery, DirtyCpu NIF for non-critical paths), and a WASM npm package for Node.js and browsers. All bindings share the same compiled Rust core. Consistent results everywhere, sub-millisecond latency at scale.
 
 Need a copy-paste frontend starting point? See the React drop-in example in [`npm/examples`](npm/examples/README.md).
 
@@ -14,6 +14,7 @@ Need a copy-paste frontend starting point? See the React drop-in example in [`np
 [![vastlint-core](https://img.shields.io/crates/v/vastlint-core.svg?label=vastlint-core)](https://crates.io/crates/vastlint-core)
 [![npm](https://img.shields.io/npm/v/vastlint.svg?label=npm)](https://www.npmjs.com/package/vastlint)
 [![go](https://img.shields.io/github/v/tag/aleksUIX/vastlint-go?label=go&color=00ADD8)](https://github.com/aleksUIX/vastlint-go)
+[![java](https://img.shields.io/github/v/tag/aleksUIX/vastlint-java?label=java&color=ED8B00)](https://github.com/aleksUIX/vastlint-java)
 [![license](https://img.shields.io/crates/l/vastlint-cli.svg)](LICENSE)
 
 [![VS Code](https://img.shields.io/visual-studio-marketplace/v/aleksuix.vastlint?label=vs%20code&color=007ACC)](https://marketplace.visualstudio.com/items?itemName=aleksuix.vastlint)
@@ -359,6 +360,19 @@ if err != nil || !result.Valid {
 }
 ```
 
+**Java — `vastlint-java` (gRPC client, no JNI):**
+
+```java
+try (VastlintClient client = VastlintClient.connect("localhost:50051")) {
+    Verdict verdict = client.validate(xml);
+    if (!verdict.getValid()) {
+        // quarantine tag, surface verdict.getIssuesList() to the partner
+    }
+}
+```
+
+Talks to `vastlint-grpc`. Same catalog as Go. See [`vastlint-java`](https://github.com/aleksUIX/vastlint-java).
+
 **Elixir / Erlang — `vastlint-erlang` (BEAM, OTP-safe):**
 
 Two integration modes are available. For production ad delivery, use the **OTP port mode** — `vastlint-cli` runs as a supervised OS process, so a crash is fully isolated and never affects the BEAM node:
@@ -384,7 +398,7 @@ case Vastlint.validate(xml_string) do
 end
 ```
 
-All three bindings share the same compiled Rust core — identical rule enforcement, same rule IDs in the response, same latency profile. See the [ad server integration guide](https://vastlint.org/docs/ad-server-integration/) for production patterns including per-partner rule overrides, revenue-impact rule filtering, and structured error reporting back to demand partners.
+All four bindings share the same compiled Rust core. Identical rule enforcement, same rule IDs in the response. See the [ad server integration guide](https://vastlint.org/docs/ad-server-integration/) for production patterns including per-partner rule overrides, revenue-impact rule filtering, and structured error reporting back to demand partners.
 
 ## Use from JavaScript / TypeScript
 
@@ -445,6 +459,30 @@ result, err := vastlint.ValidateWithOptions(xmlString, vastlint.Options{
 ```
 
 See the [vastlint-go README](https://github.com/aleksUIX/vastlint-go) for the full API reference.
+
+## Use from Java
+
+[`vastlint-java`](https://github.com/aleksUIX/vastlint-java) is a gRPC client for JVM ad servers. Same catalog as Go. Talks to `vastlint-grpc` rather than loading JNI on the auction thread.
+
+```kotlin
+implementation("io.openadtech:vastlint:0.13.0")
+```
+
+```java
+import io.openadtech.vastlint.VastlintClient;
+import io.openadtech.vastlint.v1.Verdict;
+
+try (VastlintClient client = VastlintClient.connect("localhost:50051")) {
+    Verdict verdict = client.validate(xmlString);
+    if (!verdict.getValid()) {
+        verdict.getIssuesList().forEach(issue ->
+            System.err.printf("[%s] %s (%s)%n",
+                issue.getSeverity(), issue.getMessage(), issue.getRuleId()));
+    }
+}
+```
+
+Run the server first: `docker run --rm -p 50051:50051 aleksuix/vastlint-grpc:0.13.0`. See the [vastlint-java README](https://github.com/aleksUIX/vastlint-java) for GitHub Packages, JitPack, TLS, and options.
 
 ## Use from VS Code
 

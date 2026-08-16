@@ -1853,6 +1853,82 @@ jobs:
           git tag "$TAG"
           git push origin "$TAG"
 
+  # ── Sync vastlint-java ──────────────────────────────────────────────────────
+  # After a successful release, vendor the proto into vastlint-java, bump the
+  # Gradle version, and tag it at the same version. The vastlint-java CI then
+  # publishes the jar to GitHub Packages.
+  #
+  # Prerequisites (one-time setup):
+  #   1. Generate an SSH deploy key for vastlint-java:
+  #        ssh-keygen -t ed25519 -f ~/VASTLINT_JAVA_DEPLOY_KEY -C "vastlint release bot (java)" -N ""
+  #   2. Add ~/VASTLINT_JAVA_DEPLOY_KEY.pub as a deploy key in vastlint-java
+  #      (Settings → Deploy keys) with write access.
+  #   3. Add ~/VASTLINT_JAVA_DEPLOY_KEY (private key) as secret
+  #      VASTLINT_JAVA_DEPLOY_KEY in this repo (Settings → Secrets → Actions).
+  #
+  # Set ENABLE_JAVA_SYNC to "true" in repo variables to activate this job.
+  sync-java:
+    name: Sync vastlint-java
+    needs: [release]
+    runs-on: ubuntu-latest
+    if: vars.ENABLE_JAVA_SYNC == 'true'
+
+    steps:
+      - name: Checkout vastlint proto
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          path: vastlint
+
+      - name: Checkout vastlint-java via deploy key
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          repository: aleksUIX/vastlint-java
+          ssh-key: ${{ secrets.VASTLINT_JAVA_DEPLOY_KEY }}
+          path: vastlint-java
+
+      - name: Vendor proto and bump version
+        run: |
+          TAG="${{ github.ref_name }}"
+          VERSION="${TAG#v}"
+          DEST=vastlint-java/src/main/proto/openadtech/vastlint/v1/vastlint.proto
+          mkdir -p "$(dirname "$DEST")"
+          cp vastlint/proto/openadtech/vastlint/v1/vastlint.proto "$DEST"
+          sh vastlint-java/scripts/inject-java-options.sh "$DEST"
+          sed -i "s/^version=.*/version=${VERSION}/" vastlint-java/gradle.properties
+          echo "set version = ${VERSION}"
+
+      - name: Import bot GPG key
+        run: |
+          echo "${{ secrets.BOT_GPG_KEY }}" | gpg --batch --import
+          echo "AEA67F4C8B714AC26E14ACDB67DF23E270B033DB:6:" | gpg --import-ownertrust
+
+      - name: Commit and push
+        run: |
+          TAG="${{ github.ref_name }}"
+          cd vastlint-java
+          git config user.name  "vastlint release bot"
+          git config user.email "bot@vastlint.org"
+          git config user.signingkey "67DF23E270B033DB"
+          git config commit.gpgsign  true
+
+          git add src/main/proto gradle.properties
+          if git diff --cached --quiet; then
+            echo "already at ${TAG}: nothing to commit"
+          else
+            git commit -S -m "chore: sync proto to ${TAG}"
+            git push origin main
+          fi
+
+      - name: Tag vastlint-java
+        run: |
+          TAG="${{ github.ref_name }}"
+          cd vastlint-java
+          if git ls-remote --tags origin "$TAG" | grep -q "$TAG"; then
+            echo "::warning::Tag $TAG already exists on vastlint-java, skipping tag push" && exit 0
+          fi
+          git tag "$TAG"
+          git push origin "$TAG"
+
   # ── Chrome Web Store ────────────────────────────────────────────────────────
   chrome-extension:
     name: Publish Chrome extension
