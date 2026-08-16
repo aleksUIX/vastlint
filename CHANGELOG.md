@@ -6,6 +6,45 @@ GitHub Releases: <https://github.com/aleksUIX/vastlint/releases>
 
 ---
 
+## [0.13.0] - 2026-08-15
+
+**Five new schema rules.** A tag that validated clean on 0.12.1 can report
+findings here if it puts junk inside `<AdVerifications>`, `<Verification>` or
+`<ViewableImpression>`, sets a Wrapper boolean to something other than
+`true`/`false`/`1`/`0`, or puts a non-integer in `<Expires>`. Catalog: 223 to
+228.
+
+The walker also stops two false positives it had been sitting on: `<Expires>`
+was reported as an unknown InLine child, and `<Pricing>` as an unknown Wrapper
+child. Both are in `vast_4.2.xsd`.
+
+### Added
+
+- `VAST-4.0-adverifications-unknown-child` (error). `<AdVerifications>` may
+  only contain `<Verification>` elements.
+- `VAST-4.0-verification-unknown-child` (error). `<Verification>` children are
+  `<JavaScriptResource>`, `<ExecutableResource>`, `<TrackingEvents>` and
+  `<VerificationParameters>`.
+- `VAST-4.0-viewableimpression-unknown-child` (error). `<ViewableImpression>`
+  children are `<Viewable>`, `<NotViewable>` and `<ViewUndetermined>`.
+- `VAST-4.0-wrapper-bool-attr` (warning). `followAdditionalWrappers`,
+  `allowMultipleAds` and `fallbackOnNoAd` are `xs:boolean`.
+- `VAST-4.1-expires-integer` (warning). `<Expires>` is an integer number of
+  seconds until the ad response should be refetched.
+
+`<Category>` and `<BlockedAdCategories>` are now walked as text-only with
+`authority`, so a nested child fires `VAST-2.0-text-only-element` and a stray
+attribute fires `VAST-2.0-unknown-attribute`.
+
+### Fixed
+
+- A legal `<Expires>` no longer fires `VAST-2.0-inline-unknown-child`.
+- A legal `<Pricing>` on `<Wrapper>` no longer fires
+  `VAST-2.0-wrapper-unknown-child`. `Pricing` lives on `AdDefinitionBase_type`,
+  which Wrapper extends.
+
+---
+
 ## [0.12.1] - 2026-08-15
 
 **Dependency maintenance only.** No rule changes, no behaviour changes; the
