@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- ERROR: VAST-4.0-viewableimpression-unknown-child — Tracking is not a child of ViewableImpression -->
+<VAST version="4.2">
+  <Ad id="1">
+    <InLine>
+      <AdSystem>Test</AdSystem>
+      <AdTitle>Test</AdTitle>
+      <AdServingId>srv-001</AdServingId>
+      <Impression><![CDATA[https://t.example.com/imp]]></Impression>
+      <ViewableImpression id="vi1">
+        <Viewable><![CDATA[https://t.example.com/viewable]]></Viewable>
+        <Tracking event="viewable"><![CDATA[https://t.example.com/wrong]]></Tracking>
+      </ViewableImpression>
+      <Creatives>
+        <Creative>
+          <UniversalAdId idRegistry="ad-id.org">ABCD1234567</UniversalAdId>
+          <Linear>
+            <Duration>00:00:30</Duration>
+            <MediaFiles>
+              <MediaFile delivery="progressive" type="video/mp4" width="640" height="360"><![CDATA[https://cdn.example.com/ad.mp4]]></MediaFile>
+            </MediaFiles>
+          </Linear>
+        </Creative>
+      </Creatives>
+    </InLine>
+  </Ad>
+</VAST>

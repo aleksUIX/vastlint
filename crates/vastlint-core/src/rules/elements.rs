@@ -81,6 +81,10 @@ pub fn check(
                 values::check_adparameters_value(node, &loc.path(), ctx, issues);
             }
 
+            "Expires" => {
+                values::check_expires_value(node, &loc.path(), ctx, issues);
+            }
+
             "InteractiveCreativeFile" => {
                 required::check_interactive_creative_file(node, &loc.path(), ctx, issues);
             }

@@ -60,6 +60,9 @@ New optional element in both `<InLine>` and `<Wrapper>`. Contains pixel URLs for
 </ViewableImpression>
 ```
 
+**Validation rule:**
+- [`VAST-4.0-viewableimpression-unknown-child`](https://vastlint.org/docs/rules/VAST-4.0-viewableimpression-unknown-child/) : children other than `<Viewable>`, `<NotViewable>`, `<ViewUndetermined>`
+
 ---
 
 ## Third-Party Verification: `<AdVerifications>`
@@ -75,6 +78,10 @@ New optional container in both `<InLine>` and `<Wrapper>`. Contains `<Verificati
   </Verification>
 </AdVerifications>
 ```
+
+**Validation rules:**
+- [`VAST-4.0-adverifications-unknown-child`](https://vastlint.org/docs/rules/VAST-4.0-adverifications-unknown-child/) : children other than `<Verification>`
+- [`VAST-4.0-verification-unknown-child`](https://vastlint.org/docs/rules/VAST-4.0-verification-unknown-child/) : children other than the resource, tracking, and parameters elements
 
 > **Note:** `<AdVerifications>` in 4.0 uses separate Inline and Wrapper types. In 4.1 these were unified into a single type.
 
@@ -115,7 +122,8 @@ New optional element (repeatable) inside `<InLine>`. Declares the ad's content c
 ```
 
 **Validation rule:**
-- [`VAST-4.0-category-authority`](https://vastlint.org/docs/rules/VAST-4.0-category-authority/) — `authority` attribute missing
+- [`VAST-4.0-category-authority`](https://vastlint.org/docs/rules/VAST-4.0-category-authority/) : `authority` attribute missing
+- [`VAST-2.0-text-only-element`](https://vastlint.org/docs/rules/VAST-2.0-text-only-element/) : nested children under `<Category>`
 
 ---
 
@@ -201,6 +209,9 @@ Three new boolean attributes on the `<Wrapper>` element:
 | `followAdditionalWrappers` | `true` | Whether the player should follow additional wrapper redirects |
 | `allowMultipleAds` | `false` | Whether multiple ads in the response are acceptable |
 | `fallbackOnNoAd` | `false` | Whether to use the next ad if this wrapper chain resolves to nothing |
+
+**Validation rule:**
+- [`VAST-4.0-wrapper-bool-attr`](https://vastlint.org/docs/rules/VAST-4.0-wrapper-bool-attr/) : values other than `true` / `false` / `1` / `0`
 
 ---
 

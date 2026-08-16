@@ -2148,7 +2148,7 @@ fn linear_with_quartile_tracking_does_not_fire() {
 fn all_rules_catalog_has_expected_count() {
     assert_eq!(
         vastlint_core::all_rules().len(),
-        223,
+        228,
         "catalog count changed — update this assertion and bump RULES.md"
     );
 }
@@ -4231,4 +4231,166 @@ fn verification_attrs_stay_errors_from_4_1() {
         issue_of(&result, "VAST-4.1-verification-vendor").severity,
         Severity::Error
     );
+}
+
+// ── schema walk: Verification / ViewableImpression / Category / Wrapper bools ─
+
+#[test]
+fn adverifications_unknown_child_fires() {
+    let result = validate(&load("err_adverifications_unknown_child.xml"));
+    assert!(
+        has_issue(&result, "VAST-4.0-adverifications-unknown-child"),
+        "expected VAST-4.0-adverifications-unknown-child, got: {:#?}",
+        result.issues
+    );
+}
+
+#[test]
+fn verification_unknown_child_fires() {
+    let result = validate(&load("err_verification_unknown_child.xml"));
+    assert!(
+        has_issue(&result, "VAST-4.0-verification-unknown-child"),
+        "expected VAST-4.0-verification-unknown-child, got: {:#?}",
+        result.issues
+    );
+}
+
+#[test]
+fn viewableimpression_unknown_child_fires() {
+    let result = validate(&load("err_viewableimpression_unknown_child.xml"));
+    assert!(
+        has_issue(&result, "VAST-4.0-viewableimpression-unknown-child"),
+        "expected VAST-4.0-viewableimpression-unknown-child, got: {:#?}",
+        result.issues
+    );
+}
+
+#[test]
+fn valid_viewableimpression_does_not_fire_unknown_child() {
+    let result = validate(&load("valid_viewableimpression.xml"));
+    assert!(!has_issue(
+        &result,
+        "VAST-4.0-viewableimpression-unknown-child"
+    ));
+    assert!(!has_issue(&result, "VAST-2.0-inline-unknown-child"));
+}
+
+/// The schema walker used to skip `<AdVerifications>` entirely, so a junk child
+/// inside `<Verification>` was invisible. Existing OMID fixtures are the
+/// positive case: they carry the legal children and must stay clean.
+#[test]
+fn existing_verification_fixtures_do_not_fire_schema_unknown_child() {
+    for name in [
+        "err_verification_no_resource.xml",
+        "warn_verification_omid_semantics.xml",
+        "warn_verification_vendor_format.xml",
+    ] {
+        let result = validate(&load(name));
+        assert!(
+            !has_issue(&result, "VAST-4.0-adverifications-unknown-child"),
+            "{name} fired adverifications-unknown-child: {:#?}",
+            result.issues
+        );
+        assert!(
+            !has_issue(&result, "VAST-4.0-verification-unknown-child"),
+            "{name} fired verification-unknown-child: {:#?}",
+            result.issues
+        );
+    }
+}
+
+/// `<Category>` is simpleContent with `authority`. A nested element is the
+/// same defect as a nested element in `<AdTitle>`: text-only.
+#[test]
+fn category_nested_element_fires_text_only() {
+    let xml = load("valid_category_authority_iabtc.xml").replace(
+        r#"<Category authority="iabtechlab.com">IAB1-1</Category>"#,
+        r#"<Category authority="iabtechlab.com"><Code>IAB1-1</Code></Category>"#,
+    );
+    let result = validate(&xml);
+    assert!(
+        has_issue(&result, "VAST-2.0-text-only-element"),
+        "expected VAST-2.0-text-only-element, got: {:#?}",
+        result.issues
+    );
+}
+
+#[test]
+fn category_unknown_attribute_fires() {
+    let xml = load("valid_category_authority_iabtc.xml").replace(
+        r#"<Category authority="iabtechlab.com">IAB1-1</Category>"#,
+        r#"<Category authority="iabtechlab.com" taxonomy="iab">IAB1-1</Category>"#,
+    );
+    let result = validate(&xml);
+    assert!(
+        has_issue(&result, "VAST-2.0-unknown-attribute"),
+        "expected VAST-2.0-unknown-attribute, got: {:#?}",
+        result.issues
+    );
+}
+
+/// `followAdditionalWrappers="yes"` is not xs:boolean. `"1"` and `"false"` on
+/// the other two attributes are legal, so the fixture fires once.
+#[test]
+fn wrapper_bool_attr_rejects_non_boolean() {
+    let result = validate(&load("warn_wrapper_bool_attr.xml"));
+    assert!(
+        has_issue(&result, "VAST-4.0-wrapper-bool-attr"),
+        "expected VAST-4.0-wrapper-bool-attr, got: {:#?}",
+        result.issues
+    );
+}
+
+#[test]
+fn wrapper_bool_attr_accepts_xs_boolean() {
+    const ID: &str = "VAST-4.0-wrapper-bool-attr";
+    assert!(!has_issue(&validate(&load("valid_wrapper_bools.xml")), ID));
+
+    let wrap = |attrs: &str| {
+        format!(
+            r#"<VAST version="4.2"><Ad id="1"><Wrapper {attrs}>
+                 <AdSystem>Test</AdSystem>
+                 <Impression><![CDATA[https://t.example.com/i]]></Impression>
+                 <VASTAdTagURI><![CDATA[https://ad.example.com/vast.xml]]></VASTAdTagURI>
+               </Wrapper></Ad></VAST>"#
+        )
+    };
+    for ok in ["true", "false", "1", "0", "TRUE", "False"] {
+        let xml = wrap(&format!(r#"followAdditionalWrappers="{ok}""#));
+        assert!(!has_issue(&validate(&xml), ID), "{ok} is a valid boolean");
+    }
+    assert!(!has_issue(&validate(&wrap("")), ID));
+}
+
+/// `<Expires>` used to be reported as an unknown InLine child. A legal integer
+/// must stay quiet on both the unknown-child rule and the new value rule.
+#[test]
+fn expires_integer_is_accepted_and_is_not_an_unknown_child() {
+    let result = validate(&load("valid_expires.xml"));
+    assert!(!has_issue(&result, "VAST-4.1-expires-integer"));
+    assert!(!has_issue(&result, "VAST-2.0-inline-unknown-child"));
+}
+
+#[test]
+fn expires_non_integer_fires_warning() {
+    let result = validate(&load("warn_expires_integer.xml"));
+    assert!(
+        has_issue(&result, "VAST-4.1-expires-integer"),
+        "expected VAST-4.1-expires-integer, got: {:#?}",
+        result.issues
+    );
+    assert!(!has_issue(&result, "VAST-2.0-inline-unknown-child"));
+}
+
+/// Pricing lives on AdDefinitionBase, so a Wrapper may carry it. The walker
+/// used to skip that arm and report it as an unknown Wrapper child.
+#[test]
+fn wrapper_pricing_is_not_an_unknown_child() {
+    let xml = r#"<VAST version="4.2"><Ad id="1"><Wrapper>
+         <AdSystem>Test</AdSystem>
+         <Impression><![CDATA[https://t.example.com/i]]></Impression>
+         <VASTAdTagURI><![CDATA[https://ad.example.com/vast.xml]]></VASTAdTagURI>
+         <Pricing model="cpm" currency="USD">2.00</Pricing>
+       </Wrapper></Ad></VAST>"#;
+    assert!(!has_issue(&validate(xml), "VAST-2.0-wrapper-unknown-child"));
 }

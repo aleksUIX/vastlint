@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- VALID: Wrapper xs:boolean attributes as true/false/1/0 -->
+<VAST version="4.2">
+  <Ad id="1">
+    <Wrapper followAdditionalWrappers="true" allowMultipleAds="0" fallbackOnNoAd="FALSE">
+      <AdSystem>Test</AdSystem>
+      <Impression><![CDATA[https://t.example.com/imp]]></Impression>
+      <VASTAdTagURI><![CDATA[https://ad.example.com/vast.xml]]></VASTAdTagURI>
+    </Wrapper>
+  </Ad>
+</VAST>

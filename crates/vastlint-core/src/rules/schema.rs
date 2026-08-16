@@ -85,9 +85,10 @@ fn check_inline(
             "Creatives" => check_creatives(child, &child_path, v, ctx, issues),
             "Extensions" => check_extensions(child, &child_path, ctx, issues),
             "Survey" => check_text_only(child, &child_path, &["type"], ctx, issues),
-            // AdVerifications, Verification, ViewableImpression, Category —
-            // complex elements with their own rules; left to future schema rules.
-            "AdVerifications" | "ViewableImpression" | "Category" | "BlockedAdCategories" => {}
+            "Category" => check_text_only(child, &child_path, &["authority"], ctx, issues),
+            "Expires" => check_text_only(child, &child_path, &[], ctx, issues),
+            "AdVerifications" => check_ad_verifications(child, &child_path, ctx, issues),
+            "ViewableImpression" => check_viewable_impression(child, &child_path, ctx, issues),
             other => emit(
                 ctx,
                 issues,
@@ -110,6 +111,7 @@ fn check_wrapper(
     issues: &mut Vec<Issue>,
 ) {
     // <Wrapper> allows followAdditionalWrappers, allowMultipleAds, fallbackOnNoAd.
+    // All three are xs:boolean in vast_4.2.xsd; presence is optional, values are not.
     check_attrs(
         node,
         path,
@@ -121,6 +123,7 @@ fn check_wrapper(
         ctx,
         issues,
     );
+    check_wrapper_bool_attrs(node, path, ctx, issues);
 
     for child in &node.children {
         let child_path = format!("{}/{}", path, child.name);
@@ -129,9 +132,14 @@ fn check_wrapper(
             "VASTAdTagURI" => check_text_only(child, &child_path, &[], ctx, issues),
             "Impression" => check_text_only(child, &child_path, &["id"], ctx, issues),
             "Error" => check_text_only(child, &child_path, &[], ctx, issues),
+            "Pricing" => check_text_only(child, &child_path, &["model", "currency"], ctx, issues),
             "Creatives" => check_creatives(child, &child_path, version, ctx, issues),
             "Extensions" => check_extensions(child, &child_path, ctx, issues),
-            "BlockedAdCategories" | "AdVerifications" | "ViewableImpression" => {}
+            "BlockedAdCategories" => {
+                check_text_only(child, &child_path, &["authority"], ctx, issues)
+            }
+            "AdVerifications" => check_ad_verifications(child, &child_path, ctx, issues),
+            "ViewableImpression" => check_viewable_impression(child, &child_path, ctx, issues),
             other => emit(
                 ctx,
                 issues,
@@ -728,6 +736,138 @@ fn check_creative_extensions(
     }
 }
 
+fn check_ad_verifications(
+    node: &Node,
+    path: &str,
+    ctx: &ValidationContext,
+    issues: &mut Vec<Issue>,
+) {
+    // AdVerifications_type: no attributes, sequence of Verification only.
+    // vast_4.2.xsd.
+    check_attrs(node, path, &[], ctx, issues);
+
+    for (i, child) in node.children.iter().enumerate() {
+        let child_path = format!("{}/Verification[{}]", path, i);
+        if child.name != "Verification" {
+            emit(
+                ctx,
+                issues,
+                "VAST-4.0-adverifications-unknown-child",
+                Severity::Error,
+                "<AdVerifications> may only contain <Verification> elements",
+                Some(format!("{}/{}[{}]", path, child.name, i)),
+                "IAB VAST 4.2 XSD",
+                Some(child),
+            );
+        } else {
+            check_verification(child, &child_path, ctx, issues);
+        }
+    }
+}
+
+fn check_verification(node: &Node, path: &str, ctx: &ValidationContext, issues: &mut Vec<Issue>) {
+    // Verification_type: vendor attribute, children JavaScriptResource,
+    // ExecutableResource, TrackingEvents, VerificationParameters. vast_4.2.xsd.
+    check_attrs(node, path, &["vendor"], ctx, issues);
+
+    for child in &node.children {
+        let child_path = format!("{}/{}", path, child.name);
+        match child.name.as_str() {
+            "JavaScriptResource" => check_text_only(
+                child,
+                &child_path,
+                &["apiFramework", "browserOptional"],
+                ctx,
+                issues,
+            ),
+            "ExecutableResource" => {
+                check_text_only(child, &child_path, &["apiFramework", "type"], ctx, issues)
+            }
+            "TrackingEvents" => check_tracking_events(child, &child_path, ctx, issues),
+            "VerificationParameters" => check_text_only(child, &child_path, &[], ctx, issues),
+            other => emit(
+                ctx,
+                issues,
+                "VAST-4.0-verification-unknown-child",
+                Severity::Error,
+                "<Verification> contains an unrecognised child element",
+                Some(format!("{}/{}", path, other)),
+                "IAB VAST 4.2 XSD",
+                Some(child),
+            ),
+        }
+    }
+}
+
+fn check_viewable_impression(
+    node: &Node,
+    path: &str,
+    ctx: &ValidationContext,
+    issues: &mut Vec<Issue>,
+) {
+    // ViewableImpression_type: optional id, children Viewable / NotViewable /
+    // ViewUndetermined, all xs:anyURI. vast_4.2.xsd.
+    check_attrs(node, path, &["id"], ctx, issues);
+
+    for child in &node.children {
+        let child_path = format!("{}/{}", path, child.name);
+        match child.name.as_str() {
+            "Viewable" | "NotViewable" | "ViewUndetermined" => {
+                check_text_only(child, &child_path, &[], ctx, issues)
+            }
+            other => emit(
+                ctx,
+                issues,
+                "VAST-4.0-viewableimpression-unknown-child",
+                Severity::Error,
+                "<ViewableImpression> contains an unrecognised child element",
+                Some(format!("{}/{}", path, other)),
+                "IAB VAST 4.2 XSD",
+                Some(child),
+            ),
+        }
+    }
+}
+
+fn check_wrapper_bool_attrs(
+    node: &Node,
+    path: &str,
+    ctx: &ValidationContext,
+    issues: &mut Vec<Issue>,
+) {
+    // xs:boolean accepts true/false/1/0. Case-insensitive is the same leniency
+    // as xmlEncoded: the value's meaning is unambiguous either way.
+    for attr_name in [
+        "followAdditionalWrappers",
+        "allowMultipleAds",
+        "fallbackOnNoAd",
+    ] {
+        let Some(raw) = node.attr(attr_name) else {
+            continue;
+        };
+        if is_xs_boolean(raw) {
+            continue;
+        }
+        emit(
+            ctx,
+            issues,
+            "VAST-4.0-wrapper-bool-attr",
+            Severity::Warning,
+            "<Wrapper> followAdditionalWrappers, allowMultipleAds and fallbackOnNoAd must be a boolean (true, false, 1 or 0)",
+            Some(format!("{}[@{}]", path, attr_name)),
+            "IAB VAST 4.2 XSD",
+            Some(node),
+        );
+    }
+}
+
+fn is_xs_boolean(raw: &str) -> bool {
+    matches!(
+        raw.trim().to_ascii_lowercase().as_str(),
+        "true" | "false" | "1" | "0"
+    )
+}
+
 fn check_closed_caption_files(
     node: &Node,
     path: &str,
@@ -782,6 +922,7 @@ const KNOWN_VAST_ELEMENTS: &[&str] = &[
     "Impression",
     "Error",
     "Survey",
+    "Expires",
     "VASTAdTagURI",
     "Category",
     "BlockedAdCategories",
@@ -833,6 +974,7 @@ const KNOWN_VAST_ELEMENTS: &[&str] = &[
     "Verification",
     "JavaScriptResource",
     "ExecutableResource",
+    "VerificationParameters",
     "ViewableImpression",
     "Viewable",
     "NotViewable",

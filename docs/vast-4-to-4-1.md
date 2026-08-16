@@ -251,6 +251,9 @@ New optional element (repeatable) in `<Wrapper>`. Tells downstream ad servers wh
 
 New optional integer element. Specifies how many seconds this ad response is valid for. After this period, the tag should be re-fetched rather than re-used.
 
+**Validation rule:**
+- [`VAST-4.1-expires-integer`](https://vastlint.org/docs/rules/VAST-4.1-expires-integer/) : value is not an integer
+
 ### `<InteractiveCreativeFile variableDuration>`
 
 New optional boolean attribute on `<InteractiveCreativeFile>`. Indicates the creative may extend the ad duration beyond the declared `<Duration>` through user interaction (e.g. a SIMID unit that shows additional content when the user taps).

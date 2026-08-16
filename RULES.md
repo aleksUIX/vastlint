@@ -2,7 +2,7 @@
 
 Full reference documentation for every rule is at **[vastlint.org/docs/rules](https://vastlint.org/docs/rules/)**.
 
-223 rules across IAB VAST 2.0 – 4.4, VMAP 1.0, DAAST 1.0, and SIMID 1.0 – 1.1. Each rule has a stable ID, a default severity (`error` / `warning` / `info`), and a dedicated docs page with the spec reference, examples, and fix guidance.
+228 rules across IAB VAST 2.0 – 4.4, VMAP 1.0, DAAST 1.0, and SIMID 1.0 – 1.1. Each rule has a stable ID, a default severity (`error` / `warning` / `info`), and a dedicated docs page with the spec reference, examples, and fix guidance.
 
 The severity below is the default. A few rules resolve theirs from the document's declared version, because the schemas disagree about what is required: the `<Icon>` placement attributes are errors under VAST 3.0, which required them, and warnings under 4.x, whose XSDs declare them optional. `VAST-4.1-verification-vendor` and `VAST-4.1-js-resource-apiframework` behave the same way across 4.0 and 4.1. Config overrides always win over both.
 
@@ -123,6 +123,10 @@ The severity below is the default. A few rules resolve theirs from the document'
 | [VAST-4.0-tracking-event-removed](https://vastlint.org/docs/rules/VAST-4.0-tracking-event-removed/) | warning | Tracking events removed in VAST 4.0 |
 | [VAST-4.0-mediafile-apiframework](https://vastlint.org/docs/rules/VAST-4.0-mediafile-apiframework/) | info | `apiFramework` on `<MediaFile>` is deprecated — use `<InteractiveCreativeFile>` |
 | [VAST-4.0-interactive-creative-no-api](https://vastlint.org/docs/rules/VAST-4.0-interactive-creative-no-api/) | warning | `<InteractiveCreativeFile>` should have an `apiFramework` attribute |
+| [VAST-4.0-adverifications-unknown-child](https://vastlint.org/docs/rules/VAST-4.0-adverifications-unknown-child/) | error | `<AdVerifications>` may only contain `<Verification>` elements |
+| [VAST-4.0-verification-unknown-child](https://vastlint.org/docs/rules/VAST-4.0-verification-unknown-child/) | error | `<Verification>` contains an unrecognised child element |
+| [VAST-4.0-viewableimpression-unknown-child](https://vastlint.org/docs/rules/VAST-4.0-viewableimpression-unknown-child/) | error | `<ViewableImpression>` contains an unrecognised child element |
+| [VAST-4.0-wrapper-bool-attr](https://vastlint.org/docs/rules/VAST-4.0-wrapper-bool-attr/) | warning | `<Wrapper>` `followAdditionalWrappers`, `allowMultipleAds` and `fallbackOnNoAd` must be a boolean |
 
 ---
 
@@ -161,6 +165,7 @@ The severity below is the default. A few rules resolve theirs from the document'
 | [VAST-4.1-blockedadcategories-no-authority](https://vastlint.org/docs/rules/VAST-4.1-blockedadcategories-no-authority/) | warning | `<BlockedAdCategories>` should have an `authority` attribute |
 | [VAST-4.1-blockedadcategories-authority-not-uri](https://vastlint.org/docs/rules/VAST-4.1-blockedadcategories-authority-not-uri/) | warning | `<BlockedAdCategories>` `authority` attribute is not a valid authority URL |
 | [VAST-4.1-blockedadcategories-authority-unknown](https://vastlint.org/docs/rules/VAST-4.1-blockedadcategories-authority-unknown/) | info | `<BlockedAdCategories>` `authority` is not a recognised IAB Content Taxonomy authority |
+| [VAST-4.1-expires-integer](https://vastlint.org/docs/rules/VAST-4.1-expires-integer/) | warning | `<Expires>` value must be an integer number of seconds |
 | [VAST-4.1-tracking-event-value](https://vastlint.org/docs/rules/VAST-4.1-tracking-event-value/) | error | `event` attribute not in the valid set for this VAST version |
 | [VAST-4.1-companion-renderingmode-value](https://vastlint.org/docs/rules/VAST-4.1-companion-renderingmode-value/) | warning | `renderingMode` must be `default`, `end-card`, or `concurrent` |
 

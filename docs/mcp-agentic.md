@@ -312,7 +312,7 @@ The local binary is the right choice for latency-sensitive SSAI pipelines and AR
 - [`crates/vastlint-mcp`](../crates/vastlint-mcp/README.md) - full tool schema reference
 - [Common errors](common-errors.md) - the VAST mistakes that cost real money
 - [Tutorial](tutorial.md) - getting started with VAST validation
-- [Rule reference](https://vastlint.org/docs/rules) - all 223 rules with examples and fix instructions
+- [Rule reference](https://vastlint.org/docs/rules) - all 228 rules with examples and fix instructions
 - [IAB Tech Lab AAMP](https://iabtechlab.com/standards/aamp-agentic-advertising-management-protocols/)
 - [IAB Tech Lab ARTF](https://iabtechlab.com/standards/artf/)
 - [AAMP Buyer Agent SDK](https://github.com/IABTechLab/buyer-agent)

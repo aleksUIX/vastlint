@@ -12,7 +12,7 @@ Supports VAST 2.0 through 4.4 with clean Problems entries, concise hovers, fix g
 - **Multi-block** — validates every `<VAST>...</VAST>` block in a file independently
 - **Live as you type** — re-validates 500 ms after you stop typing, and on every save
 - **CLI backend** — uses the `vastlint` CLI binary when available, falls back to WASM in-process
-- **223 rules** across VAST 2.0–4.4 plus SIMID and OMID validation: required fields, schema structure, URLs, verification semantics, deprecations, and CTV/SSAI advisories
+- **228 rules** across VAST 2.0–4.4 plus SIMID and OMID validation: required fields, schema structure, URLs, verification semantics, deprecations, and CTV/SSAI advisories
 
 ## How it looks
 
@@ -59,7 +59,7 @@ Docs: vastlint.org/docs/rules/VAST-2.0-inline-adsystem
 
 ## Rules
 
-VASTlint checks 223 rules across:
+VASTlint checks 228 rules across:
 - Required elements and attributes (VAST 2.0–4.4)
 - Value formats (durations, URLs, enums)
 - Schema conformance (unknown elements/attributes)
@@ -80,7 +80,7 @@ Canonical rule catalog:
 - [vastlint.org/docs/rules](https://vastlint.org/docs/rules/) for the hosted per-rule pages
 
 <details>
-<summary>All 223 rules</summary>
+<summary>All 228 rules</summary>
 
 ### VAST 2.0
 
@@ -193,6 +193,10 @@ Canonical rule catalog:
 | [VAST-4.0-tracking-event-removed](https://vastlint.org/docs/rules/VAST-4.0-tracking-event-removed/) | warning | Tracking events removed in VAST 4.0 |
 | [VAST-4.0-mediafile-apiframework](https://vastlint.org/docs/rules/VAST-4.0-mediafile-apiframework/) | info | `apiFramework` on `<MediaFile>` is deprecated — use `<InteractiveCreativeFile>` |
 | [VAST-4.0-interactive-creative-no-api](https://vastlint.org/docs/rules/VAST-4.0-interactive-creative-no-api/) | warning | `<InteractiveCreativeFile>` should have an `apiFramework` attribute |
+| [VAST-4.0-adverifications-unknown-child](https://vastlint.org/docs/rules/VAST-4.0-adverifications-unknown-child/) | error | `<AdVerifications>` may only contain `<Verification>` elements |
+| [VAST-4.0-verification-unknown-child](https://vastlint.org/docs/rules/VAST-4.0-verification-unknown-child/) | error | `<Verification>` contains an unrecognised child element |
+| [VAST-4.0-viewableimpression-unknown-child](https://vastlint.org/docs/rules/VAST-4.0-viewableimpression-unknown-child/) | error | `<ViewableImpression>` contains an unrecognised child element |
+| [VAST-4.0-wrapper-bool-attr](https://vastlint.org/docs/rules/VAST-4.0-wrapper-bool-attr/) | warning | `<Wrapper>` `followAdditionalWrappers`, `allowMultipleAds` and `fallbackOnNoAd` must be a boolean |
 
 ### VAST 4.1
 
@@ -229,6 +233,7 @@ Canonical rule catalog:
 | [VAST-4.1-blockedadcategories-no-authority](https://vastlint.org/docs/rules/VAST-4.1-blockedadcategories-no-authority/) | warning | `<BlockedAdCategories>` should have an `authority` attribute |
 | [VAST-4.1-blockedadcategories-authority-not-uri](https://vastlint.org/docs/rules/VAST-4.1-blockedadcategories-authority-not-uri/) | warning | `<BlockedAdCategories>` `authority` attribute is not a valid authority URL |
 | [VAST-4.1-blockedadcategories-authority-unknown](https://vastlint.org/docs/rules/VAST-4.1-blockedadcategories-authority-unknown/) | info | `<BlockedAdCategories>` `authority` is not a recognised IAB Content Taxonomy authority |
+| [VAST-4.1-expires-integer](https://vastlint.org/docs/rules/VAST-4.1-expires-integer/) | warning | `<Expires>` value must be an integer number of seconds |
 | [VAST-4.1-tracking-event-value](https://vastlint.org/docs/rules/VAST-4.1-tracking-event-value/) | error | `event` attribute not in the valid set for this VAST version |
 | [VAST-4.1-companion-renderingmode-value](https://vastlint.org/docs/rules/VAST-4.1-companion-renderingmode-value/) | warning | `renderingMode` must be `default`, `end-card`, or `concurrent` |
 

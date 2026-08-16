@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- WARNING: VAST-4.0-wrapper-bool-attr — followAdditionalWrappers/allowMultipleAds/fallbackOnNoAd are xs:boolean -->
+<VAST version="4.2">
+  <Ad id="1">
+    <Wrapper followAdditionalWrappers="yes" allowMultipleAds="1" fallbackOnNoAd="false">
+      <AdSystem>Test</AdSystem>
+      <Impression><![CDATA[https://t.example.com/imp]]></Impression>
+      <VASTAdTagURI><![CDATA[https://ad.example.com/vast.xml]]></VASTAdTagURI>
+    </Wrapper>
+  </Ad>
+</VAST>

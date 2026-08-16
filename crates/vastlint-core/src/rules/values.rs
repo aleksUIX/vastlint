@@ -735,3 +735,39 @@ pub(super) fn check_duration_value(
         )
     }
 }
+
+/// `<Expires>` is `xs:integer` seconds. Presence is optional (4.1+); a value
+/// the player cannot parse as an integer means it cannot know when to refetch.
+///
+/// Dispatched by element name. The schema walker already treats it as text-only
+/// and used to report the element itself as an unknown InLine child, so a
+/// conforming tag with `<Expires>3600</Expires>` never reached a value check.
+pub(super) fn check_expires_value(
+    node: &Node,
+    path: &str,
+    ctx: &ValidationContext,
+    issues: &mut Vec<Issue>,
+) {
+    let text = node.text.trim();
+    if is_xs_integer(text) {
+        return;
+    }
+    emit(
+        ctx,
+        issues,
+        "VAST-4.1-expires-integer",
+        Severity::Warning,
+        "<Expires> value must be an integer number of seconds until the ad response should be refetched",
+        Some(path.to_owned()),
+        "IAB VAST 4.2 XSD",
+        Some(node),
+    );
+}
+
+fn is_xs_integer(raw: &str) -> bool {
+    let digits = raw
+        .strip_prefix('+')
+        .or_else(|| raw.strip_prefix('-'))
+        .unwrap_or(raw);
+    !digits.is_empty() && digits.bytes().all(|b| b.is_ascii_digit())
+}
