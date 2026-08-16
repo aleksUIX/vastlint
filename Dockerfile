@@ -6,7 +6,7 @@
 # The debian-slim + musl-tools approach breaks ring because that musl-gcc
 # wrapper does not support the -m64 flag that ring's build script passes.
 # ─────────────────────────────────────────────────────────────────────────────
-FROM rust:alpine@sha256:606fd313a0f49743ee2a7bd49a0914bab7deedb12791f3a846a34a4711db7ed2 AS builder
+FROM rust:alpine@sha256:3c38f3f82c2f3d73da3b38e18d279393a04cb43ddded0e35088a8c3324d40900 AS builder
 
 # Alpine's native musl + build essentials for crates with C dependencies (ring)
 RUN apk add --no-cache musl-dev gcc make perl

@@ -6,6 +6,33 @@ GitHub Releases: <https://github.com/aleksUIX/vastlint/releases>
 
 ---
 
+## [0.12.1] - 2026-08-15
+
+**Dependency maintenance only.** No rule changes, no behaviour changes; the
+catalog stays at 223 and any tag that validated on 0.12.0 validates identically
+here.
+
+### Security
+
+- `nanoid` raised to 3.3.18 in the Vite example lockfiles, closing
+  GHSA-2v37-7h3g-55p8 (infinite loop when `customAlphabet` / `customRandom` is
+  given size 0). The package reaches this repo only as a transitive Vite
+  dependency of the example apps, so exposure was limited to local demo
+  tooling, never to shipped code.
+
+### Changed
+
+- Cargo.lock refreshed within existing semver: `rustls` 0.23.37 to 0.23.43,
+  `hyper` 1.9.0 to 1.11.0, `wasm-bindgen` 0.2.117 to 0.2.127, `rmcp` 3.1.1 to
+  3.1.2, plus related TLS/QUIC/ICU patches.
+- Docker builder image `rust:alpine` digest moved to the current
+  `rust:alpine` index (Rust 1.97.1, Alpine 3.24.1).
+- `esbuild` 0.28.1 to 0.28.2 (VS Code and Chrome, dev only).
+- `ovsx` 1.1.0 to 1.1.1 and `@types/node` 26.1.2 to 26.2.0 (VS Code
+  publishing, dev only).
+
+---
+
 ## [0.12.0] - 2026-08-14
 
 **Adds a gRPC surface.** No rule changes and no behaviour changes to existing
