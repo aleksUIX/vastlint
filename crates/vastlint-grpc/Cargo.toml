@@ -41,7 +41,7 @@ tokio-stream = "0.1"
 # Catalog digest. Hashed over the linked catalog at startup, not over the source
 # file at build time: the point is to identify what this binary will actually
 # enforce.
-sha2 = "0.10"
+sha2 = "0.11"
 
 # Avro encoding for the results stream. See src/events.rs for why the topic
 # uses Avro while the wire contract uses protobuf.
