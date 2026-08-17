@@ -661,8 +661,7 @@ mod tests {
         assert!(response.is_ok(), "30 seconds is ample for one small tag");
     }
 
-    // ValidateStream's UNIMPLEMENTED status is covered in tests/server.rs, over
-    // a real client: constructing a `Streaming` by hand outside the transport
-    // is not something callers can do, so testing it here would test a shape
-    // that never occurs.
+    // ValidateStream is covered in tests/server.rs over a real client.
+    // Constructing a `Streaming` by hand outside the transport is not a
+    // shape callers can produce, so it is not tested here.
 }

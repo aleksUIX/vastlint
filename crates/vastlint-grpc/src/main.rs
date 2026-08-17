@@ -232,9 +232,21 @@ fn banner(config: &Config, limiter: &AdaptiveLimiter) {
     );
 }
 
-/// Stops accepting on SIGINT so in-flight requests finish rather than being cut
-/// off mid-response. Kubernetes sends SIGTERM, which is handled the same way.
+/// Stops accepting on SIGINT or SIGTERM so in-flight requests finish rather
+/// than being cut off mid-response. Kubernetes sends SIGTERM, not SIGINT.
 async fn shutdown() {
-    let _ = tokio::signal::ctrl_c().await;
+    #[cfg(unix)]
+    {
+        use tokio::signal::unix::{signal, SignalKind};
+        let mut sigterm = signal(SignalKind::terminate()).expect("install SIGTERM handler");
+        tokio::select! {
+            _ = tokio::signal::ctrl_c() => {}
+            _ = sigterm.recv() => {}
+        }
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = tokio::signal::ctrl_c().await;
+    }
     eprintln!("shutting down");
 }
