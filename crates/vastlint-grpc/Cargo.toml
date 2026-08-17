@@ -45,7 +45,7 @@ sha2 = "0.10"
 
 # Avro encoding for the results stream. See src/events.rs for why the topic
 # uses Avro while the wire contract uses protobuf.
-apache-avro = "0.21"
+apache-avro = "0.22"
 
 # Fast allocator, matching vastlint-mcp. Validation is allocation-heavy on the
 # hot path and this is the same workload shape.
