@@ -30,6 +30,7 @@ Where vastlint is today and where it's going.
 | **Shareable report links** | `vastlint check --share` uploads the validation report (rule IDs and messages, never the raw XML) and prints a public `vastlint.org/r/<id>` link for Slack, tickets, and PRs. |
 | **Content quality rules** | Beyond presence and structure: placeholder `<AdTitle>` values (`test`, `Ad 1`, `untitled`) that make creatives unidentifiable in reporting, placeholder `<AdSystem>` values that break provenance tracing, and missing `AdSystem` `version` attributes. Conservative lists, near-zero false positives, each rule disableable in `vastlint.toml`. Plus a VMAP advisory when a `display` ad break carries inline VAST with no `<CompanionAds>`. |
 | **`vastlint init`** | Generates a starter `vastlint.toml` with all 228 rules listed at their default severities, commented out - a zero-behaviour-change starting point for tuning, and durable evidence of adoption in a repo. |
+| **Partner tallies** | gRPC `/metrics` counts verdicts and findings by `x-vastlint-caller`, including `$` revenue-impact rules. Grafana JSON and a compose profile in `deploy/pipeline/` scrape that endpoint. The CLI `--fail-on-warning --summary` gate is unchanged. |
 
 ## 🗺️ Upcoming
 
@@ -38,7 +39,6 @@ Where vastlint is today and where it's going.
 | Milestone | Detail |
 |---|---|
 | **AWS Marketplace** | Deploy vastlint as a private Lambda or container in your own AWS account - no data leaves your infrastructure. |
-| **Realtime pipeline integration** | Continuous validation of live VAST traffic - per-partner error rates, alerting, and revenue impact dashboards. The structural validation layer is now available: `vastlint check --fail-on-warning <url>` follows wrapper chains and exits non-zero on any revenue-impact warning, suitable for periodic monitoring and CI gates. |
 
 ## 💡 What else?
 

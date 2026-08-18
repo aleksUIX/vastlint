@@ -18,13 +18,15 @@
 //! histogram, which has no bucket-choice problem. These metrics are for
 //! operating the server; that one is for the claim.
 
+use std::collections::HashSet;
 use std::net::SocketAddr;
-use std::sync::OnceLock;
+use std::sync::{Mutex, OnceLock};
 
 use prometheus::{
     Encoder, HistogramOpts, HistogramVec, IntCounter, IntCounterVec, IntGauge, Opts, Registry,
     TextEncoder,
 };
+use vastlint_core as core;
 
 /// Latency buckets in seconds, spanning the measured range of the validator.
 ///
@@ -45,6 +47,8 @@ struct Metrics {
     events_published: IntCounter,
     events_dropped: IntCounter,
     concurrency_limit: IntGauge,
+    verdicts: IntCounterVec,
+    findings: IntCounterVec,
 }
 
 static METRICS: OnceLock<Metrics> = OnceLock::new();
@@ -102,6 +106,24 @@ fn metrics() -> &'static Metrics {
         )
         .expect("valid metric definition");
 
+        let verdicts = IntCounterVec::new(
+            Opts::new(
+                "vastlint_grpc_verdicts_total",
+                "Completed validations, by caller and whether the document had any errors",
+            ),
+            &["caller", "valid"],
+        )
+        .expect("valid metric definition");
+
+        let findings = IntCounterVec::new(
+            Opts::new(
+                "vastlint_grpc_findings_total",
+                "Individual rule findings, by caller, rule id, and revenue-impact flag",
+            ),
+            &["caller", "rule_id", "revenue_impact"],
+        )
+        .expect("valid metric definition");
+
         registry.register(Box::new(requests.clone())).expect("unique metric");
         registry.register(Box::new(latency.clone())).expect("unique metric");
         registry.register(Box::new(shed.clone())).expect("unique metric");
@@ -117,6 +139,12 @@ fn metrics() -> &'static Metrics {
         registry
             .register(Box::new(concurrency_limit.clone()))
             .expect("unique metric");
+        registry
+            .register(Box::new(verdicts.clone()))
+            .expect("unique metric");
+        registry
+            .register(Box::new(findings.clone()))
+            .expect("unique metric");
 
         Metrics {
             registry,
@@ -127,6 +155,8 @@ fn metrics() -> &'static Metrics {
             events_published,
             events_dropped,
             concurrency_limit,
+            verdicts,
+            findings,
         }
     })
 }
@@ -173,6 +203,94 @@ pub fn record_event_published() {
 /// counting rejections would read the gap as a drop in rejections.
 pub fn record_event_dropped() {
     metrics().events_dropped.inc();
+}
+
+/// Records one completed validation for the partner tally.
+///
+/// Always on, independent of the Avro results stream. The caller label is
+/// `x-vastlint-caller` after sanitising: empty becomes `anonymous`, junk
+/// charset becomes `anonymous`, and a flood of distinct values past
+/// [`MAX_CALLERS`] collapses to `other` so a request-id accidentally used as
+/// a partner name cannot explode the series set.
+pub fn record_verdict(caller: Option<&str>, result: &core::ValidationResult) {
+    let metrics = metrics();
+    let caller = caller_label(caller);
+    let valid = if result.summary.is_valid() {
+        "true"
+    } else {
+        "false"
+    };
+    metrics.verdicts.with_label_values(&[&caller, valid]).inc();
+
+    for issue in &result.issues {
+        let impact = if rule_revenue_impact(issue.id) {
+            "true"
+        } else {
+            "false"
+        };
+        metrics
+            .findings
+            .with_label_values(&[&caller, issue.id, impact])
+            .inc();
+    }
+}
+
+/// Distinct caller labels we will keep as their own series.
+const MAX_CALLERS: usize = 256;
+
+fn caller_label(caller: Option<&str>) -> String {
+    let sanitized = sanitize_caller(caller);
+    if sanitized == "anonymous" {
+        return sanitized;
+    }
+
+    static SEEN: OnceLock<Mutex<HashSet<String>>> = OnceLock::new();
+    let mut seen = SEEN
+        .get_or_init(|| Mutex::new(HashSet::new()))
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    if seen.contains(&sanitized) {
+        return sanitized;
+    }
+    if seen.len() >= MAX_CALLERS {
+        return "other".to_string();
+    }
+    seen.insert(sanitized.clone());
+    sanitized
+}
+
+/// Stable partner ids only: ASCII letters, digits, `.`, `_`, `:`, `-`, up to 64
+/// bytes. Anything else is `anonymous` rather than a new time series.
+fn sanitize_caller(caller: Option<&str>) -> String {
+    const MAX_LEN: usize = 64;
+    let Some(raw) = caller.map(str::trim).filter(|value| !value.is_empty()) else {
+        return "anonymous".to_string();
+    };
+    if raw.len() <= MAX_LEN
+        && raw.bytes().all(|byte| {
+            matches!(
+                byte,
+                b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'.' | b'_' | b':' | b'-'
+            )
+        })
+    {
+        raw.to_string()
+    } else {
+        "anonymous".to_string()
+    }
+}
+
+fn rule_revenue_impact(rule_id: &str) -> bool {
+    static IMPACT: OnceLock<HashSet<&'static str>> = OnceLock::new();
+    IMPACT
+        .get_or_init(|| {
+            core::all_rules()
+                .iter()
+                .filter(|rule| rule.revenue_impact())
+                .map(|rule| rule.id)
+                .collect()
+        })
+        .contains(rule_id)
 }
 
 /// Publishes the current adaptive limit.
@@ -279,6 +397,40 @@ mod tests {
         // exactly when it is needed.
         assert!(rendered.contains("method=\"Validate\""));
         assert!(rendered.contains("status=\"ok\""));
+    }
+
+    #[test]
+    fn partner_tallies_use_the_caller_label() {
+        let result = core::validate(
+            r#"<VAST version="2.0"><Ad id="1"><InLine><AdSystem>Test</AdSystem><AdTitle>Test</AdTitle><Creatives><Creative><Linear><Duration>00:00:30</Duration><MediaFiles><MediaFile delivery="progressive" type="video/mp4" width="640" height="360">https://cdn.example.com/ad.mp4</MediaFile></MediaFiles></Linear></Creative></Creatives></InLine></Ad></VAST>"#,
+        );
+        record_verdict(Some("dsp-b"), &result);
+
+        let rendered = render();
+        assert!(rendered.contains("vastlint_grpc_verdicts_total"));
+        assert!(rendered.contains("vastlint_grpc_findings_total"));
+        assert!(rendered.contains("caller=\"dsp-b\""));
+        assert!(rendered.contains("valid=\"false\""));
+        assert!(
+            result
+                .issues
+                .iter()
+                .any(|issue| issue.id == "VAST-2.0-inline-impression"),
+            "the tally fixture must fire the $ Impression rule"
+        );
+        assert!(rendered.contains("rule_id=\"VAST-2.0-inline-impression\""));
+        assert!(rendered.contains("revenue_impact=\"true\""));
+    }
+
+    #[test]
+    fn junk_caller_labels_collapse_to_anonymous() {
+        let result = core::validate("<VAST version=\"2.0\"></VAST>");
+        record_verdict(Some("not a partner!!!"), &result);
+        record_verdict(None, &result);
+
+        let rendered = render();
+        assert!(rendered.contains("caller=\"anonymous\""));
+        assert!(!rendered.contains("not a partner"));
     }
 
     #[test]

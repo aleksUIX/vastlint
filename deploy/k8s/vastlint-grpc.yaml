@@ -11,6 +11,10 @@ spec:
     metadata:
       labels:
         app: vastlint-grpc
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9090"
+        prometheus.io/path: "/metrics"
     spec:
       terminationGracePeriodSeconds: 30
       containers:

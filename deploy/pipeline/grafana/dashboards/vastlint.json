@@ -1,0 +1,98 @@
+{
+  "uid": "vastlint-pipeline",
+  "title": "VASTlint pipeline",
+  "tags": ["vastlint"],
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "5s",
+  "timezone": "browser",
+  "time": { "from": "now-15m", "to": "now" },
+  "templating": { "list": [] },
+  "annotations": { "list": [] },
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Error rate by caller",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": { "unit": "percentunit", "min": 0, "max": 1 },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (caller) (rate(vastlint_grpc_verdicts_total{valid=\"false\"}[5m])) / clamp_min(sum by (caller) (rate(vastlint_grpc_verdicts_total[5m])), 1e-9)",
+          "legendFormat": "{{caller}}"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Revenue-impact findings by caller",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": { "unit": "ops", "min": 0 },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (caller) (rate(vastlint_grpc_findings_total{revenue_impact=\"true\"}[5m]))",
+          "legendFormat": "{{caller}}"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Verdicts by caller",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": { "unit": "ops", "min": 0 },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (caller, valid) (rate(vastlint_grpc_verdicts_total[5m]))",
+          "legendFormat": "{{caller}} valid={{valid}}"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Top rules",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": { "unit": "ops", "min": 0 },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "topk(10, sum by (rule_id) (rate(vastlint_grpc_findings_total[5m])))",
+          "legendFormat": "{{rule_id}}"
+        }
+      ]
+    }
+  ]
+}

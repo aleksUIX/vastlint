@@ -6,6 +6,24 @@ GitHub Releases: <https://github.com/aleksUIX/vastlint/releases>
 
 ---
 
+## [0.13.2] - 2026-08-17
+
+**Partner tallies on the gRPC sidecar.** No rule changes; the catalog stays at
+228 and any tag that validated on 0.13.1 validates identically here.
+
+### Added
+
+- `vastlint_grpc_verdicts_total{caller,valid}` and
+  `vastlint_grpc_findings_total{caller,rule_id,revenue_impact}` on `/metrics`.
+  `x-vastlint-caller` is the partner name. Empty or junk becomes `anonymous`;
+  more than 256 distinct ids collapse to `other`. Independent of the Avro
+  results stream.
+- Grafana dashboard and `docker compose --profile pipeline` in
+  `deploy/pipeline/`. The k8s starter manifest carries Prometheus scrape
+  annotations.
+
+---
+
 ## [0.13.1] - 2026-08-17
 
 **SIGTERM on the gRPC server, plus dependency maintenance.** No rule changes;

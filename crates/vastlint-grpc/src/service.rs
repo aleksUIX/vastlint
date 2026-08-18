@@ -67,8 +67,11 @@ impl VastlintApi {
         self
     }
 
-    /// Publishes one verdict, if a stream is configured.
+    /// Publishes one verdict, if a stream is configured, and always records
+    /// the partner tally on `/metrics`.
     fn emit(&self, event_id: String, result: &core::ValidationResult, caller: Option<String>) {
+        metrics::record_verdict(caller.as_deref(), result);
+
         let Some(publisher) = &self.publisher else {
             return;
         };
@@ -292,6 +295,7 @@ impl VastlintService for VastlintApi {
         request: Request<Streaming<ValidateStreamRequest>>,
     ) -> Result<Response<Self::ValidateStreamStream>, Status> {
         let budget = deadline::remaining(request.metadata());
+        let caller = caller_identity(request.metadata());
         let mut inbound = request.into_inner();
 
         let (tx, rx) = mpsc::channel::<Result<ValidateStreamResponse, Status>>(self.stream_buffer);
@@ -359,6 +363,7 @@ impl VastlintService for VastlintApi {
 
                 let (context, forced) = context;
                 let document = message.document;
+                let caller = caller.clone();
 
                 tokio::spawn(async move {
                     let started = Instant::now();
@@ -374,6 +379,7 @@ impl VastlintService for VastlintApi {
 
                     let response = match outcome {
                         Ok(result) => {
+                            metrics::record_verdict(caller.as_deref(), &result);
                             metrics::record_request(
                                 "ValidateStream",
                                 "ok",

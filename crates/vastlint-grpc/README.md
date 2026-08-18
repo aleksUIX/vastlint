@@ -31,6 +31,30 @@ docker run --rm -p 50051:50051 aleksuix/vastlint-grpc:0.13.0
 
 Kubernetes: [`deploy/k8s/vastlint-grpc.yaml`](../../deploy/k8s/vastlint-grpc.yaml). gRPC readiness and liveness on 50051. Point [`vastlint-java`](https://github.com/aleksUIX/vastlint-java) at `vastlint-grpc:50051`. The process stops accepting on SIGTERM so in-flight RPCs finish.
 
+## Partner tallies
+
+Every `Validate` and `ValidateStream` verdict increments Prometheus counters on
+port 9090, labelled by `x-vastlint-caller`. That is the partner name the host
+already trusts (seat, DSP, `AdSystem`), not a request id. Empty or junk becomes
+`anonymous`; more than 256 distinct ids collapse to `other`.
+
+| Series | Labels |
+| --- | --- |
+| `vastlint_grpc_verdicts_total` | `caller`, `valid` |
+| `vastlint_grpc_findings_total` | `caller`, `rule_id`, `revenue_impact` |
+
+`revenue_impact` is the same `$` catalog flag the CLI prints. Scrape this from
+Prometheus you already run, or:
+
+```sh
+docker compose --profile pipeline up --build
+```
+
+Grafana is on `http://localhost:3000`. Walkthrough: [`deploy/pipeline/README.md`](../../deploy/pipeline/README.md).
+
+The Avro results stream is separate and still off by default. These counters do
+not wait for a broker.
+
 Reflection is on, so no local copy of the proto is needed:
 
 ```sh
