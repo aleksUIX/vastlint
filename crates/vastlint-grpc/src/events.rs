@@ -41,6 +41,7 @@ use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use apache_avro::types::{Record, Value};
+use apache_avro::writer::datum::GenericDatumWriter;
 use apache_avro::Schema;
 use vastlint_core as core;
 
@@ -200,7 +201,9 @@ impl ValidationEvent {
         record.put("engine_version", Value::String(self.engine_version.clone()));
         record.put("caller", optional_string(self.caller.clone()));
 
-        let datum = apache_avro::to_avro_datum(schema, record)?;
+        let datum = GenericDatumWriter::builder(schema)
+            .build()?
+            .write_value_to_vec(record)?;
 
         let mut framed = Vec::with_capacity(5 + datum.len());
         framed.push(MAGIC_BYTE);
@@ -339,7 +342,18 @@ impl Publisher {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use apache_avro::from_avro_datum;
+    use apache_avro::reader::datum::GenericDatumReader;
+
+    fn decode_datum(
+        writer_schema: &Schema,
+        bytes: &mut &[u8],
+        reader_schema: Option<&Schema>,
+    ) -> apache_avro::AvroResult<Value> {
+        GenericDatumReader::builder(writer_schema)
+            .maybe_reader_schema(reader_schema)
+            .build()?
+            .read_value(bytes)
+    }
 
     fn sample() -> ValidationEvent {
         ValidationEvent {
@@ -382,7 +396,7 @@ mod tests {
         );
 
         let mut body = &encoded[5..];
-        let decoded = from_avro_datum(schema(), &mut body, None).expect("decodes");
+        let decoded = decode_datum(schema(), &mut body, None).expect("decodes");
 
         let Value::Record(fields) = decoded else {
             panic!("expected a record");
@@ -409,7 +423,7 @@ mod tests {
         event.caller = None;
         let encoded = event.encode(1).expect("encodes");
         let mut body = &encoded[5..];
-        let decoded = from_avro_datum(schema(), &mut body, None).expect("decodes");
+        let decoded = decode_datum(schema(), &mut body, None).expect("decodes");
 
         let Value::Record(fields) = decoded else {
             panic!("expected a record")
@@ -425,7 +439,7 @@ mod tests {
         event.caller = Some("ssp-1".to_string());
         let encoded = event.encode(1).expect("encodes");
         let mut body = &encoded[5..];
-        let decoded = from_avro_datum(schema(), &mut body, None).expect("decodes");
+        let decoded = decode_datum(schema(), &mut body, None).expect("decodes");
 
         let Value::Record(fields) = decoded else {
             panic!("expected a record")

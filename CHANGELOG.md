@@ -6,6 +6,27 @@ GitHub Releases: <https://github.com/aleksUIX/vastlint/releases>
 
 ---
 
+## [0.13.1] - 2026-08-17
+
+**SIGTERM on the gRPC server, plus dependency maintenance.** No rule changes;
+the catalog stays at 228 and any tag that validated on 0.13.0 validates identically
+here.
+
+### Fixed
+
+- `vastlint-grpc` now exits on SIGTERM as well as SIGINT, so Kubernetes can
+  stop the process. The starter manifest also carries a liveness probe and
+  resource bounds.
+
+### Changed
+
+- `sha2` 0.10 to 0.11 (catalog digest).
+- `apache-avro` 0.21 to 0.22. Event encoding uses `GenericDatumWriter` /
+  `GenericDatumReader`.
+- `github/codeql-action/upload-sarif` 4.37.6 to 4.37.7.
+
+---
+
 ## [0.13.0] - 2026-08-15
 
 **Five new schema rules.** A tag that validated clean on 0.12.1 can report

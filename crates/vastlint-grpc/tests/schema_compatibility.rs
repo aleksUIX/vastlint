@@ -32,8 +32,10 @@
 //!
 //! Each of those is a test below, including the ones that must fail.
 
+use apache_avro::reader::datum::GenericDatumReader;
 use apache_avro::types::{Record, Value};
-use apache_avro::{from_avro_datum, to_avro_datum, Schema};
+use apache_avro::writer::datum::GenericDatumWriter;
+use apache_avro::Schema;
 
 /// The schema this build ships. The starting point for every evolution below.
 const CURRENT: &str = include_str!("../../../schemas/openadtech/vastlint/v1/validation_event.avsc");
@@ -61,10 +63,17 @@ fn read_old_data_with_new_schema(writer_json: &str, reader_json: &str) -> Result
     record.put("engine_version", Value::String("0.11.7".to_string()));
     record.put("caller", Value::Union(0, Box::new(Value::Null)));
 
-    let datum = to_avro_datum(&writer, record).map_err(|error| error.to_string())?;
+    let datum = GenericDatumWriter::builder(&writer)
+        .build()
+        .and_then(|encoder| encoder.write_value_to_vec(record))
+        .map_err(|error| error.to_string())?;
 
     let mut bytes = datum.as_slice();
-    from_avro_datum(&writer, &mut bytes, Some(&reader)).map_err(|error| error.to_string())
+    GenericDatumReader::builder(&writer)
+        .maybe_reader_schema(Some(&reader))
+        .build()
+        .and_then(|decoder| decoder.read_value(&mut bytes))
+        .map_err(|error| error.to_string())
 }
 
 fn field(record: &Value, name: &str) -> Option<Value> {

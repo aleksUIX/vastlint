@@ -21,6 +21,19 @@ use crate::proto;
 
 static CATALOG_DIGEST: OnceLock<String> = OnceLock::new();
 
+/// Lower-hex of a digest. `sha2` 0.11's output type no longer implements
+/// `LowerHex` (`digest` 0.11 dropped it from `hybrid-array`).
+fn hex_lower(bytes: impl AsRef<[u8]>) -> String {
+    const HEX: &[u8; 16] = b"0123456789abcdef";
+    let bytes = bytes.as_ref();
+    let mut out = String::with_capacity(bytes.len() * 2);
+    for &b in bytes {
+        out.push(HEX[(b >> 4) as usize] as char);
+        out.push(HEX[(b & 0x0f) as usize] as char);
+    }
+    out
+}
+
 /// Content hash of the rule catalog this binary carries, as `sha256:<hex>`.
 ///
 /// Computed over the linked catalog at first call rather than over the rule
@@ -48,7 +61,7 @@ pub fn catalog_digest() -> &'static str {
             hasher.update([0x1e]);
         }
 
-        format!("sha256:{:x}", hasher.finalize())
+        format!("sha256:{}", hex_lower(hasher.finalize()))
     })
 }
 
@@ -98,7 +111,7 @@ mod tests {
                 hasher.update(b.as_bytes());
                 hasher.update([0x1e]);
             }
-            format!("{:x}", hasher.finalize())
+            hex_lower(hasher.finalize())
         }
 
         assert_ne!(digest_of(&[("ab", "c")]), digest_of(&[("a", "bc")]));
