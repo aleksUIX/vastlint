@@ -26,7 +26,7 @@ docker compose up grpc
 Published image, no local Rust toolchain:
 
 ```sh
-docker run --rm -p 50051:50051 aleksuix/vastlint-grpc:0.13.0
+docker run --rm -p 50051:50051 -p 9090:9090 aleksuix/vastlint-grpc:0.13.2
 ```
 
 Kubernetes: [`deploy/k8s/vastlint-grpc.yaml`](../../deploy/k8s/vastlint-grpc.yaml). gRPC readiness and liveness on 50051. Point [`vastlint-java`](https://github.com/aleksUIX/vastlint-java) at `vastlint-grpc:50051`. The process stops accepting on SIGTERM so in-flight RPCs finish.

@@ -14,7 +14,7 @@
 #   open http://localhost:3000
 #
 # Published image, no local build:
-#   docker run --rm -p 50051:50051 aleksuix/vastlint-grpc:0.13.0
+#   docker run --rm -p 50051:50051 -p 9090:9090 aleksuix/vastlint-grpc:0.13.2
 
 services:
   vastlint:

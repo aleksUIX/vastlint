@@ -19,7 +19,7 @@ spec:
       terminationGracePeriodSeconds: 30
       containers:
         - name: vastlint-grpc
-          image: aleksuix/vastlint-grpc:0.13.0
+          image: aleksuix/vastlint-grpc:0.13.2
           ports:
             - name: grpc
               containerPort: 50051
