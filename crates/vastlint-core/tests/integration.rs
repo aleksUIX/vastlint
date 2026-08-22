@@ -857,9 +857,7 @@ fn simid_apiframework_near_miss_fires_warning() {
 
 #[test]
 fn simid_apiframework_trailing_space_is_near_miss() {
-    let xml = load("valid_simid_linear.xml")
-        .replace(r#"apiFramework="SIMID""#, r#"apiFramework="SIMID ""#);
-    let result = validate(&xml);
+    let result = validate(&load("warn_simid_apiframework_space.xml"));
     assert!(
         has_issue(&result, "SIMID-1.0-simid-apiframework-case"),
         "trailing space on apiFramework must fire case warning, got: {:#?}",
@@ -869,7 +867,7 @@ fn simid_apiframework_trailing_space_is_near_miss() {
 
 #[test]
 fn simid_url_http_uppercase_fires_error() {
-    let xml = load("err_simid_url_https.xml").replace("http://", "HTTP://");
+    let xml = load("err_simid_url_https_uppercase.xml");
     let result = validate(&xml);
     assert!(
         has_issue(&result, "SIMID-1.0-simid-url-https"),
@@ -892,10 +890,7 @@ fn simid_url_javascript_fires_error() {
 
 #[test]
 fn simid_url_file_fires_error() {
-    let xml = load("valid_simid_linear.xml").replace(
-        "https://creative.example.com/simid.html",
-        "file:///tmp/simid.html",
-    );
+    let xml = load("err_simid_url_file.xml");
     let result = validate(&xml);
     assert!(
         has_issue(&result, "SIMID-1.0-simid-url-https"),
@@ -976,6 +971,83 @@ fn simid_mezzanine_with_progressive_does_not_fire_ssai_info() {
     assert!(
         !has_issue(&result, "SIMID-1.0-simid-ssai-no-client"),
         "progressive MediaFile plus Mezzanine is the dual-path tag, got: {:#?}",
+        result.issues
+    );
+}
+
+#[test]
+fn simid_iframe_type_required_fires_warning() {
+    let result = validate(&load("warn_simid_iframe_type_required.xml"));
+    assert!(
+        has_issue(&result, "SIMID-1.1-iframe-simid-type-required"),
+        "expected SIMID-1.1-iframe-simid-type-required, got: {:#?}",
+        result.issues
+    );
+}
+
+#[test]
+fn simid_iframe_type_on_iframe_fires_warning() {
+    let result = validate(&load("warn_simid_iframe_type_on_iframe.xml"));
+    assert!(
+        has_issue(&result, "SIMID-1.1-iframe-simid-type-required"),
+        "expected SIMID-1.1-iframe-simid-type-required, got: {:#?}",
+        result.issues
+    );
+}
+
+#[test]
+fn simid_iframe_http_fires_error() {
+    let result = validate(&load("err_simid_iframe_url_https.xml"));
+    assert!(
+        has_issue(&result, "SIMID-1.1-iframe-simid-url-https"),
+        "expected SIMID-1.1-iframe-simid-url-https, got: {:#?}",
+        result.issues
+    );
+    assert!(!result.summary.is_valid());
+}
+
+#[test]
+fn simid_iframe_http_pattern_a_uppercase_fires_error() {
+    let result = validate(&load("err_simid_iframe_url_https_nonlinear.xml"));
+    assert!(
+        has_issue(&result, "SIMID-1.1-iframe-simid-url-https"),
+        "HTTP:// on Pattern A IFrameResource must fire, got: {:#?}",
+        result.issues
+    );
+    assert!(!result.summary.is_valid());
+}
+
+#[test]
+fn valid_simid_nonlinear_produces_no_simid_errors() {
+    let result = validate(&load("valid_simid_nonlinear.xml"));
+    let simid_issues: Vec<_> = result
+        .issues
+        .iter()
+        .filter(|i| i.id.starts_with("SIMID-"))
+        .collect();
+    assert!(
+        simid_issues.is_empty(),
+        "valid SIMID nonlinear should produce no SIMID-* issues, got: {:#?}",
+        simid_issues
+    );
+}
+
+#[test]
+fn simid_javascript_mime_fires_type_required() {
+    let result = validate(&load("err_simid_type_javascript.xml"));
+    assert!(
+        has_issue(&result, "SIMID-1.0-simid-type-required"),
+        "expected SIMID-1.0-simid-type-required, got: {:#?}",
+        result.issues
+    );
+}
+
+#[test]
+fn interactive_no_type_no_api_does_not_fire_simid_type() {
+    let result = validate(&load("warn_interactive_no_type_no_api.xml"));
+    assert!(
+        !has_issue(&result, "SIMID-1.0-simid-type-required"),
+        "non-SIMID ICF must not fire SIMID type-required, got: {:#?}",
         result.issues
     );
 }

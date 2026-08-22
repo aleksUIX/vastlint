@@ -186,7 +186,7 @@ tag.xml  VAST 4.2
 
 ## Auto-fix ⚠️ experimental
 
-> **`vastlint fix` is opinionated and experimental.** It applies a small set of deterministic, low-risk repairs (HTTPS upgrades, `conditionalAd` removal). Always review the diff before committing. Use `--dry-run` first, and re-run `check` afterward to confirm the result. Future releases may make individual fixes configurable.
+> **`vastlint fix` is opinionated and experimental.** It applies a small set of deterministic, low-risk repairs (HTTPS upgrades including SIMID `HTTP://`, SIMID `apiFramework` / `variableDuration` / missing `type="text/html"`, `conditionalAd` removal). Always review the diff before committing. Use `--dry-run` first, and re-run `check` afterward to confirm the result. Future releases may make individual fixes configurable.
 
 `vastlint fix` repairs fixable issues and writes the corrected XML back to the file (or to a separate path with `--out`):
 

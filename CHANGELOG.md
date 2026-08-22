@@ -6,6 +6,19 @@ GitHub Releases: <https://github.com/aleksUIX/vastlint/releases>
 
 ---
 
+## [Unreleased]
+
+### Changed
+
+- `vastlint fix` now repairs SIMID near-miss `apiFramework` to `SIMID`, true-intent
+  `variableDuration` (`yes`, `1`, `True`) to `true`, missing SIMID `type="text/html"`,
+  and credits SIMID HTTP upgrades including `HTTP://`. `javascript:` URLs and an
+  existing `type` MIME are left alone.
+- `<IFrameResource>` under `<NonLinear>` accepts `type` and `apiFramework`
+  (SIMID 1.1 §3.5.1). Those attributes no longer fire `VAST-2.0-unknown-attribute`.
+
+---
+
 ## [0.13.3] - 2026-08-21
 
 **Four SIMID XML leftovers.** Catalog 228 to 232. A tag that validated clean on

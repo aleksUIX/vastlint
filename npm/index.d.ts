@@ -143,7 +143,7 @@ export interface FixResult {
 
 /**
  * Fix a VAST XML string using default settings.
- * Upgrades http:// URLs to https:// and removes deprecated attributes.
+ * Upgrades http:// URLs to https://, repairs safe SIMID attributes, and removes deprecated attributes.
  *
  * @example
  * import { fix } from 'vastlint';

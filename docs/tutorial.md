@@ -81,7 +81,7 @@ Errors mean the tag violates a "must" or "required" rule in the spec. Most ad SD
 
 ## Auto-fix ⚠️ experimental
 
-> **`vastlint fix` is opinionated and experimental.** It applies a small set of deterministic, low-risk repairs (HTTPS upgrades, `conditionalAd` removal). Always review the diff before committing. Future releases may make individual fixes configurable.
+> **`vastlint fix` is opinionated and experimental.** It applies a small set of deterministic, low-risk repairs (HTTPS upgrades including SIMID `HTTP://`, SIMID `apiFramework` / `variableDuration` / missing `type="text/html"`, `conditionalAd` removal). Always review the diff before committing. Future releases may make individual fixes configurable.
 
 For issues that have a safe, unambiguous fix, VASTlint can repair the file for you - but always preview first:
 

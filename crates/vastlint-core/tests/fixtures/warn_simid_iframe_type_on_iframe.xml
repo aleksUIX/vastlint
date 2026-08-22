@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Fixture: Pattern B. apiFramework is on IFrameResource; type is missing.
+     Expected: SIMID-1.1-iframe-simid-type-required (Warning)
+     Auto-fix: insert type="text/html" -->
+<VAST version="4.1">
+  <Ad id="1">
+    <InLine>
+      <AdSystem>Test AdServer</AdSystem>
+      <AdServingId>simid-iframe-type-b-01</AdServingId>
+      <AdTitle>SIMID IFrame Type On IFrame Test</AdTitle>
+      <Impression><![CDATA[https://track.example.com/imp]]></Impression>
+      <Creatives>
+        <Creative id="1">
+          <UniversalAdId idRegistry="ad-id.org">simid-iframe-type-b-01</UniversalAdId>
+          <NonLinearAds>
+            <NonLinear width="480" height="70">
+              <IFrameResource apiFramework="SIMID">
+                <![CDATA[https://creative.example.com/simid.html]]>
+              </IFrameResource>
+            </NonLinear>
+          </NonLinearAds>
+        </Creative>
+      </Creatives>
+    </InLine>
+  </Ad>
+</VAST>

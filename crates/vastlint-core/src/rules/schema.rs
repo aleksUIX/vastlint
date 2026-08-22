@@ -505,7 +505,12 @@ fn check_non_linear(
         let child_path = format!("{}/{}", path, child.name);
         match child.name.as_str() {
             "StaticResource" => check_text_only(child, &child_path, &["creativeType"], ctx, issues),
-            "IFrameResource" => check_text_only(child, &child_path, &[], ctx, issues),
+            // SIMID 1.1 §3.5.1 puts type and apiFramework on IFrameResource.
+            // VAST XSD IFrameResource is text-only with no attributes; allowing
+            // these two keeps the SIMID example from firing unknown-attribute.
+            "IFrameResource" => {
+                check_text_only(child, &child_path, &["type", "apiFramework"], ctx, issues)
+            }
             "HTMLResource" => check_text_only(child, &child_path, &[], ctx, issues),
             "AdParameters" => check_text_only(child, &child_path, &["xmlEncoded"], ctx, issues),
             "NonLinearClickThrough" => check_text_only(child, &child_path, &[], ctx, issues),

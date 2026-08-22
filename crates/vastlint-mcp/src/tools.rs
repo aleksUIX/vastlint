@@ -428,7 +428,9 @@ impl VastlintServer {
 
     #[tool(
         description = "Auto-fix a VAST XML tag. Applies all deterministic, safe fixes: \
-        HTTP → HTTPS upgrades in all URL-bearing elements, and removal of deprecated attributes. \
+        HTTP → HTTPS upgrades (including SIMID HTTP://), SIMID apiFramework casing, \
+        true-intent variableDuration, missing SIMID type=\"text/html\", and removal of deprecated attributes. \
+        Does not rewrite javascript: URLs or an existing type MIME. \
         Returns the repaired XML, a list of every fix applied (rule ID + description + path), \
         and any remaining issues that require manual intervention. \
         Always re-validate the returned xml with validate_vast to confirm no errors remain.",

@@ -605,3 +605,258 @@ fn fix_wrapper_vasttag_uri_is_rewritten() {
     assert!(result.xml.contains("https://ads.example.com/vast.xml"));
     assert!(!result.xml.contains("http://ads.example.com/vast.xml"));
 }
+
+// ── SIMID auto-fix ────────────────────────────────────────────────────────────
+
+fn load_fixture(name: &str) -> String {
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("tests/fixtures")
+        .join(name);
+    std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("could not read fixture {name}: {e}"))
+}
+
+#[test]
+fn fix_simid_apiframework_case_full_cycle() {
+    assert_fix_cycle(
+        &load_fixture("warn_simid_apiframework_case.xml"),
+        "SIMID-1.0-simid-apiframework-case",
+    );
+}
+
+#[test]
+fn fix_simid_apiframework_space_full_cycle() {
+    assert_fix_cycle(
+        &load_fixture("warn_simid_apiframework_space.xml"),
+        "SIMID-1.0-simid-apiframework-case",
+    );
+}
+
+#[test]
+fn fix_simid_apiframework_becomes_exact_simid() {
+    let result = fix(&load_fixture("warn_simid_apiframework_case.xml"));
+    assert!(result
+        .xml
+        .contains("<InteractiveCreativeFile apiFramework=\"SIMID\" type=\"text/html\">"));
+    assert!(result.xml.contains("<!-- Fixture:"));
+}
+
+#[test]
+fn fix_simid_variable_duration_yes_full_cycle() {
+    assert_fix_cycle(
+        &load_fixture("warn_simid_variable_duration.xml"),
+        "SIMID-1.0-simid-variable-duration-value",
+    );
+}
+
+#[test]
+fn fix_simid_variable_duration_one_full_cycle() {
+    assert_fix_cycle(
+        &load_fixture("warn_simid_variable_duration_one.xml"),
+        "SIMID-1.0-simid-variable-duration-value",
+    );
+}
+
+#[test]
+fn fix_simid_variable_duration_true_case_full_cycle() {
+    assert_fix_cycle(
+        &load_fixture("warn_simid_variable_duration_true_case.xml"),
+        "SIMID-1.0-simid-variable-duration-value",
+    );
+}
+
+#[test]
+fn fix_simid_type_required_full_cycle() {
+    assert_fix_cycle(
+        &load_fixture("err_simid_type_required.xml"),
+        "SIMID-1.0-simid-type-required",
+    );
+}
+
+#[test]
+fn fix_simid_type_required_inserts_text_html() {
+    let result = fix(&load_fixture("err_simid_type_required.xml"));
+    assert!(result
+        .xml
+        .contains("<InteractiveCreativeFile apiFramework=\"SIMID\" type=\"text/html\">"));
+    assert!(result.xml.contains("<!-- type attribute is missing"));
+}
+
+#[test]
+fn fix_simid_icf_http_full_cycle() {
+    assert_fix_cycle(
+        &load_fixture("err_simid_url_https.xml"),
+        "SIMID-1.0-simid-url-https",
+    );
+}
+
+#[test]
+fn fix_simid_icf_http_uppercase_full_cycle() {
+    assert_fix_cycle(
+        &load_fixture("err_simid_url_https_uppercase.xml"),
+        "SIMID-1.0-simid-url-https",
+    );
+}
+
+#[test]
+fn fix_simid_icf_http_credits_simid_rule_not_tracking() {
+    let result = fix(&load_fixture("err_simid_url_https.xml"));
+    assert!(result
+        .applied
+        .iter()
+        .any(|f| f.rule_id == "SIMID-1.0-simid-url-https"));
+    assert!(!result
+        .applied
+        .iter()
+        .any(|f| f.rule_id == "VAST-2.0-tracking-https"));
+    assert!(result
+        .xml
+        .contains("<![CDATA[https://creative.example.com/simid.html]]>"));
+}
+
+#[test]
+fn fix_simid_iframe_type_full_cycle() {
+    assert_fix_cycle(
+        &load_fixture("warn_simid_iframe_type_required.xml"),
+        "SIMID-1.1-iframe-simid-type-required",
+    );
+}
+
+#[test]
+fn fix_simid_iframe_type_on_iframe_full_cycle() {
+    assert_fix_cycle(
+        &load_fixture("warn_simid_iframe_type_on_iframe.xml"),
+        "SIMID-1.1-iframe-simid-type-required",
+    );
+}
+
+#[test]
+fn fix_simid_iframe_type_does_not_introduce_unknown_attribute() {
+    let result = fix(&load_fixture("warn_simid_iframe_type_required.xml"));
+    assert!(!result
+        .remaining
+        .iter()
+        .any(|i| i.id == "VAST-2.0-unknown-attribute"));
+    assert!(result.xml.contains("type=\"text/html\""));
+}
+
+#[test]
+fn fix_simid_iframe_http_full_cycle() {
+    assert_fix_cycle(
+        &load_fixture("err_simid_iframe_url_https.xml"),
+        "SIMID-1.1-iframe-simid-url-https",
+    );
+}
+
+#[test]
+fn fix_simid_iframe_http_pattern_a_credits_simid_rule() {
+    let xml = load_fixture("err_simid_iframe_url_https_nonlinear.xml");
+    assert_fix_cycle(&xml, "SIMID-1.1-iframe-simid-url-https");
+    let result = fix(&xml);
+    assert!(result
+        .xml
+        .contains("https://creative.example.com/simid.html"));
+    assert!(!result.xml.contains("HTTP://"));
+}
+
+#[test]
+fn fix_does_not_rewrite_javascript_simid_url() {
+    let xml = load_fixture("err_simid_url_javascript.xml");
+    let result = fix(&xml);
+    assert!(result.xml.contains("javascript:alert(1)"));
+    assert!(!result
+        .applied
+        .iter()
+        .any(|f| f.rule_id == "SIMID-1.0-simid-url-https"));
+    assert!(result
+        .remaining
+        .iter()
+        .any(|i| i.id == "SIMID-1.0-simid-url-https"));
+}
+
+#[test]
+fn fix_does_not_rewrite_data_js_simid_url() {
+    let xml = load_fixture("err_simid_url_data_js.xml");
+    let result = fix(&xml);
+    assert!(result.xml.contains("data:text/javascript"));
+    assert!(!result
+        .applied
+        .iter()
+        .any(|f| f.rule_id.contains("simid-url")));
+}
+
+#[test]
+fn fix_does_not_rewrite_file_simid_url() {
+    let xml = load_fixture("err_simid_url_file.xml");
+    let result = fix(&xml);
+    assert!(result.xml.contains("file:///tmp/simid.html"));
+    assert!(!result
+        .applied
+        .iter()
+        .any(|f| f.rule_id == "SIMID-1.0-simid-url-https"));
+    assert!(result
+        .remaining
+        .iter()
+        .any(|i| i.id == "SIMID-1.0-simid-url-https"));
+}
+
+#[test]
+fn fix_does_not_rewrite_variable_duration_false() {
+    let xml = load_fixture("warn_simid_variable_duration_false.xml");
+    let result = fix(&xml);
+    assert!(result.xml.contains("variableDuration=\"false\""));
+    assert!(!result
+        .applied
+        .iter()
+        .any(|f| f.rule_id == "SIMID-1.0-simid-variable-duration-value"));
+    assert!(result
+        .remaining
+        .iter()
+        .any(|i| i.id == "SIMID-1.0-simid-variable-duration-value"));
+}
+
+#[test]
+fn fix_does_not_rewrite_javascript_mime() {
+    let xml = load_fixture("err_simid_type_javascript.xml");
+    let result = fix(&xml);
+    assert!(result.xml.contains("type=\"application/javascript\""));
+    assert!(!result.xml.contains("type=\"text/html\""));
+    assert!(!result
+        .applied
+        .iter()
+        .any(|f| f.rule_id == "SIMID-1.0-simid-type-required"));
+    assert!(result
+        .remaining
+        .iter()
+        .any(|i| i.id == "SIMID-1.0-simid-type-required"));
+}
+
+#[test]
+fn fix_does_not_insert_type_on_non_simid_icf() {
+    let xml = load_fixture("warn_interactive_no_type_no_api.xml");
+    let result = fix(&xml);
+    assert!(
+        !result.xml.contains("type=\"text/html\""),
+        "non-SIMID ICF must not get type inserted:\n{}",
+        result.xml
+    );
+    assert!(!result
+        .applied
+        .iter()
+        .any(|f| f.rule_id == "SIMID-1.0-simid-type-required"));
+}
+
+#[test]
+fn fix_clean_simid_linear_is_identity() {
+    let xml = load_fixture("valid_simid_linear.xml");
+    let result = fix(&xml);
+    assert!(result.applied.is_empty());
+    assert_eq!(result.xml, xml);
+}
+
+#[test]
+fn fix_clean_simid_nonlinear_is_identity() {
+    let xml = load_fixture("valid_simid_nonlinear.xml");
+    let result = fix(&xml);
+    assert!(result.applied.is_empty());
+    assert_eq!(result.xml, xml);
+}

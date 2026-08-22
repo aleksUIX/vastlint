@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Fixture: Pattern B. IFrameResource apiFramework is SIMID; URL is http://.
+     Expected: SIMID-1.1-iframe-simid-url-https (Error)
+     Auto-fix: upgrade to https:// -->
+<VAST version="4.1">
+  <Ad id="1">
+    <InLine>
+      <AdSystem>Test AdServer</AdSystem>
+      <AdServingId>simid-iframe-http-01</AdServingId>
+      <AdTitle>SIMID IFrame HTTP URL Test</AdTitle>
+      <Impression><![CDATA[https://track.example.com/imp]]></Impression>
+      <Creatives>
+        <Creative id="1">
+          <UniversalAdId idRegistry="ad-id.org">simid-iframe-http-01</UniversalAdId>
+          <NonLinearAds>
+            <NonLinear width="480" height="70">
+              <IFrameResource apiFramework="SIMID" type="text/html">
+                <![CDATA[http://creative.example.com/simid.html]]>
+              </IFrameResource>
+            </NonLinear>
+          </NonLinearAds>
+        </Creative>
+      </Creatives>
+    </InLine>
+  </Ad>
+</VAST>

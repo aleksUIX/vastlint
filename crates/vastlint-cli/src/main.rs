@@ -122,7 +122,7 @@ enum Command {
         force: bool,
     },
     /// \[EXPERIMENTAL\] Automatically fix common VAST issues and write repaired XML.
-    /// Applies opinionated, deterministic repairs (HTTPS upgrades, conditionalAd removal).
+    /// Applies opinionated, deterministic repairs (HTTPS upgrades, SIMID attributes, conditionalAd removal).
     /// Always review the diff — use --dry-run first. Future releases may make fixes configurable.
     Fix {
         /// File to fix. Pass - to read from stdin and write repaired XML to stdout.

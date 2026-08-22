@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Fixture: Valid SIMID NonLinear Pattern B. No SIMID-1.1-* rules should fire.
+     Auto-fix: identity -->
+<VAST version="4.1">
+  <Ad id="1">
+    <InLine>
+      <AdSystem>Test AdServer</AdSystem>
+      <AdServingId>simid-nl-valid-01</AdServingId>
+      <AdTitle>Valid SIMID Nonlinear Ad</AdTitle>
+      <Impression><![CDATA[https://track.example.com/imp]]></Impression>
+      <Creatives>
+        <Creative id="1">
+          <UniversalAdId idRegistry="ad-id.org">simid-nl-valid-01</UniversalAdId>
+          <NonLinearAds>
+            <NonLinear width="480" height="70">
+              <IFrameResource apiFramework="SIMID" type="text/html">
+                <![CDATA[https://creative.example.com/simid.html]]>
+              </IFrameResource>
+            </NonLinear>
+          </NonLinearAds>
+        </Creative>
+      </Creatives>
+    </InLine>
+  </Ad>
+</VAST>
