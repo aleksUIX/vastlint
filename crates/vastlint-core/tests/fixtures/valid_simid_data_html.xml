@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Fixture: valid linear SIMID with an inline data:text/html creative.
+     VAST 4.3 allows data: URIs; SIMID §3.1 is satisfied by the HTML MIME.
+     Expected: no SIMID-* issues. -->
+<VAST version="4.3">
+  <Ad id="1">
+    <InLine>
+      <AdSystem>Test AdServer</AdSystem>
+      <AdServingId>simid-data-html-01</AdServingId>
+      <AdTitle>Valid SIMID data: HTML</AdTitle>
+      <Impression><![CDATA[https://track.example.com/imp]]></Impression>
+      <Creatives>
+        <Creative id="1">
+          <UniversalAdId idRegistry="ad-id.org">simid-data-html-01</UniversalAdId>
+          <Linear>
+            <Duration>00:00:30</Duration>
+            <TrackingEvents>
+              <Tracking event="start"><![CDATA[https://track.example.com/start]]></Tracking>
+              <Tracking event="firstQuartile"><![CDATA[https://track.example.com/q1]]></Tracking>
+              <Tracking event="midpoint"><![CDATA[https://track.example.com/mid]]></Tracking>
+              <Tracking event="thirdQuartile"><![CDATA[https://track.example.com/q3]]></Tracking>
+              <Tracking event="complete"><![CDATA[https://track.example.com/complete]]></Tracking>
+              <Tracking event="interactiveStart"><![CDATA[https://track.example.com/interactive]]></Tracking>
+            </TrackingEvents>
+            <MediaFiles>
+              <MediaFile delivery="progressive" type="video/mp4" width="1920" height="1080">
+                <![CDATA[https://cdn.example.com/ad.mp4]]>
+              </MediaFile>
+              <InteractiveCreativeFile apiFramework="SIMID" type="text/html">
+                <![CDATA[data:text/html;charset=utf-8,<html><body></body></html>]]>
+              </InteractiveCreativeFile>
+            </MediaFiles>
+          </Linear>
+        </Creative>
+      </Creatives>
+    </InLine>
+  </Ad>
+</VAST>

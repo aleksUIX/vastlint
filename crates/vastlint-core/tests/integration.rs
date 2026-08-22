@@ -844,6 +844,142 @@ fn valid_simid_linear_produces_no_simid_errors() {
     );
 }
 
+#[test]
+fn simid_apiframework_near_miss_fires_warning() {
+    let result = validate(&load("warn_simid_apiframework_case.xml"));
+    assert!(
+        has_issue(&result, "SIMID-1.0-simid-apiframework-case"),
+        "expected SIMID-1.0-simid-apiframework-case, got: {:#?}",
+        result.issues
+    );
+    assert!(result.summary.is_valid());
+}
+
+#[test]
+fn simid_apiframework_trailing_space_is_near_miss() {
+    let xml = load("valid_simid_linear.xml")
+        .replace(r#"apiFramework="SIMID""#, r#"apiFramework="SIMID ""#);
+    let result = validate(&xml);
+    assert!(
+        has_issue(&result, "SIMID-1.0-simid-apiframework-case"),
+        "trailing space on apiFramework must fire case warning, got: {:#?}",
+        result.issues
+    );
+}
+
+#[test]
+fn simid_url_http_uppercase_fires_error() {
+    let xml = load("err_simid_url_https.xml").replace("http://", "HTTP://");
+    let result = validate(&xml);
+    assert!(
+        has_issue(&result, "SIMID-1.0-simid-url-https"),
+        "HTTP:// must be treated as insecure, got: {:#?}",
+        result.issues
+    );
+    assert!(!result.summary.is_valid());
+}
+
+#[test]
+fn simid_url_javascript_fires_error() {
+    let result = validate(&load("err_simid_url_javascript.xml"));
+    assert!(
+        has_issue(&result, "SIMID-1.0-simid-url-https"),
+        "expected SIMID-1.0-simid-url-https for javascript:, got: {:#?}",
+        result.issues
+    );
+    assert!(!result.summary.is_valid());
+}
+
+#[test]
+fn simid_url_file_fires_error() {
+    let xml = load("valid_simid_linear.xml").replace(
+        "https://creative.example.com/simid.html",
+        "file:///tmp/simid.html",
+    );
+    let result = validate(&xml);
+    assert!(
+        has_issue(&result, "SIMID-1.0-simid-url-https"),
+        "file: URLs must be blocked, got: {:#?}",
+        result.issues
+    );
+    assert!(!result.summary.is_valid());
+}
+
+#[test]
+fn simid_data_uri_javascript_fires_error() {
+    let result = validate(&load("err_simid_url_data_js.xml"));
+    assert!(
+        has_issue(&result, "SIMID-1.0-simid-url-data-html"),
+        "expected SIMID-1.0-simid-url-data-html, got: {:#?}",
+        result.issues
+    );
+    assert!(!result.summary.is_valid());
+}
+
+#[test]
+fn simid_data_uri_html_is_clean() {
+    let result = validate(&load("valid_simid_data_html.xml"));
+    let simid_issues: Vec<_> = result
+        .issues
+        .iter()
+        .filter(|i| i.id.starts_with("SIMID-"))
+        .collect();
+    assert!(
+        simid_issues.is_empty(),
+        "data:text/html SIMID creative should produce no SIMID-* issues, got: {:#?}",
+        simid_issues
+    );
+}
+
+#[test]
+fn simid_interactive_start_missing_on_4_2_fires_info() {
+    let result = validate(&load("info_simid_interactive_start.xml"));
+    assert!(
+        has_issue(&result, "SIMID-1.0-simid-interactive-start"),
+        "expected SIMID-1.0-simid-interactive-start, got: {:#?}",
+        result.issues
+    );
+    assert!(result.summary.is_valid());
+}
+
+#[test]
+fn simid_interactive_start_does_not_fire_on_4_1() {
+    let result = validate(&load("valid_simid_linear.xml"));
+    assert!(
+        !has_issue(&result, "SIMID-1.0-simid-interactive-start"),
+        "interactiveStart is a 4.2 event; 4.1 must stay quiet, got: {:#?}",
+        result.issues
+    );
+}
+
+#[test]
+fn simid_ssai_streaming_only_fires_info() {
+    let result = validate(&load("info_simid_ssai_no_client.xml"));
+    assert!(
+        has_issue(&result, "SIMID-1.0-simid-ssai-no-client"),
+        "expected SIMID-1.0-simid-ssai-no-client, got: {:#?}",
+        result.issues
+    );
+    assert!(result.summary.is_valid());
+}
+
+#[test]
+fn simid_mezzanine_with_progressive_does_not_fire_ssai_info() {
+    let xml = load("valid_simid_linear.xml").replace(
+        "</MediaFile>",
+        r#"</MediaFile>
+              <Mezzanine delivery="progressive" type="video/mp4" width="1920" height="1080">
+                <![CDATA[https://cdn.example.com/ad-mezzanine.mp4]]>
+              </Mezzanine>"#,
+    );
+    let result = validate(&xml);
+    assert!(
+        !has_issue(&result, "SIMID-1.0-simid-ssai-no-client"),
+        "progressive MediaFile plus Mezzanine is the dual-path tag, got: {:#?}",
+        result.issues
+    );
+}
+
 // ── OM SDK / Verification rules ───────────────────────────────────────────────
 
 #[test]
@@ -2148,7 +2284,7 @@ fn linear_with_quartile_tracking_does_not_fire() {
 fn all_rules_catalog_has_expected_count() {
     assert_eq!(
         vastlint_core::all_rules().len(),
-        228,
+        232,
         "catalog count changed — update this assertion and bump RULES.md"
     );
 }

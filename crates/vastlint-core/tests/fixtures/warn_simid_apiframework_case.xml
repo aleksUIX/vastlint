@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Fixture: apiFramework="simid" (wrong case). SIMID §5 is case-sensitive.
+     Expected: SIMID-1.0-simid-apiframework-case (Warning) -->
+<VAST version="4.1">
+  <Ad id="1">
+    <InLine>
+      <AdSystem>Test AdServer</AdSystem>
+      <AdServingId>simid-case-01</AdServingId>
+      <AdTitle>SIMID Case Test</AdTitle>
+      <Impression><![CDATA[https://track.example.com/imp]]></Impression>
+      <Creatives>
+        <Creative id="1">
+          <UniversalAdId idRegistry="ad-id.org">simid-case-01</UniversalAdId>
+          <Linear>
+            <Duration>00:00:30</Duration>
+            <MediaFiles>
+              <MediaFile delivery="progressive" type="video/mp4" width="1920" height="1080">
+                <![CDATA[https://cdn.example.com/ad.mp4]]>
+              </MediaFile>
+              <InteractiveCreativeFile apiFramework="simid" type="text/html">
+                <![CDATA[https://creative.example.com/simid.html]]>
+              </InteractiveCreativeFile>
+            </MediaFiles>
+          </Linear>
+        </Creative>
+      </Creatives>
+    </InLine>
+  </Ad>
+</VAST>

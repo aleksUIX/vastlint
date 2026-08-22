@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Fixture: SIMID creative URL uses javascript:. Blocked like HTTP.
+     Expected: SIMID-1.0-simid-url-https (Error) -->
+<VAST version="4.1">
+  <Ad id="1">
+    <InLine>
+      <AdSystem>Test AdServer</AdSystem>
+      <AdServingId>simid-js-url-01</AdServingId>
+      <AdTitle>SIMID javascript URL Test</AdTitle>
+      <Impression><![CDATA[https://track.example.com/imp]]></Impression>
+      <Creatives>
+        <Creative id="1">
+          <UniversalAdId idRegistry="ad-id.org">simid-js-url-01</UniversalAdId>
+          <Linear>
+            <Duration>00:00:30</Duration>
+            <MediaFiles>
+              <MediaFile delivery="progressive" type="video/mp4" width="1920" height="1080">
+                <![CDATA[https://cdn.example.com/ad.mp4]]>
+              </MediaFile>
+              <InteractiveCreativeFile apiFramework="SIMID" type="text/html">
+                <![CDATA[javascript:alert(1)]]>
+              </InteractiveCreativeFile>
+            </MediaFiles>
+          </Linear>
+        </Creative>
+      </Creatives>
+    </InLine>
+  </Ad>
+</VAST>

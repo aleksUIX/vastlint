@@ -12,7 +12,7 @@ Supports VAST 2.0 through 4.4 with clean Problems entries, concise hovers, fix g
 - **Multi-block** — validates every `<VAST>...</VAST>` block in a file independently
 - **Live as you type** — re-validates 500 ms after you stop typing, and on every save
 - **CLI backend** — uses the `vastlint` CLI binary when available, falls back to WASM in-process
-- **228 rules** across VAST 2.0–4.4 plus SIMID and OMID validation: required fields, schema structure, URLs, verification semantics, deprecations, and CTV/SSAI advisories
+- **232 rules** across VAST 2.0–4.4 plus SIMID and OMID validation: required fields, schema structure, URLs, verification semantics, deprecations, and CTV/SSAI advisories
 
 ## How it looks
 
@@ -59,7 +59,7 @@ Docs: vastlint.org/docs/rules/VAST-2.0-inline-adsystem
 
 ## Rules
 
-VASTlint checks 228 rules across:
+VASTlint checks 232 rules across:
 - Required elements and attributes (VAST 2.0–4.4)
 - Value formats (durations, URLs, enums)
 - Schema conformance (unknown elements/attributes)
@@ -80,7 +80,7 @@ Canonical rule catalog:
 - [vastlint.org/docs/rules](https://vastlint.org/docs/rules/) for the hosted per-rule pages
 
 <details>
-<summary>All 228 rules</summary>
+<summary>All 232 rules</summary>
 
 ### VAST 2.0
 
@@ -294,13 +294,17 @@ The NonLinear content model these rules cover is accepted on any VAST 4.x docume
 |------|----------|-------------|
 | [SIMID-1.0-simid-type-required](https://vastlint.org/docs/rules/SIMID-1.0-simid-type-required/) | error | `<InteractiveCreativeFile apiFramework="SIMID">` must have `type="text/html"` |
 | [SIMID-1.0-simid-url-empty](https://vastlint.org/docs/rules/SIMID-1.0-simid-url-empty/) | error | `<InteractiveCreativeFile apiFramework="SIMID">` must contain a non-empty URL |
-| [SIMID-1.0-simid-url-https](https://vastlint.org/docs/rules/SIMID-1.0-simid-url-https/) | error | `<InteractiveCreativeFile apiFramework="SIMID">` URL must use HTTPS |
+| [SIMID-1.0-simid-url-https](https://vastlint.org/docs/rules/SIMID-1.0-simid-url-https/) | error | `<InteractiveCreativeFile>` SIMID URL must use HTTPS (not HTTP, javascript:, or file:) |
+| [SIMID-1.0-simid-url-data-html](https://vastlint.org/docs/rules/SIMID-1.0-simid-url-data-html/) | error | SIMID `data:` URI must declare `text/html` |
+| [SIMID-1.0-simid-apiframework-case](https://vastlint.org/docs/rules/SIMID-1.0-simid-apiframework-case/) | warning | `apiFramework` must be exactly `"SIMID"` (case-sensitive per SIMID §5) |
 | [SIMID-1.0-simid-variable-duration-value](https://vastlint.org/docs/rules/SIMID-1.0-simid-variable-duration-value/) | warning | `<InteractiveCreativeFile>` `variableDuration` attribute must be `"true"` when present |
 | [SIMID-1.0-simid-mediafile-required](https://vastlint.org/docs/rules/SIMID-1.0-simid-mediafile-required/) | error | Linear SIMID ad must include a video/audio `<MediaFile>` alongside the interactive creative |
+| [SIMID-1.0-simid-interactive-start](https://vastlint.org/docs/rules/SIMID-1.0-simid-interactive-start/) | info | Linear SIMID creative on VAST 4.2+ should include an `interactiveStart` tracking event |
+| [SIMID-1.0-simid-ssai-no-client](https://vastlint.org/docs/rules/SIMID-1.0-simid-ssai-no-client/) | info | Linear SIMID creative with a Mezzanine but no progressive MediaFile cannot run in SSAI |
 | [SIMID-1.1-nonlinear-simid-no-iframe](https://vastlint.org/docs/rules/SIMID-1.1-nonlinear-simid-no-iframe/) | error | `<NonLinear apiFramework="SIMID">` must contain an `<IFrameResource>` |
 | [SIMID-1.1-iframe-simid-type-required](https://vastlint.org/docs/rules/SIMID-1.1-iframe-simid-type-required/) | warning | `<IFrameResource>` in SIMID `<NonLinear>` should have `type="text/html"` |
 | [SIMID-1.1-iframe-simid-url-empty](https://vastlint.org/docs/rules/SIMID-1.1-iframe-simid-url-empty/) | error | `<IFrameResource>` in SIMID `<NonLinear>` must contain a non-empty URL |
-| [SIMID-1.1-iframe-simid-url-https](https://vastlint.org/docs/rules/SIMID-1.1-iframe-simid-url-https/) | error | `<IFrameResource>` in SIMID `<NonLinear>` URL must use HTTPS |
+| [SIMID-1.1-iframe-simid-url-https](https://vastlint.org/docs/rules/SIMID-1.1-iframe-simid-url-https/) | error | `<IFrameResource>` SIMID URL must use HTTPS (not HTTP, javascript:, or file:) |
 | [VMAP-1.0-root-version](https://vastlint.org/docs/rules/VMAP-1.0-root-version/) | error | Root `<VMAP>` element must have a version attribute |
 | [VMAP-1.0-root-version-value](https://vastlint.org/docs/rules/VMAP-1.0-root-version-value/) | warning | `<VMAP>` version attribute should be `"1.0"` — the only published VMAP version |
 | [VMAP-1.0-root-namespace](https://vastlint.org/docs/rules/VMAP-1.0-root-namespace/) | warning | `<VMAP>` should declare the VMAP namespace URI http://www.iab.net/videosuite/vmap |
