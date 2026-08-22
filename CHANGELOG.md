@@ -6,7 +6,10 @@ GitHub Releases: <https://github.com/aleksUIX/vastlint/releases>
 
 ---
 
-## [Unreleased]
+## [0.13.4] - 2026-08-21
+
+**SIMID auto-fix.** Catalog stays at 232. `vastlint fix` now repairs the one-legal-form
+SIMID XML defects. `javascript:` URLs and an existing `type` MIME stay manual.
 
 ### Changed
 
