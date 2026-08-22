@@ -6,6 +6,32 @@ GitHub Releases: <https://github.com/aleksUIX/vastlint/releases>
 
 ---
 
+## [0.13.3] - 2026-08-21
+
+**Four SIMID XML leftovers.** Catalog 228 to 232. A tag that validated clean on
+0.13.2 can report findings here if `apiFramework` is a near-miss (`simid`,
+trailing space), the creative URL is `HTTP://` / `javascript:` / `file:`, a
+`data:` URI is not HTML, a 4.2+ linear SIMID omits `interactiveStart`, or a
+linear SIMID ships a Mezzanine with only a streaming MediaFile.
+
+### Added
+
+- `SIMID-1.0-simid-apiframework-case` (warning). `apiFramework` must be exactly
+  `"SIMID"` per SIMID §5. Near-miss values still get the type and URL checks.
+- `SIMID-1.0-simid-url-data-html` (error). VAST 4.3 allows `data:` URIs; SIMID
+  §3.1 still requires an HTML document, so `data:text/javascript` is rejected.
+- `SIMID-1.0-simid-interactive-start` (info). VAST 4.2+ linear SIMID without an
+  `interactiveStart` tracker.
+- `SIMID-1.0-simid-ssai-no-client` (info). Linear SIMID with a `<Mezzanine>` and
+  no progressive `<MediaFile>`: a stitcher cannot run the iframe.
+
+### Changed
+
+- `SIMID-1.0-simid-url-https` and `SIMID-1.1-iframe-simid-url-https` now reject
+  case-insensitive `http://` plus `javascript:`, `file:`, `ftp://`, and `ws://`.
+
+---
+
 ## [0.13.2] - 2026-08-17
 
 **Partner tallies on the gRPC sidecar.** No rule changes; the catalog stays at
