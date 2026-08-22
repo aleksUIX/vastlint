@@ -34,7 +34,7 @@ Validates VAST documents against:
 - [IANA Media Types](https://www.iana.org/assignments/media-types/) — MIME types on MediaFile, InteractiveCreativeFile, Mezzanine, and ClosedCaptionFile
 - [ISO 4217](https://www.iso.org/iso-4217-currency-codes.html) currency codes — Pricing elements
 - [Ad-ID](https://www.ad-id.org/) registry format — UniversalAdId
-- [IAB Tech Lab SIMID](https://iabtechlab.com/simid/) 1.0, 1.0.1, 1.1, 1.2 — interactive creative validation for `<InteractiveCreativeFile apiFramework="SIMID">` and nonlinear `<IFrameResource>` (the IAB-sanctioned VPAID replacement)
+- [IAB Tech Lab SIMID](https://iabtechlab.com/simid/) 1.0, 1.0.1, 1.1, 1.2 — XML envelope for `<InteractiveCreativeFile apiFramework="SIMID">` and nonlinear `<IFrameResource>` (the IAB-sanctioned VPAID replacement). Creative fetch, frame headers, and the postMessage handshake live in the [VAST tester](https://vastlint.org/tester/), not in `vastlint-core` or default `check`.
 - [IAB Tech Lab OMID / Open Measurement](https://iabtechlab.com/standards/open-measurement-sdk/) compatibility in VAST `<AdVerifications>` — vendor format, duplicate vendor detection, OMID resource semantics, verification tracking validation, and pre-4.1 extension-carried compatibility blocks
 
 232 rules across required fields, schema validation, structural correctness, security, consistency, deprecated features, ambiguous usage, value formats, SIMID validation, OMID validation, VMAP 1.0, and DAAST 1.0. Rules marked with `$` have direct revenue impact - use `vastlint check --fail-on-warning` in CI to catch them before they reach production. See [common errors](docs/common-errors.md) for the ones that cost real money. New to VASTlint? Start with the [tutorial](docs/tutorial.md).
@@ -625,7 +625,7 @@ cargo +nightly fuzz run validate_wrapper -- -max_total_time=60
 - **Derived from published standards.** Rules come first from published IAB VAST XSD schemas where available, then from RFC 2119 normative prose in the VAST and SIMID specs, plus W3C XML, RFC 3986, IANA Media Types, ISO 4217, and Ad-ID.
 - **VAST 4.3 has no published XSD.** For 4.3, rules are derived from the normative IAB spec prose rather than a schema file.
 - **Not just a CLI tool.** `vastlint-core` is an embeddable Rust library — the primary use case is in-process validation inside SSPs, DSPs, ad servers, and SSAI platforms.
-- **Covers SIMID, not just VAST.** VASTlint validates SIMID 1.0–1.2 interactive creatives — the IAB-sanctioned VPAID replacement in VAST 4.x.
+- **Covers SIMID XML, not just VAST.** VASTlint validates the SIMID 1.0–1.2 envelope in VAST 4.x (`type`, `apiFramework`, HTTPS, fallback media, nonlinear iframe). It does not GET the creative HTML or run `createSession`. That QA is the [VAST tester](https://vastlint.org/tester/).
 - **VPAID detection included.** VASTlint detects VPAID API framework usage and returns migration guidance to SIMID.
 - **Wrapper chain unwrapping.** `vastlint inspect <url>` and the MCP `inspect_vast` tool follow VAST wrapper chains hop-by-hop with validation at each level.
 - **No Rust toolchain needed for Go.** Prebuilt static libs ship with `vastlint-go`.

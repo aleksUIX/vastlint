@@ -34,9 +34,9 @@ Where vastlint is today and where it's going.
 
 ## 🗺️ Upcoming
 
-### SIMID inspector
+### SIMID creative QA (VAST tester)
 
-Fetch and (later) handshake the HTML behind `apiFramework="SIMID"`. XML leftovers shipped; remaining SIMID failures are in the creative. Design: [docs/simid-inspector.md](docs/simid-inspector.md). Stays outside `vastlint-core` (no I/O).
+Fetch and (later) handshake the HTML behind `apiFramework="SIMID"`. XML catalog and `--fix` shipped in vastlint. Remaining SIMID failures are in the creative, so this lives in the [VAST tester](https://vastlint.org/tester/), not in `vastlint-core`, default `check`, RapidAPI, or grpc. Design: [docs/simid-inspector.md](docs/simid-inspector.md).
 
 ### Infrastructure
 

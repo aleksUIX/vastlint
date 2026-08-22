@@ -6,16 +6,16 @@ Not a player cert. Desktop Chromium is not a Roku webview. Report what this fetc
 
 ## Placement
 
-`vastlint-core` stays zero I/O. Wrapper fetch already lives in the CLI, MCP, and hosted API. The inspector sits next to that, not in the rule engine.
+XML lives in vastlint. The inspector does not.
 
-Surfaces, in order:
+`vastlint-core` stays zero I/O. Default `check`, RapidAPI, and `vastlint-grpc` `Validate` / `ValidateStream` stay on the tag. Fetch is tens to hundreds of milliseconds. Handshake is seconds plus untrusted JS plus SSRF plus CDN nondeterminism. A tag that is XML-clean and still dies in-player is creative QA, not a bid-time verdict.
 
-- CLI: `vastlint check tag.xml --simid` (and the URL form)
-- MCP: `inspect_simid`
-- Web validator: optional "check creative" on a SIMID finding
-- Later: `vastlint-client` if a browser-side handshake is useful there
+The product is the VAST tester:
 
-Same timeout, redirect, and size caps as wrapper fetch.
+- https://vastlint.org/tester/
+- https://iab-tech-lab-vast-tester.vastlint.org/
+
+CLI `--simid` and MCP `inspect_simid` are not the ship path. Add an allowlisted fetch later only if a CI team asks. Do not put Chromium in grpc.
 
 ## Layer 1: fetch
 
@@ -32,7 +32,7 @@ Fail on:
 
 Pass the body to layer 2. Cap size. No execution.
 
-This is the demo and the CI default. Most "SIMID" tags that already pass XML still die here.
+This is the demo and the first tester cut. Most "SIMID" tags that already pass XML still die here.
 
 ## Layer 2: static scan
 
@@ -64,19 +64,17 @@ Headless Chromium. Load the creative in a cross-origin iframe. Drive the spec se
 
 Optional later: `variableDuration="true"` vs `Creative:requestChangeAdDuration`; nonlinear expand/collapse; `clickThru`.
 
-Optional. Needs a browser in CI. Do not block `--simid` on it; `--simid-handshake` or a separate tool.
-
-Never run untrusted JS in the Rust core. Isolate the browser. Treat the creative as hostile.
+Optional. Needs a browser. Do not block layer 1 on it. Isolate the browser. Treat the creative as hostile. Never run untrusted JS in the Rust core.
 
 ## Report shape
 
 One document, three sections:
 
-1. Tag: existing SIMID XML rules
+1. Tag: existing SIMID XML rules (vastlint catalog)
 2. Fetch: status, type, frame headers, static scan
 3. Handshake: present only when requested; message log plus pass/fail per step
 
-Rule IDs in a `SIMID-inspect-*` prefix so they do not collide with XML catalog IDs and so `vastlint.toml` can disable them. They are not in `CATALOG` until we decide they belong in `vastlint rules`. First cut can be inspector-only findings.
+Rule IDs in a `SIMID-inspect-*` prefix so they do not collide with XML catalog IDs. They are not in `CATALOG`. First cut can be tester-only findings.
 
 ## Out of scope
 
@@ -85,12 +83,13 @@ Rule IDs in a `SIMID-inspect-*` prefix so they do not collide with XML catalog I
 - Following tracking pixels as a side effect of handshake
 - "Fix" that rewrites someone else's HTML
 - Claiming IAB certification
+- Default `check`, RapidAPI, or grpc
 
 ## Ship order
 
-1. CLI + MCP layer 1
-2. Layer 2 on the same flag
-3. Web button once npm WASM still does XML only; fetch stays server-side
-4. Layer 3 behind an extra flag when we have a sandbox story
+1. Tester: layer 1
+2. Tester: layer 2 on the same pass
+3. Tester: layer 3 behind an explicit handshake control when we have a sandbox story
+4. Optional later: CLI `--simid` for allowlisted CI fetch. Not default `check`. Not grpc.
 
-XML leftovers in 0.13.3 close the tag gaps. This document is the rest.
+XML leftovers in 0.13.3 close the tag gaps. `--fix` in 0.13.4 repairs the one-legal-form XML defects. This document is the rest, and it belongs in the tester.
