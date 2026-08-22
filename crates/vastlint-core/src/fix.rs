@@ -323,9 +323,13 @@ fn count_named(node: &crate::parse::Node, name: &str) -> usize {
 }
 
 fn count_start_tags(xml: &str, local: &str) -> usize {
-    Scanner::new(xml)
-        .filter(|piece| matches!(piece, XmlPiece::Start(tag) if tag.local_name == local))
-        .count()
+    let mut count = 0;
+    for piece in Scanner::new(xml) {
+        if matches!(piece, XmlPiece::Start(tag) if tag.local_name == local) {
+            count += 1;
+        }
+    }
+    count
 }
 
 // ── SIMID tag rewrites ────────────────────────────────────────────────────────
