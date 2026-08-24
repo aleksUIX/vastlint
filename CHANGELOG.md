@@ -6,6 +6,18 @@ GitHub Releases: <https://github.com/aleksUIX/vastlint/releases>
 
 ---
 
+## [0.13.5] - 2026-08-24
+
+### Changed
+
+- Bump `rmcp` to 3.1.4.
+
+### Security
+
+- Bump `h2` to 0.4.18 (RUSTSEC-2026-0258).
+
+---
+
 ## [0.13.4] - 2026-08-21
 
 **SIMID auto-fix.** Catalog stays at 232. `vastlint fix` now repairs the one-legal-form
