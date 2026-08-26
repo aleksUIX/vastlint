@@ -98,9 +98,8 @@ async fn serve(config: Config) -> Result<(), Box<dyn std::error::Error>> {
 
     if let Some(metrics_addr) = config.metrics_addr {
         tokio::spawn(async move {
-            match metrics::serve(metrics_addr).await {
-                Ok(()) => {}
-                Err(err) => eprintln!("metrics endpoint stopped: {}", err),
+            if let Err(err) = metrics::serve(metrics_addr).await {
+                log_metrics_failure(err);
             }
         });
         eprintln!("metrics on http://{metrics_addr}/metrics");
@@ -149,6 +148,10 @@ async fn serve(config: Config) -> Result<(), Box<dyn std::error::Error>> {
         .await?;
 
     Ok(())
+}
+
+fn log_metrics_failure(err: impl std::fmt::Display) {
+    eprintln!("metrics endpoint stopped: {err}");
 }
 
 /// Chooses where validation events go.
