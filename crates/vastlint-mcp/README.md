@@ -41,6 +41,8 @@ Connect directly to the hosted SSE endpoint - no binary required:
 ```
 
 Works in Claude Desktop, Cursor, and any MCP client that supports SSE transport.
+Tags sent to the hosted endpoint may be stored (identifiers stripped) so the rules can be improved.
+See https://vastlint.org/privacy/. Local stdio below does not send tags.
 
 ### Claude Desktop (local)
 

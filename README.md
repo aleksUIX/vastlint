@@ -49,7 +49,7 @@ How rules are derived: [Rule derivation methodology](https://vastlint.org/docs/m
 
 **Verifiable build provenance.** All release artifacts are signed with [SLSA Build Level 2](https://slsa.dev/spec/v1.0/levels#build-l2) provenance via GitHub's native attestation store. Every binary, library, `.vsix`, and npm package can be verified cryptographically against the exact source commit that produced it. No developer machine is ever involved in producing release artifacts. SLSA L3 (hermetic, isolated signing) is in progress.
 
-**No data retention by default — and full self-hosting available.** VAST XML submitted to the hosted API or MCP server is validated ephemerally in a Cloudflare Worker and never stored, logged, or transmitted to third parties. The VS Code extension and Chrome extension process all XML locally — nothing leaves the editor. The one opt-in exception is `--contribute-sample` (see [Telemetry and sample contribution](#telemetry-and-sample-contribution) below), which is off unless explicitly enabled. See [PRIVACY.md](PRIVACY.md) for the full policy.
+**No data retention by default — and full self-hosting available.** The VS Code extension and Chrome extension process all XML locally: nothing leaves the editor. The CLI does not send tags unless you pass `--contribute-sample`. The hosted tester, inspector, validator, and MCP server at vastlint.org/mcp may store a redacted copy of tags you submit, so the rules can be improved; see [vastlint.org/privacy](https://vastlint.org/privacy/). Local `vastlint-mcp` over stdio does not send tags. The RapidAPI `/validate` API and the gRPC sidecar still validate ephemerally. See [Telemetry and sample contribution](#telemetry-and-sample-contribution) and [PRIVACY.md](PRIVACY.md) for the Chrome extension policy.
 
 For teams that require on-premise processing or air-gapped deployments, VASTlint runs entirely self-hosted: the [CLI image](https://hub.docker.com/r/aleksuix/vastlint) (`FROM scratch`, under 5 MB, cold-start under 10 ms), the [`vastlint-grpc`](crates/vastlint-grpc/README.md) sidecar (`aleksuix/vastlint-grpc:0.13.2`), or the pre-built static musl binary. The Rust core has no network code: no callbacks, no telemetry, no license checks. The sidecar exposes partner tallies on `/metrics` (port 9090); scrape them yourself.
 
@@ -517,7 +517,7 @@ The toolbar icon badge shows the error count for the current tab. Click it for a
 
 **In automated advertising pipelines** - as creative trafficking moves into agent-based systems (see [IAB Tech Lab AAMP](https://iabtechlab.com/standards/agentic-advertising-initiative/)), validation needs to happen at the same step. The VASTlint MCP server is compatible with the [AAMP Buyer Agent SDK](https://github.com/IABTechLab/buyer-agent): an agent calls `validate_vast` or `validate_vast_url`, gets back rule IDs and XPath locations for any issues, and can reject or escalate the creative before trafficking. The same server works in Claude Desktop, Cursor, Copilot, any MCP client, and CI pipelines.
 
-**No-install hosted endpoint** - connect directly without installing anything:
+**No-install hosted endpoint** - connect directly without installing anything. Tags sent to this endpoint may be stored (identifiers stripped); see [vastlint.org/privacy](https://vastlint.org/privacy/). Local stdio below does not send tags:
 
 ```json
 {
@@ -564,17 +564,17 @@ Returns the same structured result as the CLI and library: version, issues with 
 
 ## Use from a browser
 
-Paste any VAST tag into the web validator at **[VAST tag validator](https://vastlint.org/validate)** - no install, no account, nothing stored by default. Runs the same 232 rules as the CLI, entirely in your browser via WebAssembly. An optional "contribute this tag" button next to the results is opt-in only — see [Telemetry and sample contribution](#telemetry-and-sample-contribution) below for what it sends.
+Paste any VAST tag into the web validator at **[VAST tag validator](https://vastlint.org/validate)** - no install, no account. Validation runs in your browser via WebAssembly. Tags you paste or fetch may be stored (identifiers stripped); see [Telemetry and sample contribution](#telemetry-and-sample-contribution) and [vastlint.org/privacy](https://vastlint.org/privacy/). An optional "contribute this tag" button next to the results is an explicit extra send.
 
 ## Telemetry and sample contribution
 
-Three independent, all opt-in-or-narrowly-scoped mechanisms. None is bundled into another:
+Three independent mechanisms. None is bundled into another:
 
 **Telemetry** — off by default. CLI only -- the core library has no network code. Enable with `--telemetry` or `telemetry = true` in `vastlint.toml`. Sends one HTTP GET per CLI invocation with: version, OS, anonymous install ID, file count. No file names, no file contents, no personal data. The install ID is a random 128-bit hex value stored in `~/.config/vastlint/id`. The ping fires in a background thread with a 2-second timeout and is silently dropped on any error.
 
 **`--share`** — off by default. Uploads the validation *result* (rule IDs, severities, XPath locations, summary counts) to vastlint.org and prints back a public URL (`vastlint.org/r/<id>`) for pasting into Slack/GitHub/PRs. Never sends the input XML itself.
 
-**Sample contribution** — off by default. `vastlint check tag.xml --contribute-sample` on the CLI, or the "contribute this tag" button on the web validator, sends the tag's raw XML to vastlint.org to help refine its rules. Known tracking identifiers (device IDs like `[IFA]`/`[GAID]`, IP addresses, consent strings like `[GDPRCONSENT]`/`us_privacy`) are redacted server-side before storage, regardless of source. Contributed samples are stored privately and kept indefinitely for internal rule-refinement research — they are **never** made public, unlike `--share` reports.
+**Sample contribution** — `vastlint check tag.xml --contribute-sample` on the CLI, or the "contribute this tag" button on the web validator, sends the tag's raw XML to vastlint.org to help refine its rules. The hosted tester, inspector, validator, and MCP server at vastlint.org/mcp may also store a redacted copy of tags you submit; that path is not behind `--contribute-sample`. Known tracking identifiers (device IDs like `[IFA]`/`[GAID]`, IP addresses, consent strings like `[GDPRCONSENT]`/`us_privacy`) are redacted server-side before storage, regardless of source. Contributed samples are stored privately and kept indefinitely for internal rule-refinement research — they are **never** made public, unlike `--share` reports. Local `vastlint-mcp` over stdio does not send tags. See [vastlint.org/privacy](https://vastlint.org/privacy/).
 
 ## Roadmap
 
@@ -636,7 +636,7 @@ cargo +nightly fuzz run validate_wrapper -- -max_total_time=60
 - **Zero runtime dependencies** in `vastlint-core` — no CVE surface, no supply chain risk.
 - **Apache 2.0** licensed — no CLA, no dual-license upsell, embeddable in proprietary ad servers.
 - **Self-hostable** — Docker image is `FROM scratch`, under 5 MB, cold-start under 10 ms.
-- **No data retention for validation** — the hosted `/validate` API and MCP server validate ephemerally in a Cloudflare Worker; nothing is stored or logged. Separate, off-by-default `--share` (uploads the result, not the XML) and `--contribute-sample` (uploads redacted XML, never public) flags exist — see [Telemetry and sample contribution](#telemetry-and-sample-contribution).
+- **Sample storage on hosted web and MCP.** Tags you paste or fetch on vastlint.org, and tags an agent sends to vastlint.org/mcp, may be stored with device IDs, IPs, and consent strings stripped. Built-in samples are not sent. Local `vastlint-mcp`, the VS Code and Chrome extensions, RapidAPI `/validate`, and `vastlint-grpc` do not store XML. `--contribute-sample` on the CLI is opt-in. See [Telemetry and sample contribution](#telemetry-and-sample-contribution) and [vastlint.org/privacy](https://vastlint.org/privacy/).
 - **MCP-native.** `vastlint.org/mcp` is a production hosted MCP endpoint. No install needed for agents — add it to any MCP client config.
 - **gRPC sidecar with partner tallies.** `vastlint-grpc` serves the catalog over `openadtech.vastlint.v1`. `/metrics` counts verdicts and `$` findings by `x-vastlint-caller`. XML is not stored.
 - **IAB AAMP compatible.** `vastlint-mcp` is ARTF-compliant and works with IAB Tech Lab AAMP buyer and seller agent SDKs.
