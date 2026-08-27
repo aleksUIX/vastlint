@@ -191,11 +191,7 @@ jobs:
             > "$APP_DIR/package.json"
 
           pushd "$APP_DIR" >/dev/null
-          PACKED_TARBALL="$(npm pack "vastlint-client@${VASTLINT_VERSION}" --silent)"
-          mkdir -p node_modules
-          tar -xzf "$PACKED_TARBALL" -C node_modules
-          mv node_modules/package node_modules/vastlint-client
-          rm "$PACKED_TARBALL"
+          npm install --no-package-lock --ignore-scripts "vastlint-client@${VASTLINT_VERSION}"
 
           cat > smoke.mjs <<'EOF'
           import fs from 'node:fs';
@@ -344,12 +340,8 @@ jobs:
             > "$APP_DIR/package.json"
 
           pushd "$APP_DIR" >/dev/null
-          PACKED_TARBALL="$(npm pack "vastlint-react@${VASTLINT_VERSION}" --silent)"
-          mkdir -p node_modules
-          tar -xzf "$PACKED_TARBALL" -C node_modules
-          mv node_modules/package node_modules/vastlint-react
-          rm "$PACKED_TARBALL"
           npm install --no-package-lock --ignore-scripts \
+            "vastlint-react@${VASTLINT_VERSION}" \
             react@19.2.0 \
             react-dom@19.2.0 \
             jsdom@26.1.0
