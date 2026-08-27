@@ -209,9 +209,9 @@ pub fn record_event_dropped() {
 ///
 /// Always on, independent of the Avro results stream. The caller label is
 /// `x-vastlint-caller` after sanitising: empty becomes `anonymous`, junk
-/// charset becomes `anonymous`, and a flood of distinct values past
-/// [`MAX_CALLERS`] collapses to `other` so a request-id accidentally used as
-/// a partner name cannot explode the series set.
+/// charset becomes `anonymous`, and a flood of distinct values past 256
+/// collapses to `other` so a request-id accidentally used as a partner name
+/// cannot explode the series set.
 pub fn record_verdict(caller: Option<&str>, result: &core::ValidationResult) {
     let metrics = metrics();
     let caller = caller_label(caller);
@@ -220,7 +220,10 @@ pub fn record_verdict(caller: Option<&str>, result: &core::ValidationResult) {
     } else {
         "false"
     };
-    metrics.verdicts.with_label_values(&[&caller, valid]).inc();
+    metrics
+        .verdicts
+        .with_label_values(&[caller.as_str(), valid])
+        .inc();
 
     for issue in &result.issues {
         let impact = if rule_revenue_impact(issue.id) {
@@ -230,7 +233,7 @@ pub fn record_verdict(caller: Option<&str>, result: &core::ValidationResult) {
         };
         metrics
             .findings
-            .with_label_values(&[&caller, issue.id, impact])
+            .with_label_values(&[caller.as_str(), issue.id, impact])
             .inc();
     }
 }
