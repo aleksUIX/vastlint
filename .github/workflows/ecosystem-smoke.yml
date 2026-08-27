@@ -192,7 +192,9 @@ jobs:
 
           pushd "$APP_DIR" >/dev/null
           PACKED_TARBALL="$(npm pack "vastlint-client@${VASTLINT_VERSION}" --silent)"
-          npm install --no-package-lock --ignore-scripts "./$PACKED_TARBALL"
+          mkdir -p node_modules
+          tar -xzf "$PACKED_TARBALL" -C node_modules
+          mv node_modules/package node_modules/vastlint-client
           rm "$PACKED_TARBALL"
 
           cat > smoke.mjs <<'EOF'
@@ -343,12 +345,14 @@ jobs:
 
           pushd "$APP_DIR" >/dev/null
           PACKED_TARBALL="$(npm pack "vastlint-react@${VASTLINT_VERSION}" --silent)"
+          mkdir -p node_modules
+          tar -xzf "$PACKED_TARBALL" -C node_modules
+          mv node_modules/package node_modules/vastlint-react
+          rm "$PACKED_TARBALL"
           npm install --no-package-lock --ignore-scripts \
-            "./$PACKED_TARBALL" \
             react@19.2.0 \
             react-dom@19.2.0 \
             jsdom@26.1.0
-          rm "$PACKED_TARBALL"
 
           cat > smoke.mjs <<'EOF'
           import React, { act } from 'react';
