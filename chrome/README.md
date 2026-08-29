@@ -9,7 +9,7 @@ Full documentation, web validator, and rule reference: [vastlint.org](https://va
 1. The content script scans the DOM for VAST XML blobs (`<pre>`, `<textarea>`, inline `<script type="text/xml">`, plain-text XML pages, arbitrary text nodes).
 2. Each unique VAST payload is validated via the VASTlint WASM binary (the same core used by the CLI and VS Code extension).
 3. A collapsible **Shadow DOM panel** is injected immediately after the element containing the VAST - fully style-isolated from the host page.
-4. The toolbar badge shows the total error count for the tab. The popup gives a per-severity summary.
+4. The toolbar badge shows the total error count for the tab. The popup gives a per-severity summary, a **Website** button to vastlint.org, a paste field that opens the [hosted tester](https://vastlint.org/tester/) with the XML (or tag URL) already in the editor, and links to the analysis studio and SIMID studio.
 
 ## Project structure
 

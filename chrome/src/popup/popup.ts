@@ -1,7 +1,13 @@
 /**
  * Popup script — reads cached badge data from chrome.storage.session,
- * provides copy / focus / scan actions, and a paste-to-analyze panel.
+ * provides copy / focus / scan actions, and paste-to-tester on vastlint.org.
  */
+
+const SITE_URL = 'https://vastlint.org';
+const TESTER_URL = 'https://vastlint.org/tester/';
+const SIMID_STUDIO_URL = 'https://iab-tech-lab-vast-tester.vastlint.org/';
+/** Match vastlint-infra share.ts: fragments longer than this are unusable. */
+const MAX_FRAGMENT_CHARS = 16_000;
 
 interface VastEntry { label: string; version: string | null; errors: number; warnings: number; infos: number; }
 interface TabData   { errors: number; warnings: number; infos: number; vasts: VastEntry[]; }
@@ -97,6 +103,52 @@ function createVastRow(v: VastEntry): HTMLDivElement {
   return row;
 }
 
+function toBase64Url(bytes: Uint8Array): string {
+  let bin = '';
+  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+  return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+async function deflateRaw(text: string): Promise<Uint8Array> {
+  const stream = new Blob([text]).stream().pipeThrough(new CompressionStream('deflate-raw'));
+  return new Uint8Array(await new Response(stream).arrayBuffer());
+}
+
+/** Tester share URL: `?url=` for http(s) tags, `#vast=` blob for pasted XML. */
+async function testerUrlForInput(input: string): Promise<string> {
+  const trimmed = input.trim();
+  if (/^https?:\/\//i.test(trimmed)) {
+    return `${TESTER_URL}?url=${encodeURIComponent(trimmed)}`;
+  }
+  if (typeof CompressionStream === 'undefined') {
+    throw new Error('unsupported');
+  }
+  const blob = toBase64Url(await deflateRaw(trimmed));
+  if (blob.length > MAX_FRAGMENT_CHARS) {
+    throw new Error('too-large');
+  }
+  return `${TESTER_URL}#vast=${blob}`;
+}
+
+async function openUrl(url: string) {
+  await chrome.tabs.create({ url });
+}
+
+async function openSite() {
+  await openUrl(SITE_URL);
+}
+
+async function openTester(input: string) {
+  try {
+    const url = await testerUrlForInput(input);
+    await chrome.tabs.create({ url });
+  } catch {
+    // Huge tags (or missing CompressionStream) stay in the local analysis tab.
+    await chrome.storage.session.set({ paste_xml: input.trim() });
+    await chrome.tabs.create({ url: chrome.runtime.getURL('analysis.html') });
+  }
+}
+
 async function init() {
   const status   = document.getElementById('status')!;
   const statsEl  = document.getElementById('stats')!;
@@ -107,15 +159,38 @@ async function init() {
   const scanBtn  = document.getElementById('scan-btn') as HTMLButtonElement;
   const siteToggle = document.getElementById('site-toggle') as HTMLButtonElement;
   const toggleLabel = siteToggle.querySelector('.toggle-label') as HTMLElement;
+  const websiteBtn = document.getElementById('website-btn') as HTMLButtonElement | null;
+  const websiteLink = document.getElementById('website-link') as HTMLAnchorElement | null;
+  const analysisStudioBtn = document.getElementById('analysis-studio-btn') as HTMLButtonElement | null;
+  const simidStudioBtn = document.getElementById('simid-studio-btn') as HTMLButtonElement | null;
   const versionEl = document.getElementById('extension-version');
 
   if (versionEl) {
     versionEl.textContent = `v${chrome.runtime.getManifest().version}`;
   }
 
+  websiteBtn?.addEventListener('click', async () => {
+    await openSite();
+    window.close();
+  });
+  websiteLink?.addEventListener('click', async (e) => {
+    e.preventDefault();
+    await openSite();
+    window.close();
+  });
+  analysisStudioBtn?.addEventListener('click', async () => {
+    await openUrl(TESTER_URL);
+    window.close();
+  });
+  simidStudioBtn?.addEventListener('click', async () => {
+    await openUrl(SIMID_STUDIO_URL);
+    window.close();
+  });
+
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (!tab?.id) {
     status.textContent = 'No active tab.';
+    initPasteAnalyzer();
     return;
   }
 
@@ -304,17 +379,16 @@ function initPasteAnalyzer() {
 
   textarea.addEventListener('input', updateBtn);
 
-  // Auto-open tab on paste — short delay so it doesn't feel abrupt
+  // Auto-open the hosted tester on paste. Short delay so it doesn't feel abrupt
   textarea.addEventListener('paste', () => {
     // value isn't updated yet during 'paste', wait one tick for DOM then delay
     setTimeout(async () => {
       const xml = textarea.value.trim();
       if (!xml) return;
       try {
-        await chrome.storage.session.set({ paste_xml: xml });
         pasteSection.classList.add('analyzing');
         await new Promise(r => setTimeout(r, 700));
-        await chrome.tabs.create({ url: chrome.runtime.getURL('analysis.html') });
+        await openTester(xml);
         window.close();
       } catch {
         pasteSection.classList.remove('analyzing');
@@ -334,12 +408,11 @@ function initPasteAnalyzer() {
     openBtn.disabled = true;
     openBtn.textContent = 'Opening…';
     try {
-      await chrome.storage.session.set({ paste_xml: xml });
-      await chrome.tabs.create({ url: chrome.runtime.getURL('analysis.html') });
+      await openTester(xml);
       window.close();
-    } catch (e) {
+    } catch {
       openBtn.disabled = false;
-      openBtn.textContent = '↗ Analyze in new tab';
+      openBtn.textContent = 'Open tester';
     }
   });
 }

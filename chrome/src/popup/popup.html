@@ -65,6 +65,32 @@
     #site-toggle.on .toggle-label { color: #7ec8e3; }
     #site-toggle.disabled-state .toggle-label { color: #ef5350; }
 
+    #website-btn {
+      flex-shrink: 0; padding: 5px 10px;
+      border: 1px solid rgba(126,200,227,.28); border-radius: 5px;
+      background: rgba(126,200,227,.08); color: #7ec8e3;
+      font: 600 11px/1 system-ui, sans-serif; letter-spacing: .15px;
+      cursor: pointer; white-space: nowrap;
+      transition: background .12s, border-color .12s, color .12s;
+    }
+    #website-btn:hover { background: rgba(126,200,227,.18); border-color: rgba(126,200,227,.5); color: #b0dff0; }
+
+    #studio-promo {
+      margin-top: 10px; border: 1px solid rgba(126,200,227,.16); border-radius: 8px;
+      padding: 10px 12px; background: rgba(126,200,227,.05);
+    }
+    #studio-promo p {
+      font-size: 12px; line-height: 1.45; color: rgba(255,255,255,.55); margin-bottom: 8px;
+    }
+    .studio-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+    .studio-actions button {
+      padding: 5px 10px; border: 1px solid rgba(126,200,227,.28); border-radius: 6px;
+      background: rgba(126,200,227,.1); color: #7ec8e3;
+      font: 600 11.5px/1 system-ui, sans-serif; cursor: pointer;
+      transition: background .12s, border-color .12s;
+    }
+    .studio-actions button:hover { background: rgba(126,200,227,.2); border-color: rgba(126,200,227,.5); }
+
     /* ── Body ───────────────────────────────────────────── */
     .body { padding: 14px 16px; }
 
@@ -254,6 +280,7 @@
       <img src="icons/icon128.png" alt="VASTlint icon" />
     </div>
     <span class="header-title">VAST<span>lint</span></span>
+    <button id="website-btn" title="Open vastlint.org">Website</button>
     <button id="site-toggle" title="Enable / disable on this site">
       <div class="toggle-track"><div class="toggle-thumb"></div></div>
       <span class="toggle-label">on</span>
@@ -291,23 +318,31 @@
     <!-- ── Paste & Analyze ───────────────────────────────── -->
     <div id="paste-section">
       <div class="paste-hdr">
-        <span class="paste-hdr-label">Paste VAST to analyze</span>
+        <span class="paste-hdr-label">Paste VAST to open tester</span>
         <button id="paste-clear" title="Clear">✕ clear</button>
       </div>
-      <textarea id="paste-input" rows="3" placeholder="Paste VAST XML here…" spellcheck="false"></textarea>
+      <textarea id="paste-input" rows="3" placeholder="Paste VAST XML or a tag URL…" spellcheck="false"></textarea>
       <div class="paste-footer">
-        <button id="paste-open" disabled>↗ Analyze in new tab</button>
+        <button id="paste-open" disabled>Open tester</button>
         <div id="paste-analyzing">
           <div class="analyzing-dots"><span></span><span></span><span></span></div>
-          Analyzing…
+          Opening tester…
         </div>
+      </div>
+    </div>
+
+    <div id="studio-promo">
+      <p>Full analysis studio and SIMID studio are on the website: creative preview, handshake QA, IAB samples.</p>
+      <div class="studio-actions">
+        <button id="analysis-studio-btn" title="Open the VAST tester on vastlint.org">Analysis studio</button>
+        <button id="simid-studio-btn" title="Open SIMID studio on the Next-Gen VAST Tester">SIMID studio</button>
       </div>
     </div>
   </div>
 
   <footer>
     <span class="footer-left">
-      <a href="https://vastlint.org" target="_blank">vastlint.org</a>
+      <a id="website-link" href="https://vastlint.org" target="_blank" rel="noreferrer">vastlint.org</a>
       <span style="color:rgba(255,255,255,.2);margin:0 4px">·</span>
       <span id="extension-version" style="color:rgba(255,255,255,.35)">v...</span>
     </span>
