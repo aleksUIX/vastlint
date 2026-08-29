@@ -6,6 +6,23 @@ GitHub Releases: <https://github.com/aleksUIX/vastlint/releases>
 
 ---
 
+## [0.13.6] - 2026-08-28
+
+### Chrome extension
+
+- Popup **Website** button opens vastlint.org. Pasting XML or a tag URL into
+  the popup textarea opens the hosted tester with the tag already in the editor
+  (`#vast=` fragment, or `?url=` for http(s) tags). Tags too large for a share
+  link still open the local analysis tab.
+- Popup points to the full analysis studio (`vastlint.org/tester`) and SIMID
+  studio on the Next-Gen VAST Tester.
+
+### Changed
+
+- Patch tags skip the production approval gate; minor and major still wait.
+
+---
+
 ## [0.13.5] - 2026-08-24
 
 ### Changed

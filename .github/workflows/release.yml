@@ -1122,18 +1122,107 @@ jobs:
           name: ${{ matrix.archive }}
           path: ${{ matrix.archive }}
 
-  # ── Single approval gate ────────────────────────────────────────────────────
-  # One reviewer click unblocks every downstream publish job simultaneously.
-  # All publish/release jobs declare `needs: approve` instead of independently
-  # declaring `environment: production`, which previously triggered a separate
-  # approval prompt per job.
-  approve:
+  # ── Classify bump, then a single approval gate ──────────────────────────────
+  # Patch tags (same major.minor as the previous vX.Y.Z tag) skip the
+  # `production` environment. Minor and major still wait for one reviewer click.
+  # All publish/release jobs keep `needs: approve`. That job is a join point:
+  # it succeeds after approval on minor/major, and immediately on patch, so
+  # skipped `wait-for-approval` does not skip the rest of the workflow.
+  classify:
+    name: Classify release
+    runs-on: ubuntu-latest
+    outputs:
+      bump: ${{ steps.bump.outputs.bump }}
+      needs_approval: ${{ steps.bump.outputs.needs_approval }}
+    steps:
+      - name: Compare tag to previous version
+        id: bump
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF_NAME}"
+          needs_approval=true
+          bump=unknown
+
+          if [[ "$TAG" =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+            VERSION="${BASH_REMATCH[1]}.${BASH_REMATCH[2]}.${BASH_REMATCH[3]}"
+            C_MAJ="${BASH_REMATCH[1]}"
+            C_MIN="${BASH_REMATCH[2]}"
+
+            PREV=""
+            while IFS= read -r t; do
+              [ -z "$t" ] && continue
+              tv="${t#v}"
+              lowest=$(printf '%s\n%s\n' "$tv" "$VERSION" | sort -V | head -n1)
+              if [ "$lowest" != "$tv" ] || [ "$tv" = "$VERSION" ]; then
+                continue
+              fi
+              if [ -z "$PREV" ]; then
+                PREV="$t"
+                continue
+              fi
+              highest=$(printf '%s\n%s\n' "${PREV#v}" "$tv" | sort -V | tail -n1)
+              if [ "$highest" = "$tv" ]; then
+                PREV="$t"
+              fi
+            done < <(
+              gh api --paginate "repos/${GITHUB_REPOSITORY}/git/matching-refs/tags/v" \
+                --jq '.[].ref | sub("refs/tags/"; "")' \
+              | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' \
+              | grep -vx "$TAG" \
+              || true
+            )
+
+            if [ -n "$PREV" ]; then
+              IFS=. read -r P_MAJ P_MIN _ <<< "${PREV#v}"
+              if [ "$C_MAJ" != "$P_MAJ" ]; then
+                bump=major
+              elif [ "$C_MIN" != "$P_MIN" ]; then
+                bump=minor
+              else
+                bump=patch
+                needs_approval=false
+              fi
+              echo "Previous tag ${PREV} -> ${TAG} (${bump})"
+            else
+              bump=initial
+              echo "No previous version tag; requiring approval"
+            fi
+          else
+            echo "Ref ${TAG} is not vMAJOR.MINOR.PATCH; requiring approval"
+          fi
+
+          echo "bump=${bump}" >> "$GITHUB_OUTPUT"
+          echo "needs_approval=${needs_approval}" >> "$GITHUB_OUTPUT"
+
+  wait-for-approval:
     name: Approve release
-    needs: [smoke-test, build, build-ffi, build-nif, build-wasm]
+    needs: [classify, smoke-test, build, build-ffi, build-nif, build-wasm]
+    if: needs.classify.outputs.needs_approval == 'true'
     runs-on: ubuntu-latest
     environment: production
     steps:
-      - run: echo "Release approved — proceeding with all publish jobs"
+      - run: echo "Minor or major release approved; publish jobs may proceed"
+
+  approve:
+    name: Release gate
+    needs: [classify, wait-for-approval, smoke-test, build, build-ffi, build-nif, build-wasm]
+    if: >-
+      always() &&
+      !cancelled() &&
+      needs.classify.result == 'success' &&
+      needs.smoke-test.result == 'success' &&
+      needs.build.result == 'success' &&
+      needs.build-ffi.result == 'success' &&
+      needs.build-nif.result == 'success' &&
+      needs.build-wasm.result == 'success' &&
+      (needs.wait-for-approval.result == 'success' ||
+       (needs.wait-for-approval.result == 'skipped' &&
+        needs.classify.outputs.needs_approval != 'true'))
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Release gate passed (${{ needs.classify.outputs.bump }})"
 
   release:
     name: Create GitHub Release

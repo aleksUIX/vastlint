@@ -63,7 +63,7 @@ behind still ships correctly. It just makes `cargo run -- --version` honest.
 
 ## 3 — CI (automatic after tag push)
 
-Go to **GitHub Actions → Release** and watch the run. One human approval gate (`production` environment) unblocks all publish jobs simultaneously.
+Go to **GitHub Actions → Release** and watch the run. Patch tags (only `Z` changed from the previous `vX.Y.Z`) publish without waiting. Minor and major tags wait on one human approval gate (`production` environment), which unblocks all publish jobs simultaneously.
 
 | Job | Destination | Gate variable |
 |-----|-------------|---------------|
