@@ -546,7 +546,7 @@ cargo install vastlint-mcp
 }
 ```
 
-Listed on the [MCP Registry](https://registry.modelcontextprotocol.io) as `io.github.aleksUIX/vastlint`. Open Plugins package: root [`plugin.json`](plugin.json) and [`mcp.json`](mcp.json) (hosted Streamable HTTP, no auth). See [`crates/vastlint-mcp`](crates/vastlint-mcp/README.md) for the full tool reference and [docs/mcp-agentic.md](docs/mcp-agentic.md) for integration patterns, agentic loop examples, and how VASTlint fits into the IAB Tech Lab AAMP / ARTF ecosystem.
+Listed on the [MCP Registry](https://registry.modelcontextprotocol.io) as `io.github.aleksUIX/vastlint`. Open Plugins package: root [`plugin.json`](plugin.json) and [`mcp.json`](mcp.json) (hosted Streamable HTTP, no auth). Gemini CLI extension: [`gemini-extension.json`](gemini-extension.json) (`gemini extensions install https://github.com/aleksUIX/vastlint`). Claude Code plugin: [`.claude-plugin/plugin.json`](.claude-plugin/plugin.json). Agent install notes: [`llms-install.md`](llms-install.md). See [`crates/vastlint-mcp`](crates/vastlint-mcp/README.md) for the full tool reference and [docs/mcp-agentic.md](docs/mcp-agentic.md) for integration patterns, agentic loop examples, and how VASTlint fits into the IAB Tech Lab AAMP / ARTF ecosystem.
 
 ## Use as a REST API
 
