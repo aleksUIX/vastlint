@@ -13,7 +13,7 @@ keywords = ["vast", "xml", "validator", "simid", "ctv"]
 categories = ["parser-implementations", "development-tools"]
 
 [dependencies]
-quick-xml = { version = "0.41", features = [] }
+quick-xml = { version = "0.42", features = [] }
 url = "2"
 phf = { version = "0.14", features = ["macros"] }
 
