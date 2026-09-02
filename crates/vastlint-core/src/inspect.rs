@@ -69,9 +69,7 @@ pub fn inspect_document(xml: &str) -> InspectDocumentMeta {
         match reader.read_event() {
             Ok(Event::Eof) | Err(_) => break,
             Ok(Event::Start(element)) => {
-                let name = std::str::from_utf8(element.name().as_ref())
-                    .unwrap_or("")
-                    .to_owned();
+                let name = element.name().as_ref().to_owned();
                 match name.as_str() {
                     "InLine" => meta.ad_type = InspectAdType::InLine,
                     "Wrapper" => meta.ad_type = InspectAdType::Wrapper,
@@ -89,14 +87,9 @@ pub fn inspect_document(xml: &str) -> InspectDocumentMeta {
                         let mut height = String::new();
                         let mut bitrate = String::new();
                         for attr in element.attributes().flatten() {
-                            let key = std::str::from_utf8(attr.key.as_ref())
-                                .unwrap_or("")
-                                .to_owned();
+                            let key = attr.key.as_ref().to_owned();
                             let value = attr
-                                .decoded_and_normalized_value(
-                                    XmlVersion::Implicit1_0,
-                                    reader.decoder(),
-                                )
+                                .normalized_value(XmlVersion::Implicit1_0)
                                 .map(|value| value.into_owned())
                                 .unwrap_or_default();
                             match key.as_str() {
@@ -115,25 +108,20 @@ pub fn inspect_document(xml: &str) -> InspectDocumentMeta {
                 }
             }
             Ok(Event::Text(text)) => {
-                if let Ok(value) = text.xml10_content() {
-                    apply_text(
-                        value.trim(),
-                        &mut meta,
-                        &mut target,
-                        &mut pending_media_file,
-                    );
-                }
+                apply_text(
+                    text.xml10_content().trim(),
+                    &mut meta,
+                    &mut target,
+                    &mut pending_media_file,
+                );
             }
             Ok(Event::CData(text)) => {
-                let bytes = text.into_inner();
-                if let Ok(value) = std::str::from_utf8(&bytes) {
-                    apply_text(
-                        value.trim(),
-                        &mut meta,
-                        &mut target,
-                        &mut pending_media_file,
-                    );
-                }
+                apply_text(
+                    text.into_inner().trim(),
+                    &mut meta,
+                    &mut target,
+                    &mut pending_media_file,
+                );
             }
             _ => {}
         }
