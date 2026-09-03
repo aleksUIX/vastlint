@@ -14,7 +14,7 @@ use quick_xml::Reader;
 /// (`xmlns` or `xmlns:foo`). The parser stores only local names, so this must be
 /// computed from the full qualified name before the prefix is discarded.
 fn is_namespaced(key: &QName) -> bool {
-    key.prefix().is_some() || key.as_ref() == b"xmlns"
+    key.prefix().is_some() || key.as_ref() == "xmlns"
 }
 
 // ── Internal document model ───────────────────────────────────────────────────
@@ -260,17 +260,11 @@ pub fn parse(input: &str) -> VastDocument {
                 let start_pos = end_pos.saturating_sub(tag_len);
                 let (line, col) = byte_offset_to_line_col(input_bytes, start_pos);
 
-                let name = std::str::from_utf8(e.local_name().as_ref())
-                    .unwrap_or("")
-                    .to_owned();
+                let name = e.local_name().as_ref().to_owned();
                 let mut attrs = Vec::new();
                 for attr in e.attributes().flatten() {
-                    let key = std::str::from_utf8(attr.key.local_name().as_ref())
-                        .unwrap_or("")
-                        .to_owned();
-                    let val = std::str::from_utf8(attr.value.as_ref())
-                        .unwrap_or("")
-                        .to_owned();
+                    let key = attr.key.local_name().as_ref().to_owned();
+                    let val = attr.value.as_ref().to_owned();
                     attrs.push(Attr {
                         namespaced: is_namespaced(&attr.key),
                         name: key,
@@ -296,17 +290,11 @@ pub fn parse(input: &str) -> VastDocument {
                 let start_pos = end_pos.saturating_sub(tag_len);
                 let (line, col) = byte_offset_to_line_col(input_bytes, start_pos);
 
-                let name = std::str::from_utf8(e.local_name().as_ref())
-                    .unwrap_or("")
-                    .to_owned();
+                let name = e.local_name().as_ref().to_owned();
                 let mut attrs = Vec::new();
                 for attr in e.attributes().flatten() {
-                    let key = std::str::from_utf8(attr.key.local_name().as_ref())
-                        .unwrap_or("")
-                        .to_owned();
-                    let val = std::str::from_utf8(attr.value.as_ref())
-                        .unwrap_or("")
-                        .to_owned();
+                    let key = attr.key.local_name().as_ref().to_owned();
+                    let val = attr.value.as_ref().to_owned();
                     attrs.push(Attr {
                         namespaced: is_namespaced(&attr.key),
                         name: key,
@@ -324,30 +312,24 @@ pub fn parse(input: &str) -> VastDocument {
 
             Ok(Event::Text(e)) => {
                 if let Some(node) = stack.last_mut() {
-                    if let Ok(text) = e.xml10_content() {
-                        append_text_segment(node, text.as_ref(), false);
-                    }
+                    append_text_segment(node, e.xml10_content().as_ref(), false);
                 }
             }
 
             Ok(Event::CData(e)) => {
                 if let Some(node) = stack.last_mut() {
-                    let bytes = e.into_inner();
-                    if let Ok(text) = std::str::from_utf8(&bytes) {
-                        append_text_segment(node, text, true);
-                    }
+                    append_text_segment(node, e.into_inner().as_ref(), true);
                 }
             }
 
             Ok(Event::GeneralRef(e)) => {
                 if let Some(node) = stack.last_mut() {
-                    if let Ok(reference) = std::str::from_utf8(e.as_ref()) {
-                        if let Some(decoded) = decode_general_reference(reference) {
-                            append_text_segment(node, &decoded, false);
-                        } else {
-                            let raw = format!("&{};", reference);
-                            append_text_segment(node, &raw, false);
-                        }
+                    let reference = e.as_ref();
+                    if let Some(decoded) = decode_general_reference(reference) {
+                        append_text_segment(node, &decoded, false);
+                    } else {
+                        let raw = format!("&{};", reference);
+                        append_text_segment(node, &raw, false);
                     }
                 }
             }
