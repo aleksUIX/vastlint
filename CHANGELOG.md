@@ -6,6 +6,18 @@ GitHub Releases: <https://github.com/aleksUIX/vastlint/releases>
 
 ---
 
+## [0.13.7] - 2026-09-03
+
+### Changed
+
+- Bump `quick-xml` 0.41.0 to 0.42.0; port `inspect.rs` and `parse.rs` onto the 0.42 string API.
+
+### Security
+
+- VS Code extension build chain: `fast-uri` 3.1.5 to 3.1.6 (GHSA-7p8r-x3mc-p8w7, GHSA-4c8g-83qw-93j6, high).
+
+---
+
 ## [0.13.6] - 2026-08-28
 
 ### Chrome extension
