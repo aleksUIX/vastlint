@@ -180,18 +180,9 @@ jobs:
           set -euo pipefail
 
           APP_DIR="$RUNNER_TEMP/vastlint-client-smoke"
-          mkdir -p "$APP_DIR"
-
-          printf '%s\n' \
-            '{' \
-            '  "name": "vastlint-client-smoke",' \
-            '  "private": true,' \
-            '  "type": "module"' \
-            '}' \
-            > "$APP_DIR/package.json"
+          bash "$GITHUB_WORKSPACE/scripts/ecosystem-smoke/install-vastlint-client.sh" "$APP_DIR"
 
           pushd "$APP_DIR" >/dev/null
-          npm install --no-package-lock --ignore-scripts "vastlint-client@${VASTLINT_VERSION}"
 
           cat > smoke.mjs <<'EOF'
           import fs from 'node:fs';
@@ -329,22 +320,9 @@ jobs:
           set -euo pipefail
 
           APP_DIR="$RUNNER_TEMP/vastlint-react-smoke"
-          mkdir -p "$APP_DIR"
-
-          printf '%s\n' \
-            '{' \
-            '  "name": "vastlint-react-smoke",' \
-            '  "private": true,' \
-            '  "type": "module"' \
-            '}' \
-            > "$APP_DIR/package.json"
+          bash "$GITHUB_WORKSPACE/scripts/ecosystem-smoke/install-vastlint-react.sh" "$APP_DIR"
 
           pushd "$APP_DIR" >/dev/null
-          npm install --no-package-lock --ignore-scripts \
-            "vastlint-react@${VASTLINT_VERSION}" \
-            react@19.2.0 \
-            react-dom@19.2.0 \
-            jsdom@26.1.0
 
           cat > smoke.mjs <<'EOF'
           import React, { act } from 'react';
