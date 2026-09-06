@@ -63,7 +63,7 @@ behind still ships correctly. It just makes `cargo run -- --version` honest.
 
 ## 3 — CI (automatic after tag push)
 
-Go to **GitHub Actions → Release** and watch the run. Patch tags (only `Z` changed from the previous `vX.Y.Z`) publish without waiting. Minor and major tags wait on one human approval gate (`production` environment), which unblocks all publish jobs simultaneously.
+Go to **GitHub Actions → Release** and watch the run. Patch tags (only `Z` changed from the previous `vX.Y.Z`) use the unprotected `patch` environment and publish without waiting. Minor and major tags wait on one human approval gate (`production` environment), which unblocks all publish jobs simultaneously. Do not skip the approval job on patches: GitHub would then skip every publish job after it.
 
 | Job | Destination | Gate variable |
 |-----|-------------|---------------|
@@ -136,6 +136,9 @@ it green. `gh run view <id> --json jobs -q '.jobs[] | "\(.name): \(.conclusion)"
 
 If crates.io failed on its own, re-run just that half:
 `gh workflow run publish-crates.yml -f tag=vX.Y.Z`.
+
+If npm failed or was skipped, re-run just that half:
+`gh workflow run publish-npm.yml -f tag=vX.Y.Z`.
 
 ---
 

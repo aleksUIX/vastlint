@@ -834,8 +834,11 @@ jobs:
         with:
           name: wasm-npm-package
           path: npm/
-          # Retain for the full workflow run so publish jobs can download it.
-          retention-days: 1
+          # Minor/major tags wait on the `production` environment. One day is
+          # not enough: v0.13.5 sat 45h, then publish-npm died on a missing
+          # artifact. Fourteen days covers a delayed approval without keeping
+          # the blob forever.
+          retention-days: 14
 
   build:
     name: Build ${{ matrix.target }}
@@ -1123,11 +1126,15 @@ jobs:
           path: ${{ matrix.archive }}
 
   # ── Classify bump, then a single approval gate ──────────────────────────────
-  # Patch tags (same major.minor as the previous vX.Y.Z tag) skip the
-  # `production` environment. Minor and major still wait for one reviewer click.
-  # All publish/release jobs keep `needs: approve`. That job is a join point:
-  # it succeeds after approval on minor/major, and immediately on patch, so
-  # skipped `wait-for-approval` does not skip the rest of the workflow.
+  # Patch tags (same major.minor as the previous vX.Y.Z tag) use the unprotected
+  # `patch` environment and proceed immediately. Minor and major use
+  # `production` and wait for one reviewer click.
+  #
+  # Do not skip `wait-for-approval` on patches. GitHub skips every descendant of
+  # a skipped job, even when an intermediate job uses `if: always()` and
+  # succeeds. v0.13.6 and v0.13.7 classified as patch, skipped this job, then
+  # skipped npm, crates.io, GitHub Release, and every sync. All publish jobs
+  # keep `needs: approve`; that job is a join point after this one succeeds.
   classify:
     name: Classify release
     runs-on: ubuntu-latest
@@ -1199,27 +1206,16 @@ jobs:
   wait-for-approval:
     name: Approve release
     needs: [classify, smoke-test, build, build-ffi, build-nif, build-wasm]
-    if: needs.classify.outputs.needs_approval == 'true'
     runs-on: ubuntu-latest
-    environment: production
+    # Only an explicit "false" from classify uses `patch`. Anything else
+    # (true, empty, unknown) waits on `production`.
+    environment: ${{ needs.classify.outputs.needs_approval == 'false' && 'patch' || 'production' }}
     steps:
-      - run: echo "Minor or major release approved; publish jobs may proceed"
+      - run: echo "Release approved (${{ needs.classify.outputs.bump }}); publish jobs may proceed"
 
   approve:
     name: Release gate
     needs: [classify, wait-for-approval, smoke-test, build, build-ffi, build-nif, build-wasm]
-    if: >-
-      always() &&
-      !cancelled() &&
-      needs.classify.result == 'success' &&
-      needs.smoke-test.result == 'success' &&
-      needs.build.result == 'success' &&
-      needs.build-ffi.result == 'success' &&
-      needs.build-nif.result == 'success' &&
-      needs.build-wasm.result == 'success' &&
-      (needs.wait-for-approval.result == 'success' ||
-       (needs.wait-for-approval.result == 'skipped' &&
-        needs.classify.outputs.needs_approval != 'true'))
     runs-on: ubuntu-latest
     steps:
       - run: echo "Release gate passed (${{ needs.classify.outputs.bump }})"
