@@ -3,25 +3,22 @@ set -euo pipefail
 
 APP_DIR="${1:?app directory required}"
 VERSION="${VASTLINT_VERSION:?VASTLINT_VERSION must be set}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+TEMPLATE_DIR="$SCRIPT_DIR/vastlint-react-smoke"
+TEMPLATE_VERSION="$(
+  node -e "const pkg=require(process.argv[1]); process.stdout.write(pkg.dependencies['vastlint-react'])" \
+    "$TEMPLATE_DIR/package.json"
+)"
+
+if [[ "$VERSION" != "$TEMPLATE_VERSION" ]]; then
+  echo "vastlint-react smoke lockfile is pinned to ${TEMPLATE_VERSION}; regenerate templates when VASTLINT_VERSION changes (currently ${VERSION})." >&2
+  exit 1
+fi
 
 mkdir -p "$APP_DIR"
-
-cat > "$APP_DIR/package.json" <<EOF
-{
-  "name": "vastlint-react-smoke",
-  "private": true,
-  "type": "module",
-  "dependencies": {
-    "vastlint-react": "${VERSION}",
-    "react": "19.2.0",
-    "react-dom": "19.2.0",
-    "jsdom": "26.1.0"
-  }
-}
-EOF
+cp "$TEMPLATE_DIR/package.json" "$TEMPLATE_DIR/package-lock.json" "$APP_DIR/"
 
 (
   cd "$APP_DIR"
-  npm install --package-lock-only --ignore-scripts
   npm ci --ignore-scripts
 )

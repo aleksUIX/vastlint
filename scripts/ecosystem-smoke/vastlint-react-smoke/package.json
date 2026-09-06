@@ -1,0 +1,11 @@
+{
+  "name": "vastlint-react-smoke",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "vastlint-react": "0.4.22",
+    "react": "19.2.0",
+    "react-dom": "19.2.0",
+    "jsdom": "26.1.0"
+  }
+}
