@@ -1292,6 +1292,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           ref: ${{ env.RELEASE_TAG }}
+          persist-credentials: false
 
       - name: Download all artifacts
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c  # v8.0.1
@@ -1311,13 +1312,33 @@ jobs:
           fi
           printf '%s\n' "$BODY" > /tmp/release-notes.md
 
-      - name: Create release
-        uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228  # v3.0.2
-        with:
-          tag_name: ${{ env.RELEASE_TAG }}
-          target_commitish: ${{ env.RELEASE_TAG }}
-          files: artifacts/*
-          body_path: /tmp/release-notes.md
+      - name: Create or update GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG="${RELEASE_TAG}"
+          this="${TAG#v}"
+          highest=$(
+            gh api --paginate "repos/${GITHUB_REPOSITORY}/git/matching-refs/tags/v" \
+              --jq '.[].ref | sub("refs/tags/"; "")' \
+            | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' \
+            | sed 's/^v//' \
+            | sort -V \
+            | tail -n1
+          )
+          if [ "$this" = "$highest" ]; then
+            latest_flag=(--latest)
+          else
+            latest_flag=(--latest=false)
+          fi
+
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release edit "$TAG" --title "$TAG" --notes-file /tmp/release-notes.md "${latest_flag[@]}"
+          else
+            gh release create "$TAG" --title "$TAG" --notes-file /tmp/release-notes.md "${latest_flag[@]}"
+          fi
+          gh release upload "$TAG" artifacts/* --clobber
 
   # ── SLSA Build Level 3 provenance ──────────────────────────────────────────
   # Runs after the GitHub Release is created so a provenance failure never
@@ -1624,14 +1645,24 @@ jobs:
           publish_if_needed() {
             local package_name="$1"
             local package_dir="$2"
+            local extra=()
 
             if npm view "${package_name}@${VERSION}" version >/dev/null 2>&1; then
               echo "${package_name}@${VERSION} already published; skipping"
               return 0
             fi
 
+            latest=$(npm view "${package_name}" version 2>/dev/null || true)
+            if [ -n "$latest" ] && [ "$VERSION" != "$latest" ]; then
+              higher=$(printf '%s\n%s\n' "$VERSION" "$latest" | sort -V | tail -n1)
+              if [ "$higher" = "$latest" ]; then
+                extra=(--tag "archive-${VERSION}")
+                echo "${package_name}@${VERSION} is older than latest ${latest}; using tag archive-${VERSION}"
+              fi
+            fi
+
             echo "Publishing ${package_name}@${VERSION} from ${package_dir}"
-            if npm publish --provenance; then
+            if npm publish --provenance "${extra[@]}"; then
               return 0
             fi
 
@@ -1639,7 +1670,7 @@ jobs:
             rm -f "$STAGE/.npmrc"
             unset NODE_AUTH_TOKEN
             unset NPM_CONFIG_USERCONFIG
-            npm publish --provenance
+            npm publish --provenance "${extra[@]}"
           }
 
           pushd "$STAGE/vastlint" >/dev/null
@@ -2542,14 +2573,24 @@ jobs:
 
           publish_if_needed() {
             local package_name="$1"
+            local extra=()
 
             if npm view "${package_name}@${VERSION}" version >/dev/null 2>&1; then
               echo "${package_name}@${VERSION} already published; skipping"
               return 0
             fi
 
+            latest=$(npm view "${package_name}" version 2>/dev/null || true)
+            if [ -n "$latest" ] && [ "$VERSION" != "$latest" ]; then
+              higher=$(printf '%s\n%s\n' "$VERSION" "$latest" | sort -V | tail -n1)
+              if [ "$higher" = "$latest" ]; then
+                extra=(--tag "archive-${VERSION}")
+                echo "${package_name}@${VERSION} is older than latest ${latest}; using tag archive-${VERSION}"
+              fi
+            fi
+
             echo "Publishing ${package_name}@${VERSION}"
-            if npm publish --provenance; then
+            if npm publish --provenance "${extra[@]}"; then
               return 0
             fi
 
@@ -2557,7 +2598,7 @@ jobs:
             rm -f "$STAGE/.npmrc"
             unset NODE_AUTH_TOKEN
             unset NPM_CONFIG_USERCONFIG
-            npm publish --provenance
+            npm publish --provenance "${extra[@]}"
           }
 
           pushd "$STAGE/vastlint" >/dev/null
