@@ -1334,11 +1334,15 @@ jobs:
           fi
 
           if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release edit "$TAG" --title "$TAG" --notes-file /tmp/release-notes.md "${latest_flag[@]}"
-          else
-            gh release create "$TAG" --title "$TAG" --notes-file /tmp/release-notes.md "${latest_flag[@]}"
+            gh release delete "$TAG" --yes
           fi
-          gh release upload "$TAG" artifacts/* --clobber
+          gh release create "$TAG" --title "$TAG" --notes-file /tmp/release-notes.md "${latest_flag[@]}"
+          mapfile -t files < <(find artifacts -type f | sort)
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "no release artifacts to upload"
+            exit 1
+          fi
+          gh release upload "$TAG" "${files[@]}" --clobber
 
   # ── SLSA Build Level 3 provenance ──────────────────────────────────────────
   # Runs after the GitHub Release is created so a provenance failure never
@@ -1430,6 +1434,7 @@ jobs:
           # as "already published", but 101 is cargo's generic error code, so
           # real failures were silently swallowed for four releases.)
           HTTP=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "User-Agent: vastlint-release" \
             "https://crates.io/api/v1/crates/vastlint-core/${VERSION}")
           if [ "$HTTP" = "200" ]; then
             echo "vastlint-core ${VERSION} already published, skipping"
@@ -1447,6 +1452,7 @@ jobs:
         run: |
           VERSION="${RELEASE_TAG#v}"
           HTTP=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "User-Agent: vastlint-release" \
             "https://crates.io/api/v1/crates/vastlint-cli/${VERSION}")
           if [ "$HTTP" = "200" ]; then
             echo "vastlint-cli ${VERSION} already published, skipping"
