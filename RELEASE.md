@@ -137,8 +137,12 @@ it green. `gh run view <id> --json jobs -q '.jobs[] | "\(.name): \(.conclusion)"
 If crates.io failed on its own, re-run just that half:
 `gh workflow run publish-crates.yml -f tag=vX.Y.Z`.
 
-If npm failed or was skipped, re-run just that half:
-`gh workflow run publish-npm.yml -f tag=vX.Y.Z`.
+If npm failed or was skipped, re-run just that half from this workflow file
+(so npm trusted publishing still matches `release.yml`):
+`gh workflow run release.yml -f npm_tag=vX.Y.Z`.
+
+`gh workflow run publish-npm.yml -f tag=vX.Y.Z` also rebuilds and publishes,
+but only if that workflow is added as a trusted publisher or `NPM_TOKEN` is valid.
 
 ---
 

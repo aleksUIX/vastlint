@@ -91,8 +91,14 @@ jobs:
               > "$STAGE/.npmrc"
 
             pushd "$STAGE" >/dev/null
-            npm whoami >/dev/null
-            echo "Authenticated to npm as $(npm whoami) via NPM_TOKEN"
+            if npm whoami >/dev/null 2>&1; then
+              echo "Authenticated to npm as $(npm whoami) via NPM_TOKEN"
+            else
+              echo "NPM_TOKEN rejected by whoami; falling back to OIDC trusted publishing"
+              rm -f "$STAGE/.npmrc"
+              unset NODE_AUTH_TOKEN
+              unset NPM_CONFIG_USERCONFIG
+            fi
             popd >/dev/null
           else
             echo "NPM_TOKEN not set; relying on npm trusted publishing via OIDC"

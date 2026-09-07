@@ -11,6 +11,11 @@ on:
         type: boolean
         default: false
         required: false
+      npm_tag:
+        description: "Rebuild WASM and publish npm for this existing tag (e.g. v0.13.7). Leaves the rest of Release idle."
+        type: string
+        default: ""
+        required: false
 
 env:
   CARGO_TERM_COLOR: always
@@ -48,6 +53,7 @@ jobs:
   smoke-test:
     name: Smoke test all modules
     runs-on: ubuntu-latest
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.npm_tag == '' }}
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
@@ -1138,6 +1144,7 @@ jobs:
   classify:
     name: Classify release
     runs-on: ubuntu-latest
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.npm_tag == '' }}
     outputs:
       bump: ${{ steps.bump.outputs.bump }}
       needs_approval: ${{ steps.bump.outputs.needs_approval }}
@@ -1544,8 +1551,14 @@ jobs:
               > "$STAGE/.npmrc"
 
             pushd "$STAGE" >/dev/null
-            npm whoami >/dev/null
-            echo "Authenticated to npm as $(npm whoami) via NPM_TOKEN"
+            if npm whoami >/dev/null 2>&1; then
+              echo "Authenticated to npm as $(npm whoami) via NPM_TOKEN"
+            else
+              echo "NPM_TOKEN rejected by whoami; falling back to OIDC trusted publishing"
+              rm -f "$STAGE/.npmrc"
+              unset NODE_AUTH_TOKEN
+              unset NPM_CONFIG_USERCONFIG
+            fi
             popd >/dev/null
           else
             echo "NPM_TOKEN not set; relying on npm trusted publishing via OIDC"
@@ -2373,3 +2386,115 @@ jobs:
 
           git commit -S -m "chore: update vastlint formula to ${TAG}"
           git push origin main
+
+  # Recovery: rebuild WASM and publish npm for an existing tag, using this
+  # workflow file so npm trusted publishing (OIDC) matches the publisher
+  # bound to release.yml. A dead NPM_TOKEN must not block that path.
+  publish-npm-recovery:
+    name: Publish to npm (tag recovery)
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.npm_tag != '' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          ref: ${{ inputs.npm_tag }}
+
+      - name: Validate tag
+        env:
+          TAG: ${{ inputs.npm_tag }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "tag must be vMAJOR.MINOR.PATCH, got '${TAG}'"
+            exit 1
+          fi
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772  # v (pinned SHA)
+        with:
+          toolchain: stable
+          targets: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6  # v2.9.2
+
+      - name: Install wasm-pack
+        run: cargo install wasm-pack --locked
+
+      - name: Install Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7.0.0
+        with:
+          node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
+          package-manager-cache: false
+
+      - name: Build WASM (bundler target, ESM)
+        run: wasm-pack build crates/vastlint-wasm --target bundler --out-dir ../../npm/pkg
+
+      - name: Build WASM (nodejs target, CJS)
+        run: wasm-pack build crates/vastlint-wasm --target nodejs --out-dir ../../npm/pkg-node
+
+      - name: Assemble npm package
+        run: node npm/scripts/assemble.js
+
+      - name: Prepare JS release packages
+        env:
+          TAG: ${{ inputs.npm_tag }}
+        run: |
+          VERSION="${TAG#v}"
+          node scripts/prepare-js-release-packages.mjs "$VERSION" "$GITHUB_WORKSPACE/.release/js-packages"
+
+      - name: Publish JS packages to npm
+        env:
+          TAG: ${{ inputs.npm_tag }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          set -euo pipefail
+          VERSION="${TAG#v}"
+          STAGE="$GITHUB_WORKSPACE/.release/js-packages"
+
+          if [ -n "${NODE_AUTH_TOKEN:-}" ]; then
+            printf '%s\n' \
+              "//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}" \
+              'always-auth=true' \
+              > "$STAGE/.npmrc"
+
+            pushd "$STAGE" >/dev/null
+            if npm whoami >/dev/null 2>&1; then
+              echo "Authenticated to npm as $(npm whoami) via NPM_TOKEN"
+            else
+              echo "NPM_TOKEN rejected by whoami; falling back to OIDC trusted publishing"
+              rm -f "$STAGE/.npmrc"
+              unset NODE_AUTH_TOKEN
+              unset NPM_CONFIG_USERCONFIG
+            fi
+            popd >/dev/null
+          else
+            echo "NPM_TOKEN not set; relying on npm trusted publishing via OIDC"
+          fi
+
+          publish_if_needed() {
+            local package_name="$1"
+
+            if npm view "${package_name}@${VERSION}" version >/dev/null 2>&1; then
+              echo "${package_name}@${VERSION} already published; skipping"
+              return 0
+            fi
+
+            echo "Publishing ${package_name}@${VERSION}"
+            npm publish --provenance
+          }
+
+          pushd "$STAGE/vastlint" >/dev/null
+          publish_if_needed "vastlint"
+          popd >/dev/null
+
+          pushd "$STAGE/vastlint-client" >/dev/null
+          publish_if_needed "vastlint-client"
+          popd >/dev/null
+
+          pushd "$STAGE/vastlint-react" >/dev/null
+          publish_if_needed "vastlint-react"
+          popd >/dev/null
