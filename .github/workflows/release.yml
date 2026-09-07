@@ -1337,7 +1337,14 @@ jobs:
             gh release delete "$TAG" --yes
           fi
           gh release create "$TAG" --title "$TAG" --notes-file /tmp/release-notes.md "${latest_flag[@]}"
-          mapfile -t files < <(find artifacts -type f | sort)
+          mapfile -t files < <(
+            find artifacts -type f \
+              ! -path '*/examples/*' \
+              ! -path '*/pkg/*' \
+              ! -path '*/pkg-node/*' \
+              ! -path '*/scripts/*' \
+              | sort
+          )
           if [ "${#files[@]}" -eq 0 ]; then
             echo "no release artifacts to upload"
             exit 1
