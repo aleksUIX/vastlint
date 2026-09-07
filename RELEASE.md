@@ -141,6 +141,10 @@ If npm failed or was skipped, re-run just that half from this workflow file
 (so npm trusted publishing still matches `release.yml`):
 `gh workflow run release.yml -f npm_tag=vX.Y.Z`.
 
+To republish GitHub Release, Docker, Homebrew, VS Code, and language bindings
+for an existing tag:
+`gh workflow run release.yml -f tag=vX.Y.Z`.
+
 `gh workflow run publish-npm.yml -f tag=vX.Y.Z` also rebuilds and publishes,
 but only if that workflow is added as a trusted publisher or `NPM_TOKEN` is valid.
 
