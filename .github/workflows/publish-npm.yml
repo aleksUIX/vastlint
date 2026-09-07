@@ -89,19 +89,10 @@ jobs:
               "//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}" \
               'always-auth=true' \
               > "$STAGE/.npmrc"
-
-            pushd "$STAGE" >/dev/null
-            if npm whoami >/dev/null 2>&1; then
-              echo "Authenticated to npm as $(npm whoami) via NPM_TOKEN"
-            else
-              echo "NPM_TOKEN rejected by whoami; falling back to OIDC trusted publishing"
-              rm -f "$STAGE/.npmrc"
-              unset NODE_AUTH_TOKEN
-              unset NPM_CONFIG_USERCONFIG
-            fi
-            popd >/dev/null
+            echo "Using NPM_TOKEN for publish (whoami is not required)"
           else
             echo "NPM_TOKEN not set; relying on npm trusted publishing via OIDC"
+            unset NPM_CONFIG_USERCONFIG
           fi
 
           publish_if_needed() {
@@ -113,6 +104,14 @@ jobs:
             fi
 
             echo "Publishing ${package_name}@${VERSION}"
+            if npm publish --provenance; then
+              return 0
+            fi
+
+            echo "Token publish failed; retrying with OIDC trusted publishing"
+            rm -f "$STAGE/.npmrc"
+            unset NODE_AUTH_TOKEN
+            unset NPM_CONFIG_USERCONFIG
             npm publish --provenance
           }
 
