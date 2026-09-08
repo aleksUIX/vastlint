@@ -51,7 +51,7 @@ jobs:
           if [ "$RELEASE" = "null" ] || [ -z "$RELEASE" ]; then
             # No GitHub Release — try latest tag instead
             TAG=$(gh api repos/${{ matrix.repo }}/tags \
-              --jq '.[0] | {tag: .name, url: ("https://github.com/${{ matrix.repo }}/tree/" + .name), name: .name, published: "unknown"}' \
+              --jq 'if length > 0 then .[0] | {tag: .name, url: ("https://github.com/${{ matrix.repo }}/tree/" + .name), name: .name, published: "n/a"} else null end' \
               2>/dev/null || echo "null")
             RELEASE="$TAG"
           fi
@@ -61,10 +61,16 @@ jobs:
             exit 0
           fi
 
+          TAG=$(echo "$RELEASE" | jq -r '.tag // empty')
+          if [ -z "$TAG" ] || [ "$TAG" = "null" ]; then
+            echo "skipped=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
           echo "skipped=false" >> "$GITHUB_OUTPUT"
-          echo "tag=$(echo "$RELEASE" | jq -r '.tag // empty')" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "url=$(echo "$RELEASE" | jq -r '.url // empty')" >> "$GITHUB_OUTPUT"
-          echo "published=$(echo "$RELEASE" | jq -r '.published // "unknown"')" >> "$GITHUB_OUTPUT"
+          echo "published=$(echo "$RELEASE" | jq -r '.published // "n/a"')" >> "$GITHUB_OUTPUT"
 
       - name: Check for existing tracking issue
         if: steps.latest.outputs.skipped != 'true'
