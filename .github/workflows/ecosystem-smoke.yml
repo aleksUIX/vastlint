@@ -649,18 +649,23 @@ jobs:
 
           mkdir -p "$RUNNER_TEMP/editors"
 
-          curl -fL "https://update.code.visualstudio.com/latest/linux-x64/stable" -o "$RUNNER_TEMP/editors/vscode.tar.gz"
+          curl -fL --retry 5 --retry-all-errors --retry-delay 10 \
+            "https://update.code.visualstudio.com/latest/linux-x64/stable" \
+            -o "$RUNNER_TEMP/editors/vscode.tar.gz"
           mkdir -p "$RUNNER_TEMP/editors/vscode"
           tar -xzf "$RUNNER_TEMP/editors/vscode.tar.gz" -C "$RUNNER_TEMP/editors/vscode"
           echo "VSCODE_BIN=$RUNNER_TEMP/editors/vscode/VSCode-linux-x64/bin/code" >> "$GITHUB_ENV"
 
-          CODIUM_URL="$(curl -fsSL https://api.github.com/repos/VSCodium/vscodium/releases/latest | grep browser_download_url | grep 'VSCodium-linux-x64-.*\.tar\.gz' | head -n1 | cut -d '"' -f4)"
+          CODIUM_URL="$(curl -fsSL --retry 5 --retry-all-errors --retry-delay 10 \
+            https://api.github.com/repos/VSCodium/vscodium/releases/latest \
+            | grep browser_download_url | grep 'VSCodium-linux-x64-.*\.tar\.gz' | head -n1 | cut -d '"' -f4)"
           if [[ -z "$CODIUM_URL" ]]; then
             echo "Could not determine VSCodium release tarball URL"
             exit 1
           fi
 
-          curl -fL "$CODIUM_URL" -o "$RUNNER_TEMP/editors/vscodium.tar.gz"
+          curl -fL --retry 5 --retry-all-errors --retry-delay 10 \
+            "$CODIUM_URL" -o "$RUNNER_TEMP/editors/vscodium.tar.gz"
           mkdir -p "$RUNNER_TEMP/editors/vscodium"
           tar -xzf "$RUNNER_TEMP/editors/vscodium.tar.gz" -C "$RUNNER_TEMP/editors/vscodium"
           echo "VSCODIUM_BIN=$RUNNER_TEMP/editors/vscodium/bin/codium" >> "$GITHUB_ENV"
