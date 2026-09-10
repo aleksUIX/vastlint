@@ -1,10 +1,18 @@
 name: Spec watch
 
 # Runs every Monday at 09:00 UTC.
-# For each watched IAB repo, fetches the latest release tag and opens a
-# GitHub issue if no open issue already references that tag.
+# For each watched IAB repo, fetches the latest GitHub release tag and
+# opens a tracking issue unless:
+#   - that tag is listed in ignore_tags (already shipped in vastlint), or
+#   - an open or closed spec-tracking issue already references the tag.
 #
-# To add a new repo: extend the REPOS matrix below.
+# IAB's GitHub "latest" can lag the real spec. VAST's latest GH release is
+# still v4.1 (2018); vastlint already validates through 4.4. SIMID's latest
+# GH release is v1.1; vastlint already covers 1.0, 1.1, and 1.2.
+#
+# To add a new repo: extend the matrix below. When a new GitHub release
+# ships and vastlint already implements it, add the tag to ignore_tags
+# (or close the tracking issue; closed issues also suppress re-opens).
 
 on:
   schedule:
@@ -26,9 +34,11 @@ jobs:
           - repo: InteractiveAdvertisingBureau/vast
             spec: VAST
             label: spec-tracking
+            ignore_tags: "v4.1 v4.0.5"
           - repo: InteractiveAdvertisingBureau/SIMID
             spec: SIMID
             label: spec-tracking
+            ignore_tags: "v1.1 v.1.0"
           - repo: InteractiveAdvertisingBureau/Open-Measurement-SDK
             spec: OMID (Open Measurement)
             label: spec-tracking
@@ -79,12 +89,22 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           TAG="${{ steps.latest.outputs.tag }}"
-          SPEC="${{ matrix.spec }}"
+          IGNORE_TAGS="${{ matrix.ignore_tags }}"
 
-          # Search open issues in this repo for one already tracking this tag
-          COUNT=$(gh api \
-            "repos/${{ github.repository }}/issues?state=open&labels=spec-tracking&per_page=100" \
-            --jq "[.[] | select(.title | test(\"${TAG}\"; \"i\"))] | length")
+          # Tags already implemented in vastlint. IAB GitHub latest is stale.
+          if [ -n "$IGNORE_TAGS" ]; then
+            for t in $IGNORE_TAGS; do
+              if [ "$t" = "$TAG" ]; then
+                echo "count=1" >> "$GITHUB_OUTPUT"
+                exit 0
+              fi
+            done
+          fi
+
+          # Open or closed: closing a tracking issue must not re-file it weekly.
+          COUNT=$(gh api --paginate \
+            "repos/${{ github.repository }}/issues?state=all&labels=spec-tracking&per_page=100" \
+            --jq '.[] | .title' | grep -ciF -- "$TAG" || true)
 
           echo "count=$COUNT" >> "$GITHUB_OUTPUT"
 
