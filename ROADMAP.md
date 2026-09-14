@@ -34,6 +34,14 @@ Where vastlint is today and where it's going.
 
 ## 🗺️ Upcoming
 
+### Publisher destination packs (VAST tester)
+
+A schema-valid, generic-OTT-legal tag can still miss Netflix. Publisher tables are a tester axis, not VAST schema rules. Destination dropdown plus JSON packs citing Microsoft Learn and Netflix creative specs. Declared MediaFile bitrate, size, duration, MIME, VPAID, and QR. First packs: generic OTT, Netflix hosted, Roku third-party high.
+
+Do not add `VAST-4.x-netflix-bitrate` to the core catalog. Do not overload player profiles (`Roku RAF` is device MIME pick, not the 1,200–2,100 kbps inventory band). Default `check`, RapidAPI, and grpc stay on IAB rules.
+
+Lives in the [VAST tester](https://vastlint.org/tester/). Design: [VAST-Tester docs/publisher-packs.md](https://github.com/aleksUIX/VAST-Tester/blob/main/docs/publisher-packs.md).
+
 ### SIMID creative QA (VAST tester)
 
 Fetch and (later) handshake the HTML behind `apiFramework="SIMID"`. XML catalog and `--fix` shipped in vastlint. Remaining SIMID failures are in the creative, so this lives in the [VAST tester](https://vastlint.org/tester/), not in `vastlint-core`, default `check`, RapidAPI, or grpc. Design: [docs/simid-inspector.md](docs/simid-inspector.md).
