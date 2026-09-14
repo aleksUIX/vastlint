@@ -6,6 +6,20 @@ GitHub Releases: <https://github.com/aleksUIX/vastlint/releases>
 
 ---
 
+## [0.13.9] - 2026-09-14
+
+### Changed
+
+- Bump `rmcp` 3.2.0 to 3.3.0.
+- Bump `toml` 1.1.5+spec-1.1.0 to 1.1.6+spec-1.1.0.
+- Bump yanked `chacha20` 0.10.1 to 0.10.2.
+
+### Security
+
+- Bump `rustls` 0.23.43 to 0.23.45 (RUSTSEC-2026-0285).
+
+---
+
 ## [0.13.8] - 2026-09-07
 
 ### Changed
