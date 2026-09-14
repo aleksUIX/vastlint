@@ -10,6 +10,7 @@ name: Chrome Extension
 #
 # Required secrets (Settings → Secrets → Actions):
 #   CHROME_EXTENSION_ID   — e.g. abcdefghijklmnopqrstuvwxyzabcdef
+#   CHROME_PUBLISHER_ID   — Chrome Web Store publisher ID (Dashboard → Publisher → Settings)
 #   CHROME_CLIENT_ID      — OAuth2 client ID from Google Cloud Console
 #   CHROME_CLIENT_SECRET  — OAuth2 client secret
 #   CHROME_REFRESH_TOKEN  — long-lived refresh token (see README for how to obtain)
@@ -162,6 +163,7 @@ jobs:
         with:
           file-path: chrome/vastlint-extension.zip
           extension-id: ${{ secrets.CHROME_EXTENSION_ID }}
+          publisher-id: ${{ secrets.CHROME_PUBLISHER_ID }}
           client-id: ${{ secrets.CHROME_CLIENT_ID }}
           client-secret: ${{ secrets.CHROME_CLIENT_SECRET }}
           refresh-token: ${{ secrets.CHROME_REFRESH_TOKEN }}

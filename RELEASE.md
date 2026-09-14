@@ -81,6 +81,8 @@ Chrome publish paths:
 1. Tagged release: the `chrome-extension` job in `Release` runs on tag pushes and publishes the zipped extension.
 2. Standalone publish: run the `Chrome Extension` workflow with `publish: true` and optional `version: 0.11.2` when you need to ship the extension outside a full repo release.
 
+`mnao305/chrome-extension-upload` v7 needs `CHROME_PUBLISHER_ID` (Chrome Web Store Developer Dashboard, Publisher, Settings) in addition to the existing Chrome OAuth secrets.
+
 ---
 
 ## 4 — Downstream repos the same run pushes to
