@@ -1,7 +1,8 @@
 {
+  "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
   "name": "vastlint",
   "displayName": "VASTlint",
-  "version": "0.13.6",
+  "version": "0.13.9",
   "description": "Validate VAST, VMAP, and DAAST ad tags against IAB Tech Lab specs. Hosted MCP at https://vastlint.org/mcp. Auth none for public tools.",
   "author": {
     "name": "aleksUIX",
@@ -11,11 +12,5 @@
   "homepage": "https://vastlint.org/docs/mcp/",
   "repository": "https://github.com/aleksUIX/vastlint",
   "license": "Apache-2.0",
-  "keywords": ["vast", "vmap", "daast", "iab", "mcp", "validator"],
-  "mcpServers": {
-    "vastlint": {
-      "type": "http",
-      "url": "https://vastlint.org/mcp"
-    }
-  }
+  "keywords": ["vast", "vmap", "daast", "iab", "mcp", "validator", "claude-code"]
 }

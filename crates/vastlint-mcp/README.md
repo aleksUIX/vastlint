@@ -74,6 +74,15 @@ Add to `.cursor/mcp.json`:
 }
 ```
 
+### Claude Code plugin
+
+The GitHub repo is the plugin. Hosted MCP lives in `.mcp.json`. Skills: `/vastlint:validate-vast`, `/vastlint:inspect-vast`.
+
+```sh
+git clone https://github.com/aleksUIX/vastlint.git
+claude --plugin-dir ./vastlint
+```
+
 ### Any MCP-compatible agent
 
 Run `vastlint-mcp` as a subprocess. It speaks the MCP stdio transport protocol.

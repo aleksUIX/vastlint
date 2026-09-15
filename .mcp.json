@@ -1,6 +1,7 @@
 {
   "mcpServers": {
     "vastlint": {
+      "type": "http",
       "url": "https://vastlint.org/mcp"
     }
   }

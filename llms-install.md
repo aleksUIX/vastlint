@@ -61,6 +61,17 @@ cargo install vastlint-mcp
 
 Do not set env vars. Local stdio does not send tags.
 
+### Option C — Claude Code plugin (repo as plugin)
+
+The GitHub repo is the plugin. Manifest: `.claude-plugin/plugin.json`. MCP: `.mcp.json` (hosted URL, auth none). Skills: `/vastlint:validate-vast`, `/vastlint:inspect-vast`. Agent: `vast-tag-reviewer`.
+
+```sh
+git clone https://github.com/aleksUIX/vastlint.git
+claude --plugin-dir ./vastlint
+```
+
+In a session, `/mcp` should show vastlint connected. `/plugin` should list skills. Community marketplace submit: https://platform.claude.com/plugins/submit (paste the GitHub URL). Team orgs can also use https://claude.ai/admin-settings/directory/submissions/plugins/new. Run `claude plugin validate ./vastlint` before submit. Do not put `skills/` inside `.claude-plugin/`.
+
 ## Post-install check
 
 Reload MCP servers. Confirm these six tools exist: `validate_vast`, `validate_vast_url`, `inspect_vast`, `list_rules`, `explain_rule`, `fix_vast`.

@@ -6,6 +6,14 @@ GitHub Releases: <https://github.com/aleksUIX/vastlint/releases>
 
 ---
 
+## [Unreleased]
+
+### Added
+
+- Claude Code plugin: skills `validate-vast` and `inspect-vast`, agent `vast-tag-reviewer`, and hosted MCP in `.mcp.json` at the plugin root.
+
+---
+
 ## [0.13.9] - 2026-09-14
 
 ### Changed

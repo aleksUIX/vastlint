@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "vastlint",
-  "version": "0.13.6",
+  "version": "0.13.9",
   "description": "Validate VAST, VMAP, and DAAST ad tags against IAB Tech Lab specs. Hosted MCP at https://vastlint.org/mcp. Auth none for public tools.",
   "author": {
     "name": "aleksUIX",

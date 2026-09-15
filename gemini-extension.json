@@ -1,6 +1,6 @@
 {
   "name": "vastlint",
-  "version": "0.13.6",
+  "version": "0.13.9",
   "mcpServers": {
     "vastlint": {
       "description": "Validate VAST, VMAP, and DAAST ad tags against IAB Tech Lab specs. Public tools, auth none.",
