@@ -11,6 +11,11 @@ GitHub Releases: <https://github.com/aleksUIX/vastlint/releases>
 ### Added
 
 - Claude Code plugin: skills `validate-vast` and `inspect-vast`, agent `vast-tag-reviewer`, and hosted MCP in `.mcp.json` at the plugin root.
+- `Dockerfile.mcp`, a `FROM scratch` stdio image for `vastlint-mcp` (Glama release and local MCP clients). CI builds it on every pull request.
+
+### Changed
+
+- Restore the stock Apache-2.0 `LICENSE` text so GitHub licensee (and Glama) detect Apache-2.0. Copyright stays in `NOTICE`.
 
 ---
 

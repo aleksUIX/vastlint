@@ -101,6 +101,13 @@ ARTF agent container at the MCP endpoint to validate VAST tags before impression
 cargo install vastlint-mcp
 ```
 
+Local Docker (stdio). Build from the repo root. Point Glama's Dockerfile admin at `Dockerfile.mcp`, not the CLI `Dockerfile`.
+
+```sh
+docker build -f Dockerfile.mcp -t vastlint-mcp .
+docker run --rm -i vastlint-mcp
+```
+
 ---
 
 ## Agentic loop example
