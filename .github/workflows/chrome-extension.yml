@@ -10,10 +10,10 @@ name: Chrome Extension
 #
 # Required secrets (Settings → Secrets → Actions):
 #   CHROME_EXTENSION_ID   — e.g. abcdefghijklmnopqrstuvwxyzabcdef
-#   CHROME_PUBLISHER_ID   — Chrome Web Store publisher ID (Dashboard → Publisher → Settings)
 #   CHROME_CLIENT_ID      — OAuth2 client ID from Google Cloud Console
 #   CHROME_CLIENT_SECRET  — OAuth2 client secret
 #   CHROME_REFRESH_TOKEN  — long-lived refresh token (see README for how to obtain)
+# v7 of chrome-extension-upload also wants CHROME_PUBLISHER_ID; stay on v6 until that secret exists.
 
 on:
   push:
@@ -159,11 +159,10 @@ jobs:
           path: chrome
 
       - name: Publish to Chrome Web Store
-        uses: mnao305/chrome-extension-upload@f549d5d654694a7722d6abfa64c97409ad5e64c1  # v7.0.0
+        uses: mnao305/chrome-extension-upload@fdfe79400af990f5145a319e834aee64907ccff4  # v6.0.0
         with:
           file-path: chrome/vastlint-extension.zip
           extension-id: ${{ secrets.CHROME_EXTENSION_ID }}
-          publisher-id: ${{ secrets.CHROME_PUBLISHER_ID }}
           client-id: ${{ secrets.CHROME_CLIENT_ID }}
           client-secret: ${{ secrets.CHROME_CLIENT_SECRET }}
           refresh-token: ${{ secrets.CHROME_REFRESH_TOKEN }}

@@ -674,14 +674,50 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          "$VSCODE_BIN" --user-data-dir "$RUNNER_TEMP/vscode-user" --extensions-dir "$RUNNER_TEMP/vscode-exts" --install-extension aleksUIX.vastlint --force
+          retry_marketplace() {
+            local attempt=1
+            local max=5
+            local delay=10
+            while true; do
+              if "$@"; then
+                return 0
+              fi
+              if [[ "$attempt" -ge "$max" ]]; then
+                echo "marketplace install failed after ${max} attempts"
+                return 1
+              fi
+              echo "marketplace error; retry ${attempt}/${max} in ${delay}s"
+              sleep "$delay"
+              attempt=$((attempt + 1))
+              delay=$((delay + 10))
+            done
+          }
+          retry_marketplace "$VSCODE_BIN" --user-data-dir "$RUNNER_TEMP/vscode-user" --extensions-dir "$RUNNER_TEMP/vscode-exts" --install-extension aleksUIX.vastlint --force
           "$VSCODE_BIN" --user-data-dir "$RUNNER_TEMP/vscode-user" --extensions-dir "$RUNNER_TEMP/vscode-exts" --list-extensions | grep -qi '^aleksuix\.vastlint$'
 
       - name: Install from Open VSX in VSCodium
         shell: bash
         run: |
           set -euo pipefail
-          "$VSCODIUM_BIN" --user-data-dir "$RUNNER_TEMP/codium-user" --extensions-dir "$RUNNER_TEMP/codium-exts" --install-extension aleksUIX.vastlint --force
+          retry_marketplace() {
+            local attempt=1
+            local max=5
+            local delay=10
+            while true; do
+              if "$@"; then
+                return 0
+              fi
+              if [[ "$attempt" -ge "$max" ]]; then
+                echo "marketplace install failed after ${max} attempts"
+                return 1
+              fi
+              echo "marketplace error; retry ${attempt}/${max} in ${delay}s"
+              sleep "$delay"
+              attempt=$((attempt + 1))
+              delay=$((delay + 10))
+            done
+          }
+          retry_marketplace "$VSCODIUM_BIN" --user-data-dir "$RUNNER_TEMP/codium-user" --extensions-dir "$RUNNER_TEMP/codium-exts" --install-extension aleksUIX.vastlint --force
           "$VSCODIUM_BIN" --user-data-dir "$RUNNER_TEMP/codium-user" --extensions-dir "$RUNNER_TEMP/codium-exts" --list-extensions | grep -qi '^aleksuix\.vastlint$'
 
       - name: Install local VSIX in both editors

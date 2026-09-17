@@ -25,6 +25,10 @@ updates:
     labels:
       - dependencies
       - github-actions
+    ignore:
+      # v7 requires CHROME_PUBLISHER_ID, which is not in repo secrets.
+      - dependency-name: mnao305/chrome-extension-upload
+        update-types: ["version-update:semver-major"]
 
   # npm (WASM package + VS Code extension)
   - package-ecosystem: npm
