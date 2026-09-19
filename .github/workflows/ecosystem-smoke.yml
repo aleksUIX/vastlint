@@ -660,7 +660,7 @@ jobs:
             -H "User-Agent: vastlint-ecosystem-smoke/1.0" \
             -H "Accept: application/vnd.github+json" \
             https://api.github.com/repos/VSCodium/vscodium/releases/latest \
-            | grep browser_download_url | grep 'VSCodium-linux-x64-.*\.tar\.gz' | head -n1 | cut -d '"' -f4)"
+            | python3 -c 'import json, re, sys; release = json.load(sys.stdin); pattern = re.compile(r"^VSCodium-linux-x64-.*\\.tar\\.gz$"); matches = [asset["browser_download_url"] for asset in release.get("assets", []) if pattern.match(asset.get("name", ""))]; print(matches[0] if matches else "", end="")')"
           if [[ -z "$CODIUM_URL" ]]; then
             echo "Could not determine VSCodium release tarball URL"
             exit 1
