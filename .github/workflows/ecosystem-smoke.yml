@@ -657,6 +657,8 @@ jobs:
           echo "VSCODE_BIN=$RUNNER_TEMP/editors/vscode/VSCode-linux-x64/bin/code" >> "$GITHUB_ENV"
 
           CODIUM_URL="$(curl -fsSL --retry 5 --retry-all-errors --retry-delay 10 \
+            -H "User-Agent: vastlint-ecosystem-smoke/1.0" \
+            -H "Accept: application/vnd.github+json" \
             https://api.github.com/repos/VSCodium/vscodium/releases/latest \
             | grep browser_download_url | grep 'VSCodium-linux-x64-.*\.tar\.gz' | head -n1 | cut -d '"' -f4)"
           if [[ -z "$CODIUM_URL" ]]; then
