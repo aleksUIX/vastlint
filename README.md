@@ -1,5 +1,7 @@
 # VASTlint
 
+[![MCP Queen operational grade](https://mcpqueen.com/badge/io.github.aleksUIX/vastlint.svg)](https://mcpqueen.com/s/io.github.aleksUIX/vastlint)
+
 **Website & web validator:** [VAST tag validator](https://vastlint.org) Paste a VAST tag and get results in your browser, no install required.
 
 A high-performance VAST XML validator built on a pure-Rust core. Checks ad tags against the IAB Tech Lab VAST specification so you don't have to read it. Over $30 billion in annual CTV and video ad spend flows through VAST XML, and malformed tags are one of the most common causes of lost impressions, broken tracking, and revenue discrepancies between platforms. There is no widely adopted open-source tool that validates VAST XML against the full IAB specification across all published versions.
