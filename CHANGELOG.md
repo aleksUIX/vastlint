@@ -8,6 +8,10 @@ GitHub Releases: <https://github.com/aleksUIX/vastlint/releases>
 
 ## [Unreleased]
 
+---
+
+## [0.13.10] - 2026-09-22
+
 ### Added
 
 - Claude Code plugin: skills `validate-vast` and `inspect-vast`, agent `vast-tag-reviewer`, and hosted MCP in `.mcp.json` at the plugin root.
@@ -16,6 +20,9 @@ GitHub Releases: <https://github.com/aleksUIX/vastlint/releases>
 ### Changed
 
 - Restore the stock Apache-2.0 `LICENSE` text so GitHub licensee (and Glama) detect Apache-2.0. Copyright stays in `NOTICE`.
+- Bump `rmcp` 3.3.0 to 3.4.0.
+- Bump `clap` 4.6.6 to 4.6.7.
+- Bump `@vscode/vsce` 3.9.2 to 4.0.0.
 
 ---
 
