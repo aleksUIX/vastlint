@@ -74,7 +74,7 @@ jobs:
 
       - name: Install Rust toolchain
         if: ${{ github.event_name != 'workflow_dispatch' || inputs.tag == '' }}
-        uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772  # v (pinned SHA)
+        uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de  # v (pinned SHA)
         with:
           toolchain: stable
           targets: wasm32-unknown-unknown
@@ -859,7 +859,7 @@ jobs:
           ref: ${{ env.RELEASE_TAG }}
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772  # v (pinned SHA)
+        uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de  # v (pinned SHA)
         with:
           toolchain: stable
           targets: wasm32-unknown-unknown
@@ -956,7 +956,7 @@ jobs:
           ref: ${{ env.RELEASE_TAG }}
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772  # v (pinned SHA)
+        uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de  # v (pinned SHA)
         with:
           toolchain: stable
           targets: ${{ matrix.target }}
@@ -1056,7 +1056,7 @@ jobs:
           ref: ${{ env.RELEASE_TAG }}
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772  # v (pinned SHA)
+        uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de  # v (pinned SHA)
         with:
           toolchain: stable
           targets: ${{ matrix.target }}
@@ -1146,7 +1146,7 @@ jobs:
           ref: ${{ env.RELEASE_TAG }}
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772  # v (pinned SHA)
+        uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de  # v (pinned SHA)
         with:
           toolchain: stable
           targets: ${{ matrix.target }}
@@ -1393,7 +1393,7 @@ jobs:
           ref: ${{ env.RELEASE_TAG }}
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772  # v (pinned SHA)
+        uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de  # v (pinned SHA)
         with:
           toolchain: stable
 
@@ -2532,7 +2532,7 @@ jobs:
           fi
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@6c977a6ca4077a0ceb28ffbe03f59d46e9ac8772  # v (pinned SHA)
+        uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de  # v (pinned SHA)
         with:
           toolchain: stable
           targets: wasm32-unknown-unknown
