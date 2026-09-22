@@ -1,6 +1,6 @@
 use rmcp::{
     handler::server::{common::schema_for_output as output_schema, wrapper::Parameters},
-    model::{Implementation, ServerCapabilities, ServerInfo},
+    model::{Implementation, ServerCapabilities, ServerConfig},
     schemars, tool, tool_handler, tool_router, Json, ServerHandler,
 };
 use serde::{Deserialize, Serialize};
@@ -725,8 +725,8 @@ impl VastlintServer {
 
 #[tool_handler]
 impl ServerHandler for VastlintServer {
-    fn get_info(&self) -> ServerInfo {
-        ServerInfo::new(ServerCapabilities::builder().enable_tools().build())
+    fn get_info(&self) -> ServerConfig {
+        ServerConfig::new(ServerCapabilities::builder().enable_tools().build())
             .with_server_info(Implementation::new("vastlint", env!("CARGO_PKG_VERSION")))
             .with_instructions(
                 "IAB ad tag XML validation and inspection tools. Supports VAST 2.0-4.4, VMAP 1.0, and DAAST 1.0/1.1. \
