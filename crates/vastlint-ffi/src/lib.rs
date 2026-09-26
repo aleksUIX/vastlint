@@ -30,6 +30,7 @@
 //! `vastlint_result_free` must not be called on the same pointer from multiple
 //! threads simultaneously.
 
+use std::collections::HashSet;
 use std::ffi::{CStr, CString};
 use std::os::raw::{c_char, c_int, c_uint};
 use std::ptr;
@@ -73,7 +74,8 @@ pub struct VastlintResult {
 ///       "severity": "error" | "warning" | "info",
 ///       "message": "...",
 ///       "path": "VAST/Ad/InLine/Creatives" | null,
-///       "spec_ref": "IAB VAST 4.2 §3.4.1"
+///       "spec_ref": "IAB VAST 4.2 §3.4.1",
+///       "revenue_impact": true
 ///     }
 ///   ],
 ///   "summary": {
@@ -86,6 +88,11 @@ pub struct VastlintResult {
 /// ```
 fn build_result(result: vastlint_core::ValidationResult) -> *mut VastlintResult {
     let version_str = result.version.best().map(|v| v.as_str().to_owned());
+    let revenue_ids: HashSet<&str> = vastlint_core::all_rules()
+        .iter()
+        .filter(|rule| rule.revenue_impact())
+        .map(|rule| rule.id)
+        .collect();
 
     // Build JSON manually to avoid pulling in serde_json. The structure is
     // simple and fixed; hand-rolling it keeps the dependency count at zero.
@@ -127,7 +134,13 @@ fn build_result(result: vastlint_core::ValidationResult) -> *mut VastlintResult 
         }
         json.push_str(",\"spec_ref\":\"");
         json_escape_into(&mut json, issue.spec_ref);
-        json.push_str("\",\"line\":");
+        json.push_str("\",\"revenue_impact\":");
+        if revenue_ids.contains(issue.id) {
+            json.push_str("true");
+        } else {
+            json.push_str("false");
+        }
+        json.push_str(",\"line\":");
         match issue.line {
             Some(l) => json.push_str(&l.to_string()),
             None => json.push_str("null"),
@@ -476,6 +489,28 @@ mod tests {
 
     fn invalid_vast() -> CString {
         CString::new("<VAST version=\"4.2\"><Ad></Ad></VAST>").unwrap()
+    }
+
+    #[test]
+    fn missing_impression_is_flagged_revenue_impact() {
+        let xml = CString::new(
+            r#"<VAST version="2.0"><Ad id="1"><InLine><AdSystem>Test</AdSystem><AdTitle>Test</AdTitle><Creatives><Creative><Linear><Duration>00:00:30</Duration><MediaFiles><MediaFile delivery="progressive" type="video/mp4" width="640" height="360">https://cdn.example.com/ad.mp4</MediaFile></MediaFiles></Linear></Creative></Creatives></InLine></Ad></VAST>"#,
+        )
+        .unwrap();
+        let result = unsafe { vastlint_validate(xml.as_ptr(), xml.as_bytes().len()) };
+        assert!(!result.is_null());
+        let json = unsafe { std::ffi::CStr::from_ptr(vastlint_result_json(result)) }
+            .to_string_lossy()
+            .into_owned();
+        unsafe { vastlint_result_free(result) };
+        assert!(
+            json.contains("\"id\":\"VAST-2.0-inline-impression\""),
+            "{json}"
+        );
+        assert!(
+            json.contains("\"revenue_impact\":true"),
+            "{json}"
+        );
     }
 
     #[test]
