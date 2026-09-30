@@ -154,15 +154,28 @@ fn check_creative_deprecated(
                 }
             }
 
-            // All versions: Flash MIME type is obsolete.
+            // All versions: Flash is obsolete, and an image MIME on Linear cannot play.
             if let Some(mime) = mf.attr("type") {
-                if mime.contains("flash") || mime.contains("x-shockwave-flash") {
+                let mime_lower = mime.to_ascii_lowercase();
+                if mime_lower.contains("flash") || mime_lower.contains("x-shockwave-flash") {
                     emit(
                         ctx,
                         issues,
                         "VAST-2.0-flash-mediafile",
                         Severity::Warning,
                         "Flash-based MediaFile type is no longer supported in modern browsers",
+                        Some(mf_path.clone()),
+                        "IAB VAST 2.0 §2.3.5.2",
+                        Some(mf),
+                    );
+                }
+                if mime_lower.starts_with("image/") {
+                    emit(
+                        ctx,
+                        issues,
+                        "VAST-2.0-mediafile-image",
+                        Severity::Warning,
+                        "Linear <MediaFile> type is an image. A player cannot play it as video, so quartiles and complete will not fire",
                         Some(mf_path),
                         "IAB VAST 2.0 §2.3.5.2",
                         Some(mf),

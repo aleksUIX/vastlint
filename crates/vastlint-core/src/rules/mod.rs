@@ -203,6 +203,7 @@ pub static CATALOG: &[RuleMeta] = &[
     RuleMeta { id: "VAST-2.0-url-invalid",             default_severity: Severity::Warning, description: "URL field does not appear to be a valid URI",                                                   source: Rfc3986  },
     // consistency.rs
     RuleMeta { id: "VAST-2.0-parse-error",             default_severity: Severity::Error,   description: "XML parse error — document may be malformed",                                                   source: Xml      },
+    RuleMeta { id: "VAST-2.0-json-escaped",            default_severity: Severity::Error,   description: "Document is JSON-escaped, so attribute quotes are not real XML quotes",                   source: Xml      },
     RuleMeta { id: "VAST-2.0-version-mismatch",        default_severity: Severity::Warning, description: "Declared version does not match structural signals",                                            source: Inferred },
     RuleMeta { id: "VAST-2.0-duplicate-impression",    default_severity: Severity::Warning, description: "Duplicate <Impression> URL within the same <Ad> — causes double-counted billing and disputes", source: IndustryBestPractice },
     // deprecated.rs
@@ -211,6 +212,7 @@ pub static CATALOG: &[RuleMeta] = &[
     RuleMeta { id: "VAST-4.1-vpaid-apiframework",      default_severity: Severity::Warning, description: "apiFramework=\"VPAID\" is deprecated as of VAST 4.1",                                          source: VastSpec },
     RuleMeta { id: "VAST-4.0-mediafile-apiframework",  default_severity: Severity::Info,    description: "<MediaFile apiFramework> is deprecated in VAST 4.0+ — use <InteractiveCreativeFile>",          source: VastSpec },
     RuleMeta { id: "VAST-2.0-flash-mediafile",         default_severity: Severity::Warning, description: "Flash-based MediaFile type is no longer supported",                                             source: Inferred },
+    RuleMeta { id: "VAST-2.0-mediafile-image",         default_severity: Severity::Warning, description: "Linear <MediaFile> type is an image, which a player cannot play as video",                  source: IndustryBestPractice },
     // ambiguous.rs
     RuleMeta { id: "VAST-3.0-progress-offset",         default_severity: Severity::Error,   description: "<Tracking event=\"progress\"> requires an offset attribute",                                    source: VastSpec },
     RuleMeta { id: "VAST-3.0-icon-attrs",              default_severity: Severity::Warning, description: "Icon missing recommended attributes (program/width/height/position)",                           source: VastSpec },
@@ -262,6 +264,7 @@ pub static CATALOG: &[RuleMeta] = &[
     RuleMeta { id: "VAST-4.1-exec-resource-https",              default_severity: Severity::Warning, description: "OMID <ExecutableResource> reference should use HTTPS when it is a URL",                  source: IndustryBestPractice },
     // values.rs
     RuleMeta { id: "VAST-2.0-duration-format",                default_severity: Severity::Error,   description: "<Duration> value does not match HH:MM:SS[.mmm] format",                                 source: VastSpec },
+    RuleMeta { id: "VAST-2.0-duration-zero",                  default_severity: Severity::Warning, description: "<Duration> is zero, so quartiles and complete cannot fire",                              source: IndustryBestPractice },
     RuleMeta { id: "VAST-2.0-mediafile-delivery-enum",        default_severity: Severity::Error,   description: "<MediaFile> delivery must be \"progressive\" or \"streaming\"",                          source: VastXsd  },
     RuleMeta { id: "VAST-3.0-skipoffset-format",              default_severity: Severity::Warning, description: "Linear skipoffset does not match HH:MM:SS[.mmm] or n% format",                          source: VastSpec },
     RuleMeta { id: "VAST-3.0-progress-offset-format",         default_severity: Severity::Warning, description: "Tracking progress offset does not match required format",                                source: VastSpec },

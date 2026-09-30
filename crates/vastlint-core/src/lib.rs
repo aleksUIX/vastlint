@@ -463,7 +463,9 @@ pub fn validate(input: &str) -> ValidationResult {
 /// let result = validate_with_context("<VAST/>", ctx);
 /// ```
 pub fn validate_with_context(input: &str, context: ValidationContext) -> ValidationResult {
-    let doc = parse::parse(input);
+    let unescaped = unescape_json_vast(input);
+    let source = unescaped.as_deref().unwrap_or(input);
+    let doc = parse::parse(source);
     let document_type = detect::detect_document_type(&doc);
     let version = match document_type {
         // version attributes on VMAP/DAAST roots are validated by their own
@@ -476,6 +478,22 @@ pub fn validate_with_context(input: &str, context: ValidationContext) -> Validat
     };
     let mut issues = Vec::new();
     rules::run(&doc, &version, &context, &mut issues);
+    if unescaped.is_some() {
+        if let Some(severity) = context.resolve("VAST-2.0-json-escaped", Severity::Error) {
+            issues.insert(
+                0,
+                Issue {
+                    id: "VAST-2.0-json-escaped",
+                    severity,
+                    message: "This document is JSON-escaped. Quotes and newlines were unescaped before the other checks. A player that reads the escaped text will not see the attributes",
+                    path: None,
+                    spec_ref: "JSON",
+                    line: None,
+                    col: None,
+                },
+            );
+        }
+    }
     let summary = summarize::summarize(&issues);
     ValidationResult {
         document_type,
@@ -483,6 +501,83 @@ pub fn validate_with_context(input: &str, context: ValidationContext) -> Validat
         issues,
         summary,
     }
+}
+
+/// The VAST open tag's version attribute is still a JSON escape (`version=\"`).
+/// A real `version="` or `version='` means the document is already XML.
+fn vast_open_is_json_escaped(input: &str) -> bool {
+    const REAL: [&str; 4] = [
+        "<VAST version=\"",
+        "<VAST version='",
+        "<vast version=\"",
+        "<vast version='",
+    ];
+    if REAL.iter().any(|pattern| input.contains(pattern)) {
+        return false;
+    }
+    input.contains("<VAST version=\\\"")
+        || input.contains("<vast version=\\\"")
+        || input.contains("\\n<VAST")
+        || input.contains("\\n<vast")
+}
+
+fn unescape_json_layer(input: &str) -> String {
+    let mut out = String::with_capacity(input.len());
+    let mut chars = input.chars().peekable();
+    while let Some(ch) = chars.next() {
+        if ch == '\\' {
+            match chars.peek().copied() {
+                Some('n') => {
+                    chars.next();
+                    out.push('\n');
+                }
+                Some('t') => {
+                    chars.next();
+                    out.push('\t');
+                }
+                Some('r') => {
+                    chars.next();
+                    out.push('\r');
+                }
+                Some('"') => {
+                    chars.next();
+                    out.push('"');
+                }
+                Some('\\') => {
+                    chars.next();
+                    out.push('\\');
+                }
+                Some('/') => {
+                    chars.next();
+                    out.push('/');
+                }
+                _ => out.push(ch),
+            }
+        } else {
+            out.push(ch);
+        }
+    }
+    out
+}
+
+/// Unescape a JSON-escaped VAST document, up to four layers.
+/// Returns None when the open tag is already real XML, or when unescaping
+/// still does not produce a version attribute.
+fn unescape_json_vast(input: &str) -> Option<String> {
+    if !vast_open_is_json_escaped(input) {
+        return None;
+    }
+    let mut current = input.to_owned();
+    for _ in 0..4 {
+        if !vast_open_is_json_escaped(&current) {
+            break;
+        }
+        current = unescape_json_layer(&current);
+    }
+    if vast_open_is_json_escaped(&current) {
+        return None;
+    }
+    Some(current)
 }
 
 // ── Test helpers (integration tests only) ────────────────────────────────────
@@ -595,6 +690,9 @@ impl RuleMeta {
             | "VAST-2.0-url-empty"
             | "VAST-4.1-vpaid-apiframework"
             | "VAST-2.0-flash-mediafile"
+            | "VAST-2.0-mediafile-image"
+            | "VAST-2.0-duration-zero"
+            | "VAST-2.0-json-escaped"
         )
     }
 }

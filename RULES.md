@@ -2,7 +2,7 @@
 
 Full reference documentation for every rule is at **[vastlint.org/docs/rules](https://vastlint.org/docs/rules/)**.
 
-232 rules across IAB VAST 2.0 – 4.4, VMAP 1.0, DAAST 1.0, and SIMID 1.0 – 1.1. Each rule has a stable ID, a default severity (`error` / `warning` / `info`), and a dedicated docs page with the spec reference, examples, and fix guidance.
+235 rules across IAB VAST 2.0 – 4.4, VMAP 1.0, DAAST 1.0, and SIMID 1.0 – 1.1. Each rule has a stable ID, a default severity (`error` / `warning` / `info`), and a dedicated docs page with the spec reference, examples, and fix guidance.
 
 The severity below is the default. A few rules resolve theirs from the document's declared version, because the schemas disagree about what is required: the `<Icon>` placement attributes are errors under VAST 3.0, which required them, and warnings under 4.x, whose XSDs declare them optional. `VAST-4.1-verification-vendor` and `VAST-4.1-js-resource-apiframework` behave the same way across 4.0 and 4.1. Config overrides always win over both.
 
@@ -63,11 +63,14 @@ The severity below is the default. A few rules resolve theirs from the document'
 | [VAST-2.0-url-empty](https://vastlint.org/docs/rules/VAST-2.0-url-empty/) | error | URL field is empty |
 | [VAST-2.0-url-invalid](https://vastlint.org/docs/rules/VAST-2.0-url-invalid/) | warning | URL field does not appear to be a valid URI |
 | [VAST-2.0-parse-error](https://vastlint.org/docs/rules/VAST-2.0-parse-error/) | error | XML parse error — document may be malformed |
+| [VAST-2.0-json-escaped](https://vastlint.org/docs/rules/VAST-2.0-json-escaped/) | error | Document is JSON-escaped, so attribute quotes are not real XML quotes |
 | [VAST-2.0-version-mismatch](https://vastlint.org/docs/rules/VAST-2.0-version-mismatch/) | warning | Declared version does not match structural signals |
 | [VAST-2.0-duplicate-impression](https://vastlint.org/docs/rules/VAST-2.0-duplicate-impression/) | warning | Duplicate `<Impression>` URL within the same `<Ad>` |
 | [VAST-2.0-flash-mediafile](https://vastlint.org/docs/rules/VAST-2.0-flash-mediafile/) | warning | Flash MediaFile type is no longer supported |
+| [VAST-2.0-mediafile-image](https://vastlint.org/docs/rules/VAST-2.0-mediafile-image/) | warning | Linear MediaFile type is an image, which a player cannot play as video |
 | [VAST-2.0-linear-tracking-quartiles](https://vastlint.org/docs/rules/VAST-2.0-linear-tracking-quartiles/) | warning | `<Linear>` has no standard quartile tracking events — measurement system receives no signal |
 | [VAST-2.0-duration-format](https://vastlint.org/docs/rules/VAST-2.0-duration-format/) | error | Duration value does not match `HH:MM:SS[.mmm]` format |
+| [VAST-2.0-duration-zero](https://vastlint.org/docs/rules/VAST-2.0-duration-zero/) | warning | Duration is zero, so quartiles and complete cannot fire |
 | [VAST-2.0-macro-unknown](https://vastlint.org/docs/rules/VAST-2.0-macro-unknown/) | warning | URL contains a `[MACRO]` that is not a recognised IAB VAST macro |
 | [VAST-2.0-macro-lowercase](https://vastlint.org/docs/rules/VAST-2.0-macro-lowercase/) | warning | Recognised macro is not uppercase — players match macro names case-sensitively |
 | [VAST-2.0-macro-wrong-context](https://vastlint.org/docs/rules/VAST-2.0-macro-wrong-context/) | info | Context-restricted macro (`[ERRORCODE]`/`[REASON]`) used where it has no defined value |

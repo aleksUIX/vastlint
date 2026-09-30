@@ -6,7 +6,17 @@ GitHub Releases: <https://github.com/aleksUIX/vastlint/releases>
 
 ---
 
-## [Unreleased]
+## [0.13.12] - 2026-09-30
+
+### Added
+
+- `VAST-2.0-json-escaped` (error). A document whose `<VAST version>` quotes are still JSON escapes is unescaped before the other checks, and reported once. The missing-attribute pile from `version=\"3.0\"` is the escape, not fifty absent attributes.
+- `VAST-2.0-mediafile-image` (warning). A Linear `<MediaFile>` whose type is `image/*` cannot play, so quartiles and complete will not fire.
+- `VAST-2.0-duration-zero` (warning). A `<Duration>` of `00:00:00` matches the format and still cannot fire quartiles or complete.
+
+### Changed
+
+- `VAST-4.1-tracking-event-value` names the event in the path, and says which VAST version added `playerExpand`, `playerCollapse`, `loaded`, `interactiveStart`, and the VAST 3.0 events when the document declares an earlier version.
 
 ---
 

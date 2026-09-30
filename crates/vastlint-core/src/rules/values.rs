@@ -374,8 +374,8 @@ pub(super) fn check_tracking_value(
                     issues,
                     "VAST-4.1-tracking-event-value",
                     Severity::Error,
-                    "Tracking event attribute value is not in the VAST spec enum for this version",
-                    Some(format!("{}[@event]", path)),
+                    tracking_event_message(event, ver),
+                    Some(format!("{path}[@event=\"{event}\"]")),
                     "IAB VAST 4.2 §2.3.6",
                     Some(tracking),
                 )
@@ -722,7 +722,10 @@ pub(super) fn check_duration_value(
     issues: &mut Vec<Issue>,
 ) {
     let text = node.text.trim();
-    if !text.is_empty() && !is_valid_duration(text) {
+    if text.is_empty() {
+        return;
+    }
+    if !is_valid_duration(text) {
         emit(
             ctx,
             issues,
@@ -732,8 +735,50 @@ pub(super) fn check_duration_value(
             Some(path.to_owned()),
             "IAB VAST 2.0 §2.3.5.1",
             Some(node),
-        )
+        );
+        return;
     }
+    if is_zero_duration(text) {
+        emit(
+            ctx,
+            issues,
+            "VAST-2.0-duration-zero",
+            Severity::Warning,
+            "<Duration> is zero. A linear ad of no length cannot fire quartiles or complete",
+            Some(path.to_owned()),
+            "IAB VAST 2.0 §2.3.5.1",
+            Some(node),
+        );
+    }
+}
+
+/// A duration that matches the format but is 0 hours, 0 minutes, and 0 seconds.
+fn is_zero_duration(s: &str) -> bool {
+    let time_part = s.split('.').next().unwrap_or(s);
+    time_part.split(':').all(|part| part.chars().all(|c| c == '0'))
+}
+
+/// Name the event, and say which version added it when this document is older.
+fn tracking_event_message(event: &str, ver: &VastVersion) -> &'static str {
+    if !ver.at_least(&VastVersion::V4_0) && (event == "playerExpand" || event == "playerCollapse")
+    {
+        return "Tracking event \"playerExpand\" or \"playerCollapse\" was added in VAST 4.0. This document declares an earlier version";
+    }
+    if !ver.at_least(&VastVersion::V4_1) && event == "loaded" {
+        return "Tracking event \"loaded\" was added in VAST 4.1. This document declares an earlier version";
+    }
+    if !ver.at_least(&VastVersion::V4_2) && event == "interactiveStart" {
+        return "Tracking event \"interactiveStart\" was added in VAST 4.2. This document declares an earlier version";
+    }
+    if !ver.at_least(&VastVersion::V3_0)
+        && matches!(
+            event,
+            "skip" | "progress" | "closeLinear" | "acceptInvitationLinear" | "exitFullscreen"
+        )
+    {
+        return "This tracking event was added in VAST 3.0. This document declares 2.0";
+    }
+    "Tracking event attribute value is not in the VAST spec enum for this version"
 }
 
 /// `<Expires>` is `xs:integer` seconds. Presence is optional (4.1+); a value

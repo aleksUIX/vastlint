@@ -1688,6 +1688,138 @@ fn flash_mediafile_fires_warning() {
 }
 
 #[test]
+fn linear_image_mediafile_fires_warning() {
+    let xml = r#"<VAST version="4.2"><Ad id="a"><InLine>
+        <AdSystem version="1.0">X</AdSystem><AdTitle>T</AdTitle>
+        <AdServingId>s</AdServingId>
+        <Impression><![CDATA[https://t.example.com/i]]></Impression>
+        <Creatives><Creative>
+          <UniversalAdId idRegistry="ad-id.org">U</UniversalAdId>
+          <Linear>
+            <Duration>00:00:15</Duration>
+            <MediaFiles>
+              <MediaFile delivery="progressive" type="image/jpeg" width="576" height="576"><![CDATA[https://cdn.example.com/a.jpg]]></MediaFile>
+            </MediaFiles>
+          </Linear>
+        </Creative></Creatives>
+      </InLine></Ad></VAST>"#;
+    let result = validate(xml);
+    assert!(
+        has_issue(&result, "VAST-2.0-mediafile-image"),
+        "expected VAST-2.0-mediafile-image, got: {:#?}",
+        result.issues
+    );
+    assert!(result.summary.is_valid());
+}
+
+#[test]
+fn zero_duration_fires_warning_and_bad_seconds_stay_a_format_error() {
+    let zero = r#"<VAST version="4.2"><Ad id="a"><InLine>
+        <AdSystem version="1.0">X</AdSystem><AdTitle>T</AdTitle>
+        <AdServingId>s</AdServingId>
+        <Impression><![CDATA[https://t.example.com/i]]></Impression>
+        <Creatives><Creative>
+          <UniversalAdId idRegistry="ad-id.org">U</UniversalAdId>
+          <Linear>
+            <Duration>00:00:00.000</Duration>
+            <MediaFiles>
+              <MediaFile delivery="progressive" type="video/mp4" width="640" height="360"><![CDATA[https://cdn.example.com/a.mp4]]></MediaFile>
+            </MediaFiles>
+          </Linear>
+        </Creative></Creatives>
+      </InLine></Ad></VAST>"#;
+    let result = validate(zero);
+    assert!(has_issue(&result, "VAST-2.0-duration-zero"));
+    assert!(!has_issue(&result, "VAST-2.0-duration-format"));
+    assert!(result.summary.is_valid());
+
+    let sixty = zero.replace("00:00:00.000", "00:00:60");
+    let bad = validate(&sixty);
+    assert!(has_issue(&bad, "VAST-2.0-duration-format"));
+    assert!(!has_issue(&bad, "VAST-2.0-duration-zero"));
+}
+
+#[test]
+fn tracking_event_added_later_names_the_version() {
+    let xml = r#"<VAST version="3.0"><Ad id="a"><InLine>
+        <AdSystem version="1.0">X</AdSystem><AdTitle>T</AdTitle>
+        <Impression><![CDATA[https://t.example.com/i]]></Impression>
+        <Creatives><Creative><Linear>
+          <Duration>00:00:15</Duration>
+          <TrackingEvents>
+            <Tracking event="playerExpand"><![CDATA[https://t.example.com/e]]></Tracking>
+          </TrackingEvents>
+          <MediaFiles>
+            <MediaFile delivery="progressive" type="video/mp4" width="640" height="360"><![CDATA[https://cdn.example.com/a.mp4]]></MediaFile>
+          </MediaFiles>
+        </Linear></Creative></Creatives>
+      </InLine></Ad></VAST>"#;
+    let result = validate(xml);
+    let issue = result
+        .issues
+        .iter()
+        .find(|issue| issue.id == "VAST-4.1-tracking-event-value")
+        .expect("playerExpand is not a VAST 3.0 event");
+    assert!(
+        issue.message.contains("VAST 4.0"),
+        "message should name the version that added the event: {}",
+        issue.message
+    );
+    assert!(
+        issue.path.as_deref().is_some_and(|path| path.contains("playerExpand")),
+        "path should name the event: {:?}",
+        issue.path
+    );
+}
+
+#[test]
+fn json_escaped_vast_is_one_error_and_then_linted_unescaped() {
+    let xml = r#"<VAST version="3.0"><Ad id="a"><InLine>
+        <AdSystem version="1.0">DCM</AdSystem><AdTitle>T</AdTitle>
+        <Impression><![CDATA[https://t.example.com/i]]></Impression>
+        <Creatives><Creative><Linear>
+          <Duration>00:00:15</Duration>
+          <MediaFiles>
+            <MediaFile delivery="progressive" type="video/mp4" width="640" height="360"><![CDATA[https://cdn.example.com/a.mp4]]></MediaFile>
+          </MediaFiles>
+        </Linear></Creative></Creatives>
+      </InLine></Ad></VAST>"#;
+    let escaped = xml.replace('"', "\\\"");
+    let result = validate(&escaped);
+    assert!(
+        has_issue(&result, "VAST-2.0-json-escaped"),
+        "expected VAST-2.0-json-escaped, got: {:#?}",
+        result.issues
+    );
+    assert!(
+        !has_issue(&result, "VAST-2.0-root-version"),
+        "unescaped document has a version attribute, got: {:#?}",
+        result.issues
+    );
+    assert!(
+        !has_issue(&result, "VAST-2.0-mediafile-delivery"),
+        "unescaped MediaFile has delivery, got: {:#?}",
+        result.issues
+    );
+
+    let with_json_blob = r#"<VAST version="3.0"><Ad id="a"><InLine>
+        <AdSystem version="1.0">X</AdSystem><AdTitle>T</AdTitle>
+        <Impression><![CDATA[https://t.example.com/i]]></Impression>
+        <Creatives><Creative><Linear>
+          <Duration>00:00:15</Duration>
+          <AdParameters><![CDATA[{"k":"v"}]]></AdParameters>
+          <MediaFiles>
+            <MediaFile delivery="progressive" type="video/mp4" width="640" height="360"><![CDATA[https://cdn.example.com/a.mp4]]></MediaFile>
+          </MediaFiles>
+        </Linear></Creative></Creatives>
+      </InLine></Ad></VAST>"#;
+    assert!(
+        !has_issue(&validate(with_json_blob), "VAST-2.0-json-escaped"),
+        "a real version attribute must not be treated as escaped JSON"
+    );
+}
+
+#[test]
 fn survey_deprecated_fires_warning() {
     let result = validate(&load("warn_survey_deprecated.xml"));
     assert!(
@@ -2356,7 +2488,7 @@ fn linear_with_quartile_tracking_does_not_fire() {
 fn all_rules_catalog_has_expected_count() {
     assert_eq!(
         vastlint_core::all_rules().len(),
-        232,
+        235,
         "catalog count changed — update this assertion and bump RULES.md"
     );
 }
