@@ -643,6 +643,8 @@ jobs:
           npx --no-install vsce package --no-update-package-json --out vastlint-smoke.vsix
 
       - name: Download portable VS Code and VSCodium
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail

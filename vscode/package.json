@@ -123,16 +123,16 @@
     "@types/vscode": "1.85.0",
     "@vscode/vsce": "4.0.0",
     "esbuild": "^0.28.2",
-    "fast-uri": "3.1.7",
+    "fast-uri": "3.1.8",
     "ovsx": "1.2.0",
     "typescript": "^7.0.2"
   },
   "overrides": {
     "tmp": "0.2.7",
-    "undici": "7.29.0",
+    "undici": "7.30.0",
     "form-data": "4.0.6",
     "js-yaml": "4.3.2",
-    "brace-expansion": "5.0.9",
-    "fast-uri": "3.1.7"
+    "brace-expansion": "5.0.12",
+    "fast-uri": "3.1.8"
   }
 }

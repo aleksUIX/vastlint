@@ -755,13 +755,14 @@ pub(super) fn check_duration_value(
 /// A duration that matches the format but is 0 hours, 0 minutes, and 0 seconds.
 fn is_zero_duration(s: &str) -> bool {
     let time_part = s.split('.').next().unwrap_or(s);
-    time_part.split(':').all(|part| part.chars().all(|c| c == '0'))
+    time_part
+        .split(':')
+        .all(|part| part.chars().all(|c| c == '0'))
 }
 
 /// Name the event, and say which version added it when this document is older.
 fn tracking_event_message(event: &str, ver: &VastVersion) -> &'static str {
-    if !ver.at_least(&VastVersion::V4_0) && (event == "playerExpand" || event == "playerCollapse")
-    {
+    if !ver.at_least(&VastVersion::V4_0) && (event == "playerExpand" || event == "playerCollapse") {
         return "Tracking event \"playerExpand\" or \"playerCollapse\" was added in VAST 4.0. This document declares an earlier version";
     }
     if !ver.at_least(&VastVersion::V4_1) && event == "loaded" {

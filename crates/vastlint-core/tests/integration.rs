@@ -1766,7 +1766,10 @@ fn tracking_event_added_later_names_the_version() {
         issue.message
     );
     assert!(
-        issue.path.as_deref().is_some_and(|path| path.contains("playerExpand")),
+        issue
+            .path
+            .as_deref()
+            .is_some_and(|path| path.contains("playerExpand")),
         "path should name the event: {:?}",
         issue.path
     );
