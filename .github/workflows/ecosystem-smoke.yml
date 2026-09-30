@@ -659,6 +659,7 @@ jobs:
           CODIUM_URL="$(curl -fsSL --retry 5 --retry-all-errors --retry-delay 10 \
             -H "User-Agent: vastlint-ecosystem-smoke/1.0" \
             -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
             https://api.github.com/repos/VSCodium/vscodium/releases/latest \
             | python3 -c 'import json, re, sys; release = json.load(sys.stdin); pattern = re.compile(r"^VSCodium-linux-x64-.*\.tar\.gz$"); matches = [asset["browser_download_url"] for asset in release.get("assets", []) if pattern.match(asset.get("name", ""))]; print(matches[0] if matches else "", end="")')"
           if [[ -z "$CODIUM_URL" ]]; then

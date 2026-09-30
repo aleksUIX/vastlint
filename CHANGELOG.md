@@ -10,6 +10,19 @@ GitHub Releases: <https://github.com/aleksUIX/vastlint/releases>
 
 ---
 
+## [0.13.11] - 2026-09-30
+
+### Changed
+
+- Bump `rmcp` 3.4.0 to 3.4.1.
+- VS Code extension build chain: `fast-uri` 3.1.6 to 3.1.7 (GHSA-7p8r-x3mc-p8w7, high).
+
+### Fixed
+
+- Ecosystem smoke: authenticate GitHub API calls when resolving the VSCodium release tarball (avoids 403/429 rate limits on scheduled runs).
+
+---
+
 ## [0.13.10] - 2026-09-22
 
 ### Added
