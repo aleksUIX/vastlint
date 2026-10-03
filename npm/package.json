@@ -1,6 +1,6 @@
 {
   "name": "vastlint",
-  "version": "0.13.12",
+  "version": "0.13.13",
   "description": "Validate VAST 2.0–4.4, VMAP 1.0, and DAAST 1.0 ad tags against IAB specs. 235 rules. Rust/WASM core.",
   "license": "Apache-2.0",
   "author": "Alex Sekowski <alex@vastlint.org>",
@@ -38,9 +38,13 @@
   "types": "./index.d.ts",
   "exports": {
     ".": {
+      "types": "./index.d.ts",
+      "node": {
+        "import": "./index.node.mjs",
+        "require": "./index.cjs"
+      },
       "import": "./index.js",
-      "require": "./index.cjs",
-      "types": "./index.d.ts"
+      "require": "./index.cjs"
     },
     "./index.cjs": "./index.cjs",
     "./vastlint_wasm_cjs.js": "./vastlint_wasm_cjs.js",
@@ -50,6 +54,7 @@
   "files": [
     "index.js",
     "index.cjs",
+    "index.node.mjs",
     "index.d.ts",
     "vastlint_wasm.js",
     "vastlint_wasm.d.ts",

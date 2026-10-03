@@ -29,6 +29,35 @@ function issueIds(result) {
   return result.issues.map((issue) => issue.id);
 }
 
+test('plain Node ESM import resolves the node entry by package name', () => {
+  const os = require('node:os');
+  const { execFileSync } = require('node:child_process');
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'vastlint-esm-'));
+  const pkgRoot = path.resolve(__dirname, '..');
+  fs.mkdirSync(path.join(tmp, 'node_modules'));
+  fs.symlinkSync(pkgRoot, path.join(tmp, 'node_modules', 'vastlint'));
+  const xmlPath = path.join(tmp, 'tag.xml');
+  fs.writeFileSync(xmlPath, readFixture(fixtureNames()[0]));
+  fs.writeFileSync(
+    path.join(tmp, 'probe.mjs'),
+    [
+      "import { createRequire } from 'node:module';",
+      "import { readFileSync } from 'node:fs';",
+      "import * as esm from 'vastlint';",
+      "const cjs = createRequire(import.meta.url)('vastlint');",
+      "const xml = readFileSync(process.argv[1], 'utf8');",
+      "const a = esm.validate(xml).issues.map((i) => i.id);",
+      "const b = cjs.validate(xml).issues.map((i) => i.id);",
+      "if (JSON.stringify(Object.keys(esm).sort()) !== JSON.stringify(Object.keys(cjs).sort())) process.exit(2);",
+      "if (JSON.stringify(a) !== JSON.stringify(b)) process.exit(3);",
+    ].join('\n')
+  );
+  execFileSync(process.execPath, [path.join(tmp, 'probe.mjs'), xmlPath], {
+    cwd: tmp,
+    stdio: 'inherit',
+  });
+});
+
 test('packaged runtime validates the core fixture corpus without throwing', () => {
   for (const name of fixtureNames()) {
     const result = vastlint.validate(readFixture(name));

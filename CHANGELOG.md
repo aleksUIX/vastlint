@@ -6,6 +6,14 @@ GitHub Releases: <https://github.com/aleksUIX/vastlint/releases>
 
 ---
 
+## [0.13.13] - 2026-10-03
+
+### Fixed
+
+- Plain Node `import { validate } from "vastlint"` no longer throws `ERR_UNKNOWN_FILE_EXTENSION .wasm`. The `node` export condition loads the CommonJS WASM build through `index.node.mjs`. Bundlers still get the static `.wasm` import.
+
+---
+
 ## [0.13.12] - 2026-09-30
 
 ### Added
