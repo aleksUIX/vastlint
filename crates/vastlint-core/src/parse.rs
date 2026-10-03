@@ -178,21 +178,40 @@ impl VastDocument {
 
 // ── Parser ────────────────────────────────────────────────────────────────────
 
-/// Convert a 0-based byte offset into a (1-based line, 1-based col) pair by
-/// scanning the source text. This is O(offset) but is only called once per
-/// element open tag and the source documents are small (< 1 MB in practice).
-fn byte_offset_to_line_col(input: &[u8], offset: usize) -> (u32, u32) {
-    let safe = offset.min(input.len());
-    let mut line: u32 = 1;
-    let mut line_start: usize = 0;
-    for (i, &b) in input[..safe].iter().enumerate() {
-        if b == b'\n' {
-            line += 1;
-            line_start = i + 1;
+/// Converts 0-based byte offsets into (1-based line, 1-based col) pairs.
+///
+/// Tag offsets arrive in document order, so each call scans only the bytes
+/// since the previous offset and a whole parse stays linear in document size.
+/// An offset behind the cursor restarts the scan from byte 0.
+struct LineCursor {
+    pos: usize,
+    line: u32,
+    line_start: usize,
+}
+
+impl LineCursor {
+    fn new() -> Self {
+        LineCursor {
+            pos: 0,
+            line: 1,
+            line_start: 0,
         }
     }
-    let col = (safe - line_start) as u32 + 1;
-    (line, col)
+
+    fn locate(&mut self, input: &[u8], offset: usize) -> (u32, u32) {
+        let safe = offset.min(input.len());
+        if safe < self.pos {
+            *self = LineCursor::new();
+        }
+        for (i, &b) in input[self.pos..safe].iter().enumerate() {
+            if b == b'\n' {
+                self.line += 1;
+                self.line_start = self.pos + i + 1;
+            }
+        }
+        self.pos = safe;
+        (self.line, (safe - self.line_start) as u32 + 1)
+    }
 }
 
 fn append_text_segment(node: &mut Node, segment: &str, from_cdata: bool) {
@@ -240,6 +259,7 @@ fn decode_general_reference(reference: &str) -> Option<String> {
 /// successfully before the error.
 pub fn parse(input: &str) -> VastDocument {
     let input_bytes = input.as_bytes();
+    let mut cursor = LineCursor::new();
     let mut reader = Reader::from_str(input);
     reader.config_mut().trim_text(true);
 
@@ -258,7 +278,7 @@ pub fn parse(input: &str) -> VastDocument {
                 // The tag in the stream is: '<' + tag_bytes + '>'.
                 let tag_len = tag_bytes.len() + 2; // +2 for '<' and '>'
                 let start_pos = end_pos.saturating_sub(tag_len);
-                let (line, col) = byte_offset_to_line_col(input_bytes, start_pos);
+                let (line, col) = cursor.locate(input_bytes, start_pos);
 
                 let name = e.local_name().as_ref().to_owned();
                 let mut attrs = Vec::new();
@@ -288,7 +308,7 @@ pub fn parse(input: &str) -> VastDocument {
                 // Self-closing: '<' + tag_bytes + '/>'
                 let tag_len = tag_bytes.len() + 3; // +3 for '<', '/', '>'
                 let start_pos = end_pos.saturating_sub(tag_len);
-                let (line, col) = byte_offset_to_line_col(input_bytes, start_pos);
+                let (line, col) = cursor.locate(input_bytes, start_pos);
 
                 let name = e.local_name().as_ref().to_owned();
                 let mut attrs = Vec::new();
@@ -391,6 +411,39 @@ mod tests {
         assert!(doc.parse_error.is_none());
         assert_eq!(doc.root.name, "VAST");
         assert_eq!(doc.root.attr("version"), Some("4.1"));
+    }
+
+    #[test]
+    fn line_cursor_matches_full_scan() {
+        let input = b"<VAST>\n  <Ad/>\n\n<InLine x=\"1\">\n</InLine>";
+        let full_scan = |offset: usize| {
+            let safe = offset.min(input.len());
+            let line = input[..safe].iter().filter(|&&b| b == b'\n').count() as u32 + 1;
+            let line_start = input[..safe]
+                .iter()
+                .rposition(|&b| b == b'\n')
+                .map_or(0, |i| i + 1);
+            (line, (safe - line_start) as u32 + 1)
+        };
+        let mut cursor = LineCursor::new();
+        for offset in [0, 9, 9, 16, 17, 33, 4, 20, 500] {
+            assert_eq!(
+                cursor.locate(input, offset),
+                full_scan(offset),
+                "offset {offset}"
+            );
+        }
+    }
+
+    #[test]
+    fn records_element_lines_in_a_multiline_document() {
+        let xml = "<VAST version=\"4.1\">\n  <Ad id=\"1\">\n    <InLine/>\n  </Ad>\n</VAST>";
+        let doc = parse(xml);
+        let ad = doc.root.child("Ad").unwrap();
+        assert_eq!((doc.root.line, doc.root.col), (1, 1));
+        assert_eq!((ad.line, ad.col), (2, 3));
+        let inline = ad.child("InLine").unwrap();
+        assert_eq!((inline.line, inline.col), (3, 5));
     }
 
     #[test]

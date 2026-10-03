@@ -6,6 +6,18 @@ GitHub Releases: <https://github.com/aleksUIX/vastlint/releases>
 
 ---
 
+## [0.14.0] - 2026-10-03
+
+Line and column numbers are computed with a cursor that scans each byte once. Findings are unchanged: same rule, path, line, and column. The old scan restarted at byte 0 for every element, so a pod or a tracker-heavy tag grew with the square of its size.
+
+On an Apple M4 release build, a 200-ad pod (117 KB) went from 35 ms to 1.8 ms, and a synthetic 10 MB pod went from 9.2 minutes to 361 ms. Across 2,254 production tags the median was already under 0.05 ms. The slowest of those, 58 KB, went from 27.7 ms to 0.39 ms.
+
+### Changed
+
+- `parse` keeps a line cursor (`pos`, `line`, `line_start`) and counts newlines only from the previous element. An offset behind the cursor rescans from byte 0.
+
+---
+
 ## [0.13.13] - 2026-10-03
 
 ### Fixed
