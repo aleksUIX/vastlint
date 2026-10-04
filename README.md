@@ -44,6 +44,8 @@ Full rule reference with examples and fix instructions: [VAST error rule referen
 
 How rules are derived: [Rule derivation methodology](https://vastlint.org/docs/methodology/) · [METHODOLOGY.md](METHODOLOGY.md)
 
+For adjacent checks, [RTBlint](https://rtblint.org) validates OpenRTB bid requests and responses. [Pixellint](https://pixellint.org) validates pixels, postbacks, tracking URLs, and conversion API payloads.
+
 ## Enterprise readiness
 
 **Zero runtime dependencies in the core.** `vastlint-core` has three compile-time dependencies (`quick-xml`, `url`, `phf`) and no runtime dependencies whatsoever — no async runtime, no regex engine, no schema interpreter. Rules are compiled Rust functions. There is no transitive dependency graph to audit, no CVE surface to track, and no supply chain to compromise at runtime.
