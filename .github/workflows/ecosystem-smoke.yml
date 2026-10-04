@@ -658,16 +658,9 @@ jobs:
           tar -xzf "$RUNNER_TEMP/editors/vscode.tar.gz" -C "$RUNNER_TEMP/editors/vscode"
           echo "VSCODE_BIN=$RUNNER_TEMP/editors/vscode/VSCode-linux-x64/bin/code" >> "$GITHUB_ENV"
 
-          CODIUM_URL="$(curl -fsSL --retry 5 --retry-all-errors --retry-delay 10 \
-            -H "User-Agent: vastlint-ecosystem-smoke/1.0" \
-            -H "Accept: application/vnd.github+json" \
-            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
-            https://api.github.com/repos/VSCodium/vscodium/releases/latest \
-            | python3 -c 'import json, re, sys; release = json.load(sys.stdin); pattern = re.compile(r"^VSCodium-linux-x64-.*\.tar\.gz$"); matches = [asset["browser_download_url"] for asset in release.get("assets", []) if pattern.match(asset.get("name", ""))]; print(matches[0] if matches else "", end="")')"
-          if [[ -z "$CODIUM_URL" ]]; then
-            echo "Could not determine VSCodium release tarball URL"
-            exit 1
-          fi
+          # Pinned tarball URL (Scorecard PinnedDependencies). Bump when smoke needs a newer VSCodium.
+          VSCODIUM_VERSION=1.135.06055
+          CODIUM_URL="https://github.com/VSCodium/vscodium/releases/download/${VSCODIUM_VERSION}/VSCodium-linux-x64-${VSCODIUM_VERSION}.tar.gz"
 
           curl -fL --retry 5 --retry-all-errors --retry-delay 10 \
             "$CODIUM_URL" -o "$RUNNER_TEMP/editors/vscodium.tar.gz"
