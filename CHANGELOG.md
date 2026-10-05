@@ -6,6 +6,14 @@ GitHub Releases: <https://github.com/aleksUIX/vastlint/releases>
 
 ---
 
+## [0.14.1] - 2026-10-05
+
+### Changed
+
+- Bump `rmcp` from 3.4.1 to 3.5.0 (MCP server dependency).
+
+---
+
 ## [0.14.0] - 2026-10-03
 
 Line and column numbers are computed with a cursor that scans each byte once. Findings are unchanged: same rule, path, line, and column. The old scan restarted at byte 0 for every element, so a pod or a tracker-heavy tag grew with the square of its size.
