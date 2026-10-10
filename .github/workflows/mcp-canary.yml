@@ -191,9 +191,9 @@ jobs:
                True, False, None),
 
               # ── error fixtures ────────────────────────────────────────────────
-              ("no <Ad> element",
-               """<VAST version="2.0"></VAST>""",
-               False, True, "VAST-2.0-root-has-ad-or-error"),
+              ("missing VAST version",
+               """<VAST></VAST>""",
+               False, True, "VAST-2.0-root-version"),
 
               ("missing <Impression>",
                """<VAST version="2.0"><Ad id="1"><InLine>

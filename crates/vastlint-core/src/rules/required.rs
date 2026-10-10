@@ -113,25 +113,9 @@ fn check_root(
         }
     }
 
-    // VAST-2.0-root-has-ad-or-error
-    // VAST 2.0 requires an Ad. VAST 3.0 §2.4.2.4 and later explicitly allow
-    // a no-ad response with only the root VAST element; Error is optional.
+    // The VAST 2.0.1 XSD permits zero Ad children. VAST 3.0 and later
+    // explicitly describe a root-only VAST document as a no-ad response.
     let vast = &doc.root;
-    let requires_ad_or_error = !version
-        .best()
-        .is_some_and(|ver| ver.at_least(&VastVersion::V3_0));
-    if requires_ad_or_error && !vast.has_child("Ad") && !vast.has_child("Error") {
-        emit(
-            ctx,
-            issues,
-            "VAST-2.0-root-has-ad-or-error",
-            Severity::Error,
-            "VAST 2.0 response contains neither <Ad> nor <Error>",
-            Some("/VAST".to_owned()),
-            "IAB VAST 2.0 §2",
-            Some(&doc.root),
-        )
-    }
 
     // VAST-4.0-wrapper-root-error
     // VAST 4.0 §2.1: the root is a choice — either Ad elements or Error elements,

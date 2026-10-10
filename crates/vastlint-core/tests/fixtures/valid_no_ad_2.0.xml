@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Valid no-ad response. The VAST 2.0.1 XSD permits zero Ad children. -->
+<VAST version="2.0">
+</VAST>

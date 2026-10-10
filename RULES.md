@@ -2,7 +2,7 @@
 
 Full reference documentation for every rule is at **[vastlint.org/docs/rules](https://vastlint.org/docs/rules/)**.
 
-235 rules across IAB VAST 2.0 – 4.4, VMAP 1.0, DAAST 1.0, and SIMID 1.0 – 1.1. Each rule has a stable ID, a default severity (`error` / `warning` / `info`), and a dedicated docs page with the spec reference, examples, and fix guidance.
+234 rules across IAB VAST 2.0 – 4.4, VMAP 1.0, DAAST 1.0, and SIMID 1.0 – 1.1. Each rule has a stable ID, a default severity (`error` / `warning` / `info`), and a dedicated docs page with the spec reference, examples, and fix guidance.
 
 The severity below is the default. A few rules resolve theirs from the document's declared version, because the schemas disagree about what is required: the `<Icon>` placement attributes are errors under VAST 3.0, which required them, and warnings under 4.x, whose XSDs declare them optional. `VAST-4.1-verification-vendor` and `VAST-4.1-js-resource-apiframework` behave the same way across 4.0 and 4.1. Config overrides always win over both.
 
@@ -15,7 +15,6 @@ The severity below is the default. A few rules resolve theirs from the document'
 | [VAST-2.0-root-element](https://vastlint.org/docs/rules/VAST-2.0-root-element/) | error | Root element must be `<VAST>` |
 | [VAST-2.0-root-version](https://vastlint.org/docs/rules/VAST-2.0-root-version/) | error | `<VAST>` must have a `version` attribute |
 | [VAST-2.0-root-version-value](https://vastlint.org/docs/rules/VAST-2.0-root-version-value/) | warning | `version` attribute must be a recognised version string |
-| [VAST-2.0-root-has-ad-or-error](https://vastlint.org/docs/rules/VAST-2.0-root-has-ad-or-error/) | error | VAST 2.0 `<VAST>` must contain at least one `<Ad>` or `<Error>`; VAST 3.0+ permits an empty no-ad response |
 | [VAST-2.0-ad-has-inline-or-wrapper](https://vastlint.org/docs/rules/VAST-2.0-ad-has-inline-or-wrapper/) | error | Each `<Ad>` must contain exactly one `<InLine>` or `<Wrapper>` |
 | [VAST-2.0-inline-adsystem](https://vastlint.org/docs/rules/VAST-2.0-inline-adsystem/) | error | `<InLine>` must contain `<AdSystem>` |
 | [VAST-2.0-inline-adtitle](https://vastlint.org/docs/rules/VAST-2.0-inline-adtitle/) | error | `<InLine>` must contain `<AdTitle>` |

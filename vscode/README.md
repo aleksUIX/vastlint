@@ -12,7 +12,7 @@ Supports VAST 2.0 through 4.4 with clean Problems entries, concise hovers, fix g
 - **Multi-block** — validates every `<VAST>...</VAST>` block in a file independently
 - **Live as you type** — re-validates 500 ms after you stop typing, and on every save
 - **CLI backend** — uses the `vastlint` CLI binary when available, falls back to WASM in-process
-- **235 rules** across VAST 2.0–4.4 plus SIMID and OMID validation: required fields, schema structure, URLs, verification semantics, deprecations, and CTV/SSAI advisories
+- **234 rules** across VAST 2.0–4.4 plus SIMID and OMID validation: required fields, schema structure, URLs, verification semantics, deprecations, and CTV/SSAI advisories
 
 ## How it looks
 
@@ -59,7 +59,7 @@ Docs: vastlint.org/docs/rules/VAST-2.0-inline-adsystem
 
 ## Rules
 
-VASTlint checks 235 rules across:
+VASTlint checks 234 rules across:
 - Required elements and attributes (VAST 2.0–4.4)
 - Value formats (durations, URLs, enums)
 - Schema conformance (unknown elements/attributes)
@@ -80,7 +80,7 @@ Canonical rule catalog:
 - [vastlint.org/docs/rules](https://vastlint.org/docs/rules/) for the hosted per-rule pages
 
 <details>
-<summary>All 235 rules</summary>
+<summary>All 234 rules</summary>
 
 ### VAST 2.0
 
@@ -89,7 +89,6 @@ Canonical rule catalog:
 | [VAST-2.0-root-element](https://vastlint.org/docs/rules/VAST-2.0-root-element/) | error | Root element must be `<VAST>` |
 | [VAST-2.0-root-version](https://vastlint.org/docs/rules/VAST-2.0-root-version/) | error | `<VAST>` must have a `version` attribute |
 | [VAST-2.0-root-version-value](https://vastlint.org/docs/rules/VAST-2.0-root-version-value/) | warning | `version` attribute must be a recognised version string |
-| [VAST-2.0-root-has-ad-or-error](https://vastlint.org/docs/rules/VAST-2.0-root-has-ad-or-error/) | error | VAST 2.0 `<VAST>` must contain at least one `<Ad>` or `<Error>` |
 | [VAST-2.0-ad-has-inline-or-wrapper](https://vastlint.org/docs/rules/VAST-2.0-ad-has-inline-or-wrapper/) | error | Each `<Ad>` must contain exactly one `<InLine>` or `<Wrapper>` |
 | [VAST-2.0-inline-adsystem](https://vastlint.org/docs/rules/VAST-2.0-inline-adsystem/) | error | `<InLine>` must contain `<AdSystem>` |
 | [VAST-2.0-inline-adtitle](https://vastlint.org/docs/rules/VAST-2.0-inline-adtitle/) | error | `<InLine>` must contain `<AdTitle>` |

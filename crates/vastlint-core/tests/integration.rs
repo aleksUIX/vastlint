@@ -282,26 +282,17 @@ fn missing_version_fires_error() {
 }
 
 #[test]
-fn no_ad_fires_error() {
-    let result = validate(&load("err_no_ad.xml"));
-    assert!(
-        has_issue(&result, "VAST-2.0-root-has-ad-or-error"),
-        "expected VAST-2.0-root-has-ad-or-error, got: {:#?}",
-        result.issues
-    );
-    assert!(!result.summary.is_valid());
-}
-
-#[test]
-fn empty_vast_is_valid_no_ad_response_from_version_3() {
-    for version in ["3.0", "4.0", "4.1", "4.2", "4.3"] {
+fn empty_vast_is_valid_no_ad_response_from_version_2() {
+    let fixture = validate(&load("valid_no_ad_2.0.xml"));
+    assert!(fixture.summary.is_valid(), "{:#?}", fixture.issues);
+    for version in ["2.0", "2.0.1", "3.0", "4.0", "4.1", "4.2", "4.3"] {
         let result = validate(&format!("<VAST version=\"{version}\"></VAST>"));
         assert!(
             result.summary.is_valid(),
             "empty VAST {version} should be a valid no-ad response: {:#?}",
             result.issues
         );
-        assert!(!has_issue(&result, "VAST-2.0-root-has-ad-or-error"));
+        assert!(result.issues.is_empty(), "{:#?}", result.issues);
     }
 }
 
@@ -2504,7 +2495,7 @@ fn linear_with_quartile_tracking_does_not_fire() {
 fn all_rules_catalog_has_expected_count() {
     assert_eq!(
         vastlint_core::all_rules().len(),
-        235,
+        234,
         "catalog count changed — update this assertion and bump RULES.md"
     );
 }

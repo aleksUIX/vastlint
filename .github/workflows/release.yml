@@ -105,7 +105,7 @@ jobs:
         run: |
           set +e
           ./target/release/vastlint check \
-            crates/vastlint-core/tests/fixtures/err_no_ad.xml
+            crates/vastlint-core/tests/fixtures/err_no_version.xml
           CODE=$?
           set -e
           if [ "$CODE" -eq 0 ]; then
@@ -210,7 +210,7 @@ jobs:
           const fs = require('fs');
 
           const invalidXml = fs.readFileSync(
-            'crates/vastlint-core/tests/fixtures/err_no_ad.xml', 'utf8'
+            'crates/vastlint-core/tests/fixtures/err_no_version.xml', 'utf8'
           );
           const result = validate(invalidXml);
           if (result.summary.errors === 0) {
@@ -500,7 +500,7 @@ jobs:
           import subprocess, struct, json, sys
 
           VALID_XML = open('crates/vastlint-core/tests/fixtures/valid_4.2.xml').read()
-          INVALID_XML = open('crates/vastlint-core/tests/fixtures/err_no_ad.xml').read()
+          INVALID_XML = open('crates/vastlint-core/tests/fixtures/err_no_version.xml').read()
 
           def daemon_call(xml_str):
               proc = subprocess.Popen(
@@ -816,8 +816,8 @@ jobs:
           # Default output (no --format flag) must print human-readable text
           # with at least the rule ID and "error" for an error-level fixture.
           OUTPUT=$(./target/release/vastlint check \
-            crates/vastlint-core/tests/fixtures/err_no_ad.xml 2>/dev/null || true)
-          if ! echo "$OUTPUT" | grep -qi 'VAST-2\.0-ad-required\|no-ad\|ad_required\|err_no_ad'; then
+            crates/vastlint-core/tests/fixtures/err_no_version.xml 2>/dev/null || true)
+          if ! echo "$OUTPUT" | grep -qi 'VAST-2\.0-root-version\|root-version\|err_no_version'; then
             echo "FAIL: text output missing expected rule reference"
             echo "Output was: $OUTPUT"
             exit 1

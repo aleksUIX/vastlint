@@ -72,7 +72,7 @@ fn check_root(root: &Node, ctx: &ValidationContext, issues: &mut Vec<Issue>) {
         Some(_) => {}
     }
 
-    // DAAST-1.0-root-has-ad-or-error: mirror of the VAST sibling rule.
+    // DAAST-1.0-root-has-ad-or-error: DAAST-specific root requirement.
     if !root.has_child("Ad") && !root.has_child("Error") {
         emit(
             ctx,

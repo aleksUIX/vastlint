@@ -6,6 +6,14 @@ GitHub Releases: <https://github.com/aleksUIX/vastlint/releases>
 
 ---
 
+## [0.14.3] - 2026-10-09
+
+### Fixed
+
+- Empty VAST 2.0 responses are valid under the IAB VAST 2.0.1 XSD. The obsolete `VAST-2.0-root-has-ad-or-error` rule is removed. Empty VAST 2.0 and later responses now validate as no-ad results.
+
+---
+
 ## [0.14.2] - 2026-10-09
 
 ### Fixed
