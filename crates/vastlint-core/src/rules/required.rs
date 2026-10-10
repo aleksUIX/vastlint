@@ -114,16 +114,19 @@ fn check_root(
     }
 
     // VAST-2.0-root-has-ad-or-error
-    // Spec (all versions): a VAST response must contain at least one <Ad> or
-    // one root-level <Error>. An empty <VAST> is not a valid response.
+    // VAST 2.0 requires an Ad. VAST 3.0 §2.4.2.4 and later explicitly allow
+    // a no-ad response with only the root VAST element; Error is optional.
     let vast = &doc.root;
-    if !vast.has_child("Ad") && !vast.has_child("Error") {
+    let requires_ad_or_error = !version
+        .best()
+        .is_some_and(|ver| ver.at_least(&VastVersion::V3_0));
+    if requires_ad_or_error && !vast.has_child("Ad") && !vast.has_child("Error") {
         emit(
             ctx,
             issues,
             "VAST-2.0-root-has-ad-or-error",
             Severity::Error,
-            "<VAST> contains neither <Ad> nor <Error> — response is empty",
+            "VAST 2.0 response contains neither <Ad> nor <Error>",
             Some("/VAST".to_owned()),
             "IAB VAST 2.0 §2",
             Some(&doc.root),

@@ -293,6 +293,19 @@ fn no_ad_fires_error() {
 }
 
 #[test]
+fn empty_vast_is_valid_no_ad_response_from_version_3() {
+    for version in ["3.0", "4.0", "4.1", "4.2", "4.3"] {
+        let result = validate(&format!("<VAST version=\"{version}\"></VAST>"));
+        assert!(
+            result.summary.is_valid(),
+            "empty VAST {version} should be a valid no-ad response: {:#?}",
+            result.issues
+        );
+        assert!(!has_issue(&result, "VAST-2.0-root-has-ad-or-error"));
+    }
+}
+
+#[test]
 fn ad_without_inline_or_wrapper_fires_error() {
     let result = validate(&load("err_no_inline_or_wrapper.xml"));
     assert!(

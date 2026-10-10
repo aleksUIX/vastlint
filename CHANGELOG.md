@@ -6,6 +6,14 @@ GitHub Releases: <https://github.com/aleksUIX/vastlint/releases>
 
 ---
 
+## [0.14.2] - 2026-10-09
+
+### Fixed
+
+- Empty VAST 3.0 and later responses are valid no-ad responses. The validator no longer reports `VAST-2.0-root-has-ad-or-error` for them. VAST 2.0 behavior is unchanged.
+
+---
+
 ## [0.14.1] - 2026-10-05
 
 ### Changed

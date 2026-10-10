@@ -25,7 +25,7 @@ const FIX_HINTS: Record<string, string> = {
   'VAST-2.0-root-element':              'Rename the root element to `<VAST>`.',
   'VAST-2.0-root-version':              'Add a `version` attribute to `<VAST>`, e.g. `version="4.2"`.',
   'VAST-2.0-root-version-value':        'Set version to a known string: 2.0, 3.0, 4.0, 4.1, 4.2, or 4.3.',
-  'VAST-2.0-root-has-ad-or-error':      'Add at least one `<Ad>` or `<Error>` element inside `<VAST>`.',
+  'VAST-2.0-root-has-ad-or-error':      'For VAST 2.0, add an `<Ad>` or `<Error>` element inside `<VAST>`. VAST 3.0+ permits empty no-ad responses.',
   'VAST-4.0-wrapper-root-error':        'A VAST response should have either `<Ad>` elements or `<Error>`, not both.',
   'VAST-2.0-ad-has-inline-or-wrapper':  'Each `<Ad>` must contain exactly one `<InLine>` or `<Wrapper>` child.',
   'VAST-2.0-inline-adsystem':           'Add `<AdSystem>` inside `<InLine>`, e.g. `<AdSystem>My Ad Server</AdSystem>`.',
