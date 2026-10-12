@@ -161,6 +161,16 @@ pub fn verdict(
     }
 }
 
+/// Compact monitoring reply. Avoid allocating the detailed wire findings.
+pub fn summary_verdict(result: &core::ValidationResult) -> proto::Verdict {
+    proto::Verdict {
+        valid: result.summary.is_valid(),
+        summary: Some(summary(&result.summary)),
+        provenance: Some(provenance()),
+        ..Default::default()
+    }
+}
+
 pub fn applied_fix(value: &core::AppliedFix) -> proto::AppliedFix {
     proto::AppliedFix {
         rule_id: value.rule_id.to_string(),

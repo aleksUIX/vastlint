@@ -159,6 +159,7 @@ async fn grpc_findings(document: &str) -> (vastlint_grpc::proto::Verdict, Vec<Fi
         .validate(Request::new(ValidateRequest {
             document: document.to_string(),
             context: None,
+            summary_only: false,
         }))
         .await
         .expect("validate succeeds")

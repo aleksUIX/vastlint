@@ -391,6 +391,7 @@ async fn run_level(
                     .validate(ValidateRequest {
                         document,
                         context: None,
+                        summary_only: false,
                     })
                     .await;
                 let elapsed = started.elapsed();

@@ -290,6 +290,7 @@ impl VastlintService for VastlintApi {
             let request = request.into_inner();
             let (context, forced) = convert::validation_context(request.context)?;
             let document = request.document;
+            let summary_only = request.summary_only;
 
             let result = run(budget, Arc::clone(&self.workers), None, move || {
                 core::validate_with_context(&document, context)
@@ -299,7 +300,12 @@ impl VastlintService for VastlintApi {
             self.emit(event_id, &result, caller);
 
             Ok(Response::new(ValidateResponse {
-                verdict: Some(convert::verdict(&result, forced)),
+                verdict: Some(if summary_only {
+                    convert::summary_verdict(&result)
+                } else {
+                    convert::verdict(&result, forced)
+                }),
+                summary_only,
             }))
         })
         .await
@@ -547,6 +553,7 @@ mod tests {
             .validate(Request::new(ValidateRequest {
                 document: INVALID_VAST.to_string(),
                 context: None,
+                summary_only: false,
             }))
             .await
             .expect("validate succeeds")
@@ -570,6 +577,7 @@ mod tests {
                     rule_overrides: [("not-a-rule".to_string(), 4)].into_iter().collect(),
                     ..Default::default()
                 }),
+                summary_only: false,
             }))
             .await
             .expect_err("unknown rule id is rejected");
@@ -584,6 +592,7 @@ mod tests {
             .validate(Request::new(ValidateRequest {
                 document: INVALID_VAST.to_string(),
                 context: None,
+                summary_only: false,
             }))
             .await
             .unwrap()
@@ -606,6 +615,7 @@ mod tests {
                     rule_overrides: [(silenced.clone(), 4)].into_iter().collect(),
                     ..Default::default()
                 }),
+                summary_only: false,
             }))
             .await
             .unwrap()
@@ -687,6 +697,7 @@ mod tests {
         let mut request = Request::new(ValidateRequest {
             document: INVALID_VAST.to_string(),
             context: None,
+            summary_only: false,
         });
         request
             .metadata_mut()
@@ -705,6 +716,7 @@ mod tests {
         let mut request = Request::new(ValidateRequest {
             document: INVALID_VAST.to_string(),
             context: None,
+            summary_only: false,
         });
         request
             .metadata_mut()

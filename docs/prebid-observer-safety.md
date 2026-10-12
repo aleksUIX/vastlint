@@ -30,6 +30,14 @@ The Docker build uses the existing pinned builder image and a locked Cargo
 resolution. The PBS integration uses an external validator and introduces no
 native Vastlint library into the PBS process.
 
+Unary validation supports `ValidateRequest.summary_only`. It still evaluates
+every rule and records the full finding metrics, but returns only validity,
+summary counts, and provenance. `ValidateResponse.summary_only` acknowledges
+the requested mode so a caller can detect an older server that ignored it.
+Ordinary unary requests and streaming keep their complete replies. The PBS
+collector requires compact replies because a small invalid document can
+produce detailed findings above its 64 KiB receive limit.
+
 The local workspace still declares engine version 0.14.0. These fixes are local
 source changes and do not make an existing 0.14.0 artifact safe retroactively.
 Before deployment, release a new version containing these changes, rebuild and
