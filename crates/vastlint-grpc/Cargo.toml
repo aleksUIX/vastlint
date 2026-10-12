@@ -69,7 +69,7 @@ tonic-prost-build = "0.14"
 
 # Pure-Rust protobuf compiler, so the build needs no `protoc` on PATH. See the
 # note at the top of build.rs.
-protox = "0.9"
+protox = "0.10"
 prost = "0.14"
 
 [dev-dependencies]
