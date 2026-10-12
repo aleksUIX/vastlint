@@ -47,6 +47,7 @@ struct Metrics {
     events_published: IntCounter,
     events_dropped: IntCounter,
     concurrency_limit: IntGauge,
+    active_workers: IntGauge,
     verdicts: IntCounterVec,
     findings: IntCounterVec,
 }
@@ -106,6 +107,11 @@ fn metrics() -> &'static Metrics {
         )
         .expect("valid metric definition");
 
+        let active_workers = IntGauge::new(
+            "vastlint_grpc_active_workers",
+            "CPU jobs holding capacity, including jobs whose RPC has ended",
+        ).expect("valid metric definition");
+
         let verdicts = IntCounterVec::new(
             Opts::new(
                 "vastlint_grpc_verdicts_total",
@@ -139,6 +145,7 @@ fn metrics() -> &'static Metrics {
         registry
             .register(Box::new(concurrency_limit.clone()))
             .expect("unique metric");
+        registry.register(Box::new(active_workers.clone())).expect("unique metric");
         registry
             .register(Box::new(verdicts.clone()))
             .expect("unique metric");
@@ -155,6 +162,7 @@ fn metrics() -> &'static Metrics {
             events_published,
             events_dropped,
             concurrency_limit,
+            active_workers,
             verdicts,
             findings,
         }
@@ -179,6 +187,13 @@ pub fn record_request(method: &str, status: &str, seconds: f64) {
 /// Records a request refused by the concurrency limiter.
 pub fn record_shed() {
     metrics().shed.inc();
+}
+
+pub fn worker_started() {
+    metrics().active_workers.inc();
+}
+pub fn worker_finished() {
+    metrics().active_workers.dec();
 }
 
 /// Records a request refused by the rate limiter.

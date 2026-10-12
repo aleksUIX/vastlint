@@ -33,7 +33,7 @@ COPY crates/ crates/
 COPY proto/ proto/
 COPY schemas/ schemas/
 
-RUN cargo build --release --bin vastlint-grpc
+RUN cargo build --release --locked --bin vastlint-grpc
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Stage 2 — final image: scratch plus the static binary

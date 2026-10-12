@@ -114,7 +114,9 @@ async fn serve(config: Config) -> Result<(), Box<dyn std::error::Error>> {
     // concurrency slot for its whole lifetime and report its entire duration as
     // a latency sample, driving the limit to the floor. Admission for streams
     // happens per message instead.
-    let mut api = VastlintApi::new().with_limiter(Arc::clone(&limiter), config.stream_buffer);
+    let mut api = VastlintApi::new()
+        .with_worker_limit(config.blocking_threads)
+        .with_limiter(Arc::clone(&limiter), config.stream_buffer);
     if let Some(publisher) = publisher {
         api = api.with_publisher(publisher, config.events.schema_id);
     }

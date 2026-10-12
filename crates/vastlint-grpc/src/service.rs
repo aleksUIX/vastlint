@@ -6,10 +6,12 @@
 
 use std::pin::Pin;
 use std::sync::Arc;
-use std::time::{Duration, Instant};
+#[cfg(test)]
+use std::time::Duration;
+use std::time::Instant;
 
-use tokio::sync::mpsc;
-use tokio::time::timeout;
+use tokio::sync::{mpsc, OwnedSemaphorePermit, Semaphore};
+use tokio::time::timeout_at;
 use tokio_stream::StreamExt;
 use tonic::{Code, Request, Response, Status, Streaming};
 use vastlint_core as core;
@@ -17,7 +19,7 @@ use vastlint_core as core;
 use crate::convert;
 use crate::deadline;
 use crate::events::{Publisher, ValidationEvent};
-use crate::limit::AdaptiveLimiter;
+use crate::limit::{AdaptiveLimiter, Admitted};
 use crate::metrics;
 use crate::proto::vastlint_service_server::VastlintService;
 use crate::proto::{
@@ -34,17 +36,24 @@ const DEFAULT_STREAM_BUFFER: usize = 32;
 /// Stateless apart from the limiter, which is shared: the rule catalog is
 /// static and validation carries no session, so one instance serves every
 /// connection.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct VastlintApi {
-    /// Used for per-message admission on streams. `None` means streaming admits
-    /// everything, which is what the unit tests want and what a deployment
-    /// running with the limiter disabled gets.
+    /// Optional adaptive admission for streams. The hard CPU bound applies
+    /// even when this controller is absent or disabled.
     limiter: Option<Arc<AdaptiveLimiter>>,
     stream_buffer: usize,
     /// Results stream. `None` means no events are produced at all, which is the
     /// default and what every test uses.
     publisher: Option<Arc<Publisher>>,
     schema_id: u32,
+    /// Hard bound on CPU jobs, including work whose RPC has already ended.
+    workers: Arc<Semaphore>,
+}
+
+impl Default for VastlintApi {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl VastlintApi {
@@ -54,6 +63,9 @@ impl VastlintApi {
             stream_buffer: DEFAULT_STREAM_BUFFER,
             publisher: None,
             schema_id: 0,
+            // Library callers get a bounded default. The server sets this to
+            // its configured blocking-thread count before accepting traffic.
+            workers: Arc::new(Semaphore::new(DEFAULT_STREAM_BUFFER)),
         }
     }
 
@@ -93,11 +105,17 @@ impl VastlintApi {
         self
     }
 
+    /// Sets the hard bound independently of adaptive RPC admission. Capacity
+    /// belongs to the CPU closure and is released only when that closure ends.
+    pub fn with_worker_limit(mut self, workers: usize) -> Self {
+        self.workers = Arc::new(Semaphore::new(workers.max(1)));
+        self
+    }
+
     /// Shares the server's concurrency limiter with the streaming handler.
     ///
     /// Streams are exempt from the tower layer that governs unary calls, so
-    /// without this a stream would be the one path into the validator with no
-    /// admission control at all.
+    /// this shares adaptive admission between streaming messages and unary RPCs.
     pub fn with_limiter(mut self, limiter: Arc<AdaptiveLimiter>, stream_buffer: usize) -> Self {
         self.limiter = Some(limiter);
         self.stream_buffer = stream_buffer.max(1);
@@ -105,17 +123,28 @@ impl VastlintApi {
     }
 }
 
+struct WorkerPermit {
+    _permit: OwnedSemaphorePermit,
+}
+
+impl Drop for WorkerPermit {
+    fn drop(&mut self) {
+        metrics::worker_finished();
+    }
+}
+
 /// Runs CPU-bound validation work without blocking the runtime, and gives up on
 /// it when the caller's deadline passes.
 ///
-/// One honest limitation: `spawn_blocking` tasks cannot be cancelled. When the
-/// deadline fires, the caller gets `DEADLINE_EXCEEDED` immediately but the
-/// worker thread runs to completion. For vastlint that is bounded and short,
-/// 363µs light and 2,104µs heavy per tag, so the wasted work is small. It is
-/// still real, and it is the reason phase 3 needs a concurrency limit rather
-/// than relying on deadlines alone to protect capacity: a deadline stops the
-/// waiting, not the working.
-async fn run<T, F>(deadline: Option<Duration>, work: F) -> Result<T, Status>
+/// Started blocking jobs cannot be cancelled. Their hard worker permit and
+/// optional streaming admission guard stay inside the closure until it ends.
+/// There are no semaphore waiters, and stale queued jobs do not validate.
+async fn run<T, F>(
+    deadline: Option<Instant>,
+    workers: Arc<Semaphore>,
+    admitted: Option<Admitted>,
+    work: F,
+) -> Result<T, Status>
 where
     F: FnOnce() -> T + Send + 'static,
     T: Send + 'static,
@@ -123,16 +152,31 @@ where
     // Nothing left to spend. Refusing before starting is the point: work that
     // completes after its deadline has consumed capacity for a caller that has
     // already stopped listening.
-    if deadline == Some(Duration::ZERO) {
+    if deadline.is_some_and(|expires| Instant::now() >= expires) {
         return Err(Status::deadline_exceeded(
             "deadline had already expired when the request arrived",
         ));
     }
 
-    let handle = tokio::task::spawn_blocking(work);
+    let permit = workers.try_acquire_owned().map_err(|_| {
+        metrics::record_shed();
+        Status::resource_exhausted("validation workers are at capacity")
+    })?;
+    metrics::worker_started();
+    let permit = WorkerPermit { _permit: permit };
+    let handle = tokio::task::spawn_blocking(move || {
+        let _permit = permit;
+        let _admitted = admitted;
+        if deadline.is_some_and(|expires| Instant::now() >= expires) {
+            return Err(Status::deadline_exceeded(
+                "deadline expired before validation started",
+            ));
+        }
+        Ok(work())
+    });
 
     let joined = match deadline {
-        Some(budget) => match timeout(budget, handle).await {
+        Some(expires) => match timeout_at(expires.into(), handle).await {
             Ok(joined) => joined,
             Err(_) => {
                 return Err(Status::deadline_exceeded(
@@ -152,7 +196,7 @@ where
         } else {
             "validation worker was cancelled"
         })
-    })
+    })?
 }
 
 /// Times one RPC and records its outcome.
@@ -239,14 +283,15 @@ impl VastlintService for VastlintApi {
         request: Request<ValidateRequest>,
     ) -> Result<Response<ValidateResponse>, Status> {
         observed("Validate", async move {
-            let budget = deadline::remaining(request.metadata());
+            let budget =
+                deadline::remaining(request.metadata()).and_then(|d| Instant::now().checked_add(d));
             let caller = caller_identity(request.metadata());
             let event_id = format!("{:016x}", next_event_id());
             let request = request.into_inner();
             let (context, forced) = convert::validation_context(request.context)?;
             let document = request.document;
 
-            let result = run(budget, move || {
+            let result = run(budget, Arc::clone(&self.workers), None, move || {
                 core::validate_with_context(&document, context)
             })
             .await?;
@@ -294,12 +339,14 @@ impl VastlintService for VastlintApi {
         &self,
         request: Request<Streaming<ValidateStreamRequest>>,
     ) -> Result<Response<Self::ValidateStreamStream>, Status> {
-        let budget = deadline::remaining(request.metadata());
+        let budget =
+            deadline::remaining(request.metadata()).and_then(|d| Instant::now().checked_add(d));
         let caller = caller_identity(request.metadata());
         let mut inbound = request.into_inner();
 
         let (tx, rx) = mpsc::channel::<Result<ValidateStreamResponse, Status>>(self.stream_buffer);
         let limiter = self.limiter.clone();
+        let workers = Arc::clone(&self.workers);
 
         tokio::spawn(async move {
             while let Some(message) = inbound.next().await {
@@ -364,18 +411,14 @@ impl VastlintService for VastlintApi {
                 let (context, forced) = context;
                 let document = message.document;
                 let caller = caller.clone();
+                let workers = Arc::clone(&workers);
 
                 tokio::spawn(async move {
                     let started = Instant::now();
-                    let outcome = run(budget, move || {
+                    let outcome = run(budget, workers, admitted, move || {
                         core::validate_with_context(&document, context)
                     })
                     .await;
-
-                    // Held until the work is done so the latency sample covers
-                    // the validation, then dropped before the send so a slow
-                    // reader does not count against the concurrency limit.
-                    drop(admitted);
 
                     let response = match outcome {
                         Ok(result) => {
@@ -420,12 +463,16 @@ impl VastlintService for VastlintApi {
 
     async fn fix(&self, request: Request<FixRequest>) -> Result<Response<FixResponse>, Status> {
         observed("Fix", async move {
-            let budget = deadline::remaining(request.metadata());
+            let budget =
+                deadline::remaining(request.metadata()).and_then(|d| Instant::now().checked_add(d));
             let request = request.into_inner();
             let (context, _) = convert::validation_context(request.context)?;
             let document = request.document;
 
-            let result = run(budget, move || core::fix_with_context(&document, context)).await?;
+            let result = run(budget, Arc::clone(&self.workers), None, move || {
+                core::fix_with_context(&document, context)
+            })
+            .await?;
 
             Ok(Response::new(FixResponse {
                 document: result.xml,
@@ -665,6 +712,136 @@ mod tests {
 
         let response = service().validate(request).await;
         assert!(response.is_ok(), "30 seconds is ample for one small tag");
+    }
+
+    #[tokio::test]
+    async fn timed_out_jobs_hold_capacity_until_actual_completion() {
+        let workers = Arc::new(Semaphore::new(1));
+        let limiter = Arc::new(AdaptiveLimiter::new(crate::config::LimitConfig {
+            enabled: true,
+            initial: 1,
+            min: 1,
+            max: 1,
+            target_latency: Duration::from_secs(10),
+            backoff_ratio: 0.9,
+        }));
+        let admitted = limiter.try_admit().unwrap();
+        let (started_tx, started_rx) = tokio::sync::oneshot::channel();
+        let (finish_tx, finish_rx) = std::sync::mpsc::channel();
+        let pool = Arc::clone(&workers);
+        let request = tokio::spawn(async move {
+            run(
+                Some(Instant::now() + Duration::from_millis(100)),
+                pool,
+                Some(admitted),
+                move || {
+                    started_tx.send(()).unwrap();
+                    finish_rx.recv().unwrap();
+                },
+            )
+            .await
+        });
+        started_rx.await.unwrap();
+        assert_eq!(
+            request.await.unwrap().unwrap_err().code(),
+            Code::DeadlineExceeded
+        );
+        assert_eq!(workers.available_permits(), 0);
+        assert_eq!(limiter.inflight(), 1);
+        for _ in 0..32 {
+            let status = run::<(), _>(None, Arc::clone(&workers), None, || panic!("must be shed"))
+                .await
+                .unwrap_err();
+            assert_eq!(status.code(), Code::ResourceExhausted);
+        }
+        finish_tx.send(()).unwrap();
+        let permit = tokio::time::timeout(Duration::from_secs(5), workers.acquire())
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(limiter.inflight(), 0);
+        drop(permit);
+        assert!(run(None, workers, None, || ()).await.is_ok());
+    }
+
+    #[tokio::test]
+    async fn cancelled_rpc_and_panicking_worker_do_not_lose_capacity() {
+        let workers = Arc::new(Semaphore::new(1));
+        let (started_tx, started_rx) = tokio::sync::oneshot::channel();
+        let (finish_tx, finish_rx) = std::sync::mpsc::channel();
+        let pool = Arc::clone(&workers);
+        let request = tokio::spawn(async move {
+            run(None, pool, None, move || {
+                started_tx.send(()).unwrap();
+                finish_rx.recv().unwrap();
+            })
+            .await
+        });
+        started_rx.await.unwrap();
+        request.abort();
+        assert!(request.await.unwrap_err().is_cancelled());
+        assert_eq!(workers.available_permits(), 0);
+        finish_tx.send(()).unwrap();
+        drop(
+            tokio::time::timeout(Duration::from_secs(5), workers.acquire())
+                .await
+                .unwrap()
+                .unwrap(),
+        );
+        let status = run::<(), _>(None, Arc::clone(&workers), None, || panic!("test panic"))
+            .await
+            .unwrap_err();
+        assert_eq!(status.code(), Code::Internal);
+        assert_eq!(workers.available_permits(), 1);
+        let expired = run::<(), _>(Some(Instant::now()), workers, None, || {
+            panic!("expired work must not start")
+        })
+        .await
+        .unwrap_err();
+        assert_eq!(expired.code(), Code::DeadlineExceeded);
+    }
+
+    #[test]
+    fn stale_queued_jobs_never_execute_validation() {
+        use std::sync::atomic::{AtomicBool, Ordering};
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_time()
+            .max_blocking_threads(1)
+            .build()
+            .unwrap();
+        runtime.block_on(async {
+            let (started_tx, started_rx) = tokio::sync::oneshot::channel();
+            let (release_tx, release_rx) = std::sync::mpsc::channel();
+            let occupied = tokio::task::spawn_blocking(move || {
+                started_tx.send(()).unwrap();
+                release_rx.recv().unwrap();
+            });
+            started_rx.await.unwrap();
+            let workers = Arc::new(Semaphore::new(1));
+            let ran = Arc::new(AtomicBool::new(false));
+            let did_run = Arc::clone(&ran);
+            let status = run(
+                Some(Instant::now() + Duration::from_millis(50)),
+                Arc::clone(&workers),
+                None,
+                move || {
+                    did_run.store(true, Ordering::SeqCst);
+                },
+            )
+            .await
+            .unwrap_err();
+            assert_eq!(status.code(), Code::DeadlineExceeded);
+            assert_eq!(workers.available_permits(), 0);
+            release_tx.send(()).unwrap();
+            occupied.await.unwrap();
+            drop(
+                tokio::time::timeout(Duration::from_secs(5), workers.acquire())
+                    .await
+                    .unwrap()
+                    .unwrap(),
+            );
+            assert!(!ran.load(Ordering::SeqCst));
+        });
     }
 
     // ValidateStream is covered in tests/server.rs over a real client.

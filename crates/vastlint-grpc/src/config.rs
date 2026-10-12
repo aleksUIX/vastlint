@@ -2,9 +2,9 @@
 //!
 //! Every knob has a default that is safe to run with, and every default is
 //! stated here rather than scattered across the code. The limiter can be turned
-//! off entirely, which exists so the load harness can measure the same server
+//! off, which exists so the load harness can measure the same server
 //! with and without it: a shedding policy nobody has measured is a claim, not a
-//! result.
+//! result. The hard CPU worker bound still applies when adaptive admission is off.
 
 use std::net::SocketAddr;
 use std::time::Duration;
@@ -71,8 +71,8 @@ pub struct Config {
 /// Adaptive concurrency limiter settings.
 #[derive(Debug, Clone)]
 pub struct LimitConfig {
-    /// When false, no concurrency limiting and no shedding happens at all. The
-    /// A side of the A/B run.
+    /// When false, adaptive admission is disabled. The independent hard CPU
+    /// worker bound continues to shed excess work.
     pub enabled: bool,
     pub initial: usize,
     pub min: usize,
