@@ -884,7 +884,7 @@ jobs:
         run: node npm/scripts/assemble.js
 
       - name: Upload assembled npm package
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
         with:
           name: wasm-npm-package
           path: npm/
@@ -1003,7 +1003,7 @@ jobs:
           tar czf ${{ matrix.archive }} -C $(dirname $BINARY) $(basename $BINARY)
 
       - name: Upload artifact
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
         with:
           name: ${{ matrix.archive }}
           path: ${{ matrix.archive }}
@@ -1099,7 +1099,7 @@ jobs:
           tar czf ${{ matrix.archive }} -C "$STAGING" .
 
       - name: Upload FFI artifact
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
         with:
           name: ${{ matrix.archive }}
           path: ${{ matrix.archive }}
@@ -1180,7 +1180,7 @@ jobs:
           tar czf ${{ matrix.archive }} -C "$STAGING" .
 
       - name: Upload NIF artifact
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
         with:
           name: ${{ matrix.archive }}
           path: ${{ matrix.archive }}
@@ -1756,7 +1756,7 @@ jobs:
         working-directory: vscode
 
       - name: Upload VSIX as workflow artifact
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
         with:
           name: vastlint-${{ steps.ext_version.outputs.version }}.vsix
           path: vscode/vastlint-${{ steps.ext_version.outputs.version }}.vsix
