@@ -164,7 +164,7 @@ jobs:
 
       - name: Install Node.js
         if: ${{ github.event_name != 'workflow_dispatch' || inputs.tag == '' }}
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7.1.0
         with:
           node-version: '20'
 
@@ -870,7 +870,7 @@ jobs:
         run: cargo install wasm-pack --locked
 
       - name: Install Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7.1.0
         with:
           node-version: '20'
 
@@ -1572,7 +1572,7 @@ jobs:
         with:
           ref: ${{ env.RELEASE_TAG }}
 
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7.1.0
         with:
           node-version: '20'
 
@@ -1619,7 +1619,7 @@ jobs:
           path: npm
 
       - name: Install Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7.1.0
         with:
           node-version: '24'
           registry-url: 'https://registry.npmjs.org'
@@ -1729,7 +1729,7 @@ jobs:
           path: npm
 
       - name: Install Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7.1.0
         with:
           node-version: '22'
 
@@ -1872,7 +1872,7 @@ jobs:
           ref: ${{ env.RELEASE_TAG }}
 
       - name: Set up Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7.1.0
         with:
           node-version: '20'
 
@@ -2164,7 +2164,7 @@ jobs:
           name: wasm-npm-package
           path: npm
 
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7.1.0
         with:
           node-version: 20
 
@@ -2543,7 +2543,7 @@ jobs:
         run: cargo install wasm-pack --locked
 
       - name: Install Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7.1.0
         with:
           node-version: '24'
           registry-url: 'https://registry.npmjs.org'
