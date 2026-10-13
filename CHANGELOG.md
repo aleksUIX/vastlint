@@ -6,6 +6,22 @@ GitHub Releases: <https://github.com/aleksUIX/vastlint/releases>
 
 ---
 
+## [0.14.5] - 2026-10-13
+
+### Fixed
+
+- **`tokio` 1.53.1 → 1.53.2**, **`rmcp` 3.5.0 → 3.5.1**, **`protox` 0.9.1 → 0.10.0**, **`toml` 1.1.6 → 1.1.8**: dependency updates.
+
+---
+
+## [0.14.4] - 2026-10-13
+
+### Fixed
+
+- **`quinn-proto` 0.11.16 → 0.11.19** (RUSTSEC-2026-0338, RUSTSEC-2026-0339, RUSTSEC-2026-0340, RUSTSEC-2026-0341, RUSTSEC-2026-0342): transitive dependency advisories.
+
+---
+
 ## [0.14.3] - 2026-10-09
 
 ### Fixed
