@@ -265,3 +265,25 @@ dependency that is not declared in `Cargo.toml`.
 ## License
 
 Apache-2.0.
+
+## Hosts can configure a fixed monitoring policy.
+
+`VASTLINT_RULES_FILE` loads a bounded JSON file containing `profile` and a `rules`
+map. Values are `off`, `info`, `warning`, or `error`; omitting an override restores
+its catalog default on restart. Invalid configuration fails startup. Parser
+limits remain mandatory and parser errors cannot be downgraded. A file-configured
+server rejects request rule/version overrides. Without a file, the existing
+per-request override API remains available.
+
+Compact replies now include `input_status`, `rule_profile`, and
+`rule_policy_digest`. `vastlint_grpc_policy_info` identifies the active host policy
+and engine. `vastlint_grpc_documents_total` partitions input outcomes;
+`vastlint_grpc_rule_documents_total` counts affected documents once per rule and
+effective severity; `vastlint_grpc_findings_total` counts individual occurrences
+and includes effective severity. Unsupported inputs are counted separately and
+excluded from rule-quality counters. CPU work that finishes after a client
+cancels can still contribute completed validation metrics.
+
+See [the Prebid deployment](../../deploy/prebid/README.md) for the verified image,
+scraping, alert rules, dashboard, networking, rollback and actual Go/Rust tests.
+This host-monitoring path does not upload samples for product improvement.

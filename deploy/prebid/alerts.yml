@@ -1,0 +1,35 @@
+groups:
+  - name: vastlint-prebid
+    rules:
+      - alert: VASTlintCollectionFailures
+        expr: |
+          sum by (cluster, environment) (rate(prebid_server_vastlint_collection_total{event="failed"}[5m]))
+          / clamp_min(sum by (cluster, environment) (rate(prebid_server_vastlint_collection_total{event="submitted"}[5m])), 1e-9) > 0.05
+          and on (cluster, environment)
+          sum by (cluster, environment) (increase(prebid_server_vastlint_collection_total{event="submitted"}[5m])) >= 20
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: VASTlint cannot check more than 5% of submitted samples.
+          description: Check transport, timeouts, incompatible responses and validator health. Auction outcomes are unaffected.
+      - alert: VASTlintSampleErrors
+        expr: |
+          sum by (cluster, environment) (rate(vastlint_grpc_documents_total{caller="prebid-server",outcome=~"error|malformed"}[10m]))
+          / clamp_min(sum by (cluster, environment) (rate(vastlint_grpc_documents_total{caller="prebid-server",outcome!="unsupported"}[10m])), 1e-9) > 0.05
+          and on (cluster, environment)
+          sum by (cluster, environment) (increase(vastlint_grpc_documents_total{caller="prebid-server",outcome!="unsupported"}[10m])) >= 100
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: More than 5% of assessable VAST samples contain errors.
+          description: Check collection coverage and active rule policy before investigating the most frequent error rules. This is a sample finding rate, not a playback failure rate.
+      - alert: VASTlintValidatorUnavailable
+        expr: up{job="vastlint"} == 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: VASTlint monitoring endpoint is unavailable.
+          description: Check the host-owned validator process, metrics listener and network policy.

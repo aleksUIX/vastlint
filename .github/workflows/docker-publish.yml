@@ -17,6 +17,12 @@ on:
         type: string
         default: '0.4.11'
         required: true
+      component:
+        description: "Image to publish"
+        type: choice
+        options: [cli, grpc]
+        default: cli
+        required: true
       push_latest:
         description: "Also push aleksuix/vastlint:latest"
         type: boolean
@@ -41,8 +47,8 @@ jobs:
         env:
           VERSION: ${{ inputs.version }}
         run: |
-          [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
-            echo "version must be plain semver like 0.4.11"
+          [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?$ ]] || {
+            echo "version must be semver, optionally with a prerelease suffix"
             exit 1
           }
 
@@ -52,12 +58,23 @@ jobs:
         env:
           VERSION: ${{ inputs.version }}
           PUSH_LATEST: ${{ inputs.push_latest }}
+          COMPONENT: ${{ inputs.component }}
         run: |
+          case "$COMPONENT" in
+            grpc) IMAGE=aleksuix/vastlint-grpc; DOCKERFILE=Dockerfile.grpc ;;
+            cli) IMAGE=aleksuix/vastlint; DOCKERFILE=Dockerfile ;;
+            *) exit 1 ;;
+          esac
+          if [[ "$VERSION" == *-* && "$PUSH_LATEST" == true ]]; then
+            echo "A prerelease must not replace latest"
+            exit 1
+          fi
+          echo "dockerfile=$DOCKERFILE" >> "$GITHUB_OUTPUT"
           {
             echo 'tags<<EOF'
-            echo "aleksuix/vastlint:$VERSION"
+            echo "$IMAGE:$VERSION"
             if [ "$PUSH_LATEST" = 'true' ]; then
-              echo 'aleksuix/vastlint:latest'
+              echo "$IMAGE:latest"
             fi
             echo 'EOF'
           } >> "$GITHUB_OUTPUT"
@@ -78,7 +95,7 @@ jobs:
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc  # v7.4.0
         with:
           context: .
-          file: Dockerfile
+          file: ${{ steps.tags.outputs.dockerfile }}
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.tags.outputs.tags }}

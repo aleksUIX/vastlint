@@ -48,6 +48,7 @@ pub struct VastlintApi {
     schema_id: u32,
     /// Hard bound on CPU jobs, including work whose RPC has already ended.
     workers: Arc<Semaphore>,
+    policy: Option<Arc<crate::policy::RulePolicy>>,
 }
 
 impl Default for VastlintApi {
@@ -59,6 +60,7 @@ impl Default for VastlintApi {
 impl VastlintApi {
     pub fn new() -> Self {
         Self {
+            policy: None,
             limiter: None,
             stream_buffer: DEFAULT_STREAM_BUFFER,
             publisher: None,
@@ -66,6 +68,20 @@ impl VastlintApi {
             // Library callers get a bounded default. The server sets this to
             // its configured blocking-thread count before accepting traffic.
             workers: Arc::new(Semaphore::new(DEFAULT_STREAM_BUFFER)),
+        }
+    }
+
+    pub fn with_policy(mut self, policy: crate::policy::RulePolicy) -> Self {
+        self.policy = Some(Arc::new(policy));
+        self
+    }
+    fn context(
+        &self,
+        value: Option<crate::proto::ValidationContext>,
+    ) -> Result<(core::ValidationContext, Option<core::VastVersion>), Status> {
+        match &self.policy {
+            Some(policy) => policy.context(value),
+            None => convert::validation_context(value),
         }
     }
 
@@ -288,25 +304,44 @@ impl VastlintService for VastlintApi {
             let caller = caller_identity(request.metadata());
             let event_id = format!("{:016x}", next_event_id());
             let request = request.into_inner();
-            let (context, forced) = convert::validation_context(request.context)?;
+            let customized = request
+                .context
+                .as_ref()
+                .is_some_and(|c| !c.rule_overrides.is_empty() || c.forced_version != 0);
+            let (context, forced) = self.context(request.context)?;
+            let profile = self
+                .policy
+                .as_ref()
+                .map(|p| p.profile.clone())
+                .unwrap_or_else(|| if customized { "request" } else { "default" }.to_string());
+            let policy_digest = self
+                .policy
+                .as_ref()
+                .map(|p| p.digest.clone())
+                .unwrap_or_else(|| crate::policy::context_digest(&context));
             let document = request.document;
             let summary_only = request.summary_only;
 
-            let result = run(budget, Arc::clone(&self.workers), None, move || {
-                core::validate_with_context(&document, context)
+            let service = self.clone();
+            let response = run(budget, Arc::clone(&self.workers), None, move || {
+                let result = core::validate_with_context(&document, context);
+                // Aggregation, conversion and destruction of detailed findings
+                // retain the CPU permit, including after an RPC cancellation.
+                service.emit(event_id, &result, caller);
+                ValidateResponse {
+                    verdict: Some(if summary_only {
+                        convert::summary_verdict(&result)
+                    } else {
+                        convert::verdict(&result, forced)
+                    }),
+                    summary_only,
+                    input_status: result.input_status.as_str().to_string(),
+                    rule_profile: profile,
+                    rule_policy_digest: policy_digest,
+                }
             })
             .await?;
-
-            self.emit(event_id, &result, caller);
-
-            Ok(Response::new(ValidateResponse {
-                verdict: Some(if summary_only {
-                    convert::summary_verdict(&result)
-                } else {
-                    convert::verdict(&result, forced)
-                }),
-                summary_only,
-            }))
+            Ok(Response::new(response))
         })
         .await
     }
@@ -353,6 +388,7 @@ impl VastlintService for VastlintApi {
         let (tx, rx) = mpsc::channel::<Result<ValidateStreamResponse, Status>>(self.stream_buffer);
         let limiter = self.limiter.clone();
         let workers = Arc::clone(&self.workers);
+        let policy = self.policy.clone();
 
         tokio::spawn(async move {
             while let Some(message) = inbound.next().await {
@@ -378,7 +414,10 @@ impl VastlintService for VastlintApi {
 
                 let request_id = message.request_id;
 
-                let context = match convert::validation_context(message.context) {
+                let context = match policy.as_ref().map_or_else(
+                    || convert::validation_context(message.context.clone()),
+                    |policy| policy.context(message.context.clone()),
+                ) {
                     Ok(context) => context,
                     Err(status) => {
                         permit.send(Ok(ValidateStreamResponse {
@@ -422,13 +461,14 @@ impl VastlintService for VastlintApi {
                 tokio::spawn(async move {
                     let started = Instant::now();
                     let outcome = run(budget, workers, admitted, move || {
-                        core::validate_with_context(&document, context)
+                        let result = core::validate_with_context(&document, context);
+                        metrics::record_verdict(caller.as_deref(), &result);
+                        convert::verdict(&result, forced)
                     })
                     .await;
 
                     let response = match outcome {
-                        Ok(result) => {
-                            metrics::record_verdict(caller.as_deref(), &result);
+                        Ok(verdict) => {
                             metrics::record_request(
                                 "ValidateStream",
                                 "ok",
@@ -436,7 +476,7 @@ impl VastlintService for VastlintApi {
                             );
                             ValidateStreamResponse {
                                 request_id,
-                                verdict: Some(convert::verdict(&result, forced)),
+                                verdict: Some(verdict),
                                 error: None,
                             }
                         }
@@ -472,20 +512,20 @@ impl VastlintService for VastlintApi {
             let budget =
                 deadline::remaining(request.metadata()).and_then(|d| Instant::now().checked_add(d));
             let request = request.into_inner();
-            let (context, _) = convert::validation_context(request.context)?;
+            let (context, _) = self.context(request.context)?;
             let document = request.document;
 
-            let result = run(budget, Arc::clone(&self.workers), None, move || {
-                core::fix_with_context(&document, context)
+            let response = run(budget, Arc::clone(&self.workers), None, move || {
+                let result = core::fix_with_context(&document, context);
+                FixResponse {
+                    document: result.xml,
+                    applied: result.applied.iter().map(convert::applied_fix).collect(),
+                    remaining: result.remaining.iter().map(convert::issue).collect(),
+                    provenance: Some(provenance()),
+                }
             })
             .await?;
-
-            Ok(Response::new(FixResponse {
-                document: result.xml,
-                applied: result.applied.iter().map(convert::applied_fix).collect(),
-                remaining: result.remaining.iter().map(convert::issue).collect(),
-                provenance: Some(provenance()),
-            }))
+            Ok(Response::new(response))
         })
         .await
     }

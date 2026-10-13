@@ -74,6 +74,13 @@ message ValidateResponse {
   // True when the server honored ValidateRequest.summary_only. Older servers
   // leave this false, so clients can detect unsupported compact replies.
   bool summary_only = 2;
+
+  // Input coverage, independent of rule severity: supported, unsupported or malformed.
+  string input_status = 3;
+
+  // Active host profile, default profile, or "request" for per-request overrides.
+  string rule_profile = 4;
+  string rule_policy_digest = 5;
 }
 
 // One document in a validation stream.

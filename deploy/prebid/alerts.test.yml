@@ -1,0 +1,53 @@
+rule_files:
+  - alerts.yml
+evaluation_interval: 1m
+tests:
+  - name: Unsupported inputs do not dilute the sample error rate.
+    interval: 1m
+    input_series:
+      - series: 'vastlint_grpc_documents_total{caller="prebid-server",cluster="lab",environment="test",outcome="error"}'
+        values: '0+12x30'
+      - series: 'vastlint_grpc_documents_total{caller="prebid-server",cluster="lab",environment="test",outcome="clean"}'
+        values: '0+88x30'
+      - series: 'vastlint_grpc_documents_total{caller="prebid-server",cluster="lab",environment="test",outcome="unsupported"}'
+        values: '0+1000x30'
+    alert_rule_test:
+      - eval_time: 25m
+        alertname: VASTlintSampleErrors
+        exp_alerts:
+          - exp_labels:
+              cluster: lab
+              environment: test
+              severity: warning
+            exp_annotations:
+              summary: More than 5% of assessable VAST samples contain errors.
+              description: Check collection coverage and active rule policy before investigating the most frequent error rules. This is a sample finding rate, not a playback failure rate.
+  - name: Warnings alone do not trigger the sample error alert.
+    interval: 1m
+    input_series:
+      - series: 'vastlint_grpc_documents_total{caller="prebid-server",cluster="lab",environment="test",outcome="warning"}'
+        values: '0+100x30'
+      - series: 'vastlint_grpc_documents_total{caller="prebid-server",cluster="lab",environment="test",outcome="error"}'
+        values: '0+0x30'
+    alert_rule_test:
+      - eval_time: 25m
+        alertname: VASTlintSampleErrors
+        exp_alerts: []
+  - name: Repeated transport failures trigger a collection alert.
+    interval: 1m
+    input_series:
+      - series: 'prebid_server_vastlint_collection_total{cluster="lab",environment="test",event="submitted"}'
+        values: '0+60x20'
+      - series: 'prebid_server_vastlint_collection_total{cluster="lab",environment="test",event="failed"}'
+        values: '0+6x20'
+    alert_rule_test:
+      - eval_time: 15m
+        alertname: VASTlintCollectionFailures
+        exp_alerts:
+          - exp_labels:
+              cluster: lab
+              environment: test
+              severity: warning
+            exp_annotations:
+              summary: VASTlint cannot check more than 5% of submitted samples.
+              description: Check transport, timeouts, incompatible responses and validator health. Auction outcomes are unaffected.
