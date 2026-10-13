@@ -40,8 +40,8 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (cluster, environment, outcome) (rate(vastlint_grpc_documents_total{caller=\"prebid-server\"}[5m]))",
-          "legendFormat": "{{cluster}} {{outcome}}"
+          "expr": "sum by (cluster, environment, outcome) (rate(vastlint_grpc_documents_total{cluster=~\"$cluster\",environment=~\"$environment\",caller=\"prebid-server\"}[5m]))",
+          "legendFormat": "{{cluster}} {{environment}} {{outcome}}"
         }
       ],
       "fieldConfig": {
@@ -77,8 +77,8 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (cluster, environment, event) (rate(prebid_server_vastlint_collection_total{event=~\"failed|capacity_dropped|rate_dropped|expired|shutdown_dropped\"}[5m]))",
-          "legendFormat": "{{cluster}} {{event}}"
+          "expr": "sum by (cluster, environment, event) (rate(prebid_server_vastlint_collection_total{cluster=~\"$cluster\",environment=~\"$environment\",event=~\"failed|capacity_dropped|rate_dropped|expired|shutdown_dropped\"}[5m]))",
+          "legendFormat": "{{cluster}} {{environment}} {{event}}"
         }
       ],
       "fieldConfig": {
@@ -114,7 +114,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "topk(10, sum by (rule_id) (rate(vastlint_grpc_rule_documents_total{caller=\"prebid-server\",severity=\"error\"}[5m])))",
+          "expr": "topk(10, sum by (rule_id) (rate(vastlint_grpc_rule_documents_total{cluster=~\"$cluster\",environment=~\"$environment\",caller=\"prebid-server\",severity=\"error\"}[5m])))",
           "legendFormat": "{{rule_id}}"
         }
       ],
@@ -136,8 +136,8 @@
     {
       "id": 4,
       "type": "timeseries",
-      "title": "Document findings by effective severity",
-      "description": "Counters describe received samples. Rule-document counts may overlap across rules and severities. Collection loss counters are shown separately.",
+      "title": "Rule-document pairs by effective severity",
+      "description": "A document contributes once for each matching rule and severity. This sum is not a count of unique documents or individual finding occurrences.",
       "datasource": {
         "type": "prometheus",
         "uid": "${DS_PROMETHEUS}"
@@ -151,7 +151,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (severity) (rate(vastlint_grpc_rule_documents_total{caller=\"prebid-server\"}[5m]))",
+          "expr": "sum by (severity) (rate(vastlint_grpc_rule_documents_total{cluster=~\"$cluster\",environment=~\"$environment\",caller=\"prebid-server\"}[5m]))",
           "legendFormat": "{{severity}}"
         }
       ],
@@ -188,8 +188,8 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (cluster, event) (rate(prebid_server_vastlint_collection_total{event=~\"auctions|sampled|privacy_suppressed|activity_denied|no_candidate\"}[5m]))",
-          "legendFormat": "{{cluster}} {{event}}"
+          "expr": "sum by (cluster, environment, event) (rate(prebid_server_vastlint_collection_total{cluster=~\"$cluster\",environment=~\"$environment\",event=~\"auctions|sampled|privacy_suppressed|activity_denied|no_candidate\"}[5m]))",
+          "legendFormat": "{{cluster}} {{environment}} {{event}}"
         }
       ],
       "fieldConfig": {
@@ -209,9 +209,9 @@
     },
     {
       "id": 6,
-      "type": "timeseries",
+      "type": "table",
       "title": "Active rule policy and engine",
-      "description": "Counters describe received samples. Rule-document counts may overlap across rules and severities. Collection loss counters are shown separately.",
+      "description": "Compare profile, policy digest, engine and catalog before attributing a metric change to traffic.",
       "datasource": {
         "type": "prometheus",
         "uid": "${DS_PROMETHEUS}"
@@ -225,8 +225,10 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "vastlint_grpc_policy_info",
-          "legendFormat": "{{cluster}} {{profile}} {{engine_version}} {{policy_digest}}"
+          "expr": "vastlint_grpc_policy_info{cluster=~\"$cluster\",environment=~\"$environment\"}",
+          "legendFormat": "{{cluster}} {{environment}} {{profile}} {{engine_version}} {{policy_digest}}",
+          "instant": true,
+          "format": "table"
         }
       ],
       "fieldConfig": {
@@ -237,16 +239,71 @@
         "overrides": []
       },
       "options": {
-        "legend": {
-          "showLegend": true,
-          "displayMode": "list",
-          "placement": "bottom"
+        "showHeader": true,
+        "cellHeight": "sm"
+      },
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "Value": true,
+              "__name__": true
+            },
+            "indexByName": {
+              "cluster": 0,
+              "environment": 1,
+              "instance": 2,
+              "profile": 3,
+              "engine_version": 4,
+              "policy_digest": 5,
+              "catalog_digest": 6
+            }
+          }
         }
-      }
+      ]
     }
   ],
   "templating": {
-    "list": []
+    "list": [
+      {
+        "name": "cluster",
+        "label": "Cluster",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${DS_PROMETHEUS}"
+        },
+        "query": "label_values(vastlint_grpc_policy_info, cluster)",
+        "refresh": 1,
+        "includeAll": true,
+        "allValue": ".*",
+        "multi": true,
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        }
+      },
+      {
+        "name": "environment",
+        "label": "Environment",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${DS_PROMETHEUS}"
+        },
+        "query": "label_values(vastlint_grpc_policy_info, environment)",
+        "refresh": 1,
+        "includeAll": true,
+        "allValue": ".*",
+        "multi": true,
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        }
+      }
+    ]
   },
   "annotations": {
     "list": []

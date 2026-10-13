@@ -92,7 +92,9 @@ vastlint_grpc_policy_info
 `alerts.yml` provides starting thresholds with minimum sample counts. Tune them
 for host traffic and alert routing. Do not describe these as playback failure
 rates or estimates of the entire auction population. The adapter README defines
-every collection counter, unit, overlap and denominator.
+every collection counter, unit, overlap and denominator. Validator counters
+include completed work even when a client canceled before receiving the reply.
+Do not equate those totals with PBS `checked` counts.
 
 ## Reproduce a defect and severity change.
 
@@ -106,7 +108,8 @@ python3 scripts/prebid-compatibility.py \
 ```
 
 The `Prebid validator compatibility` workflow runs this against both current
-source and the digest-pinned released image on relevant changes and weekly.
+source and the digest-pinned released image on relevant branch changes. Its weekly
+schedule activates when the workflow lands on the default branch.
 When either contract changes, update the tested PBS commit and release digest in
 `release.json` through review. Until the adapter merges, that PBS pin references
 the integration fork; it must move to an upstream commit after acceptance.
@@ -114,7 +117,8 @@ the integration fork; it must move to an upstream commit after acceptance.
 The harness checks public protobuf field compatibility and starts isolated
 validator instances for default, off, info, warning and error profiles. It removes
 the required Impression element from a control tag and verifies the corresponding
-summary delta and `vastlint_grpc_rule_documents_total` severity. It also checks
+summary delta and `vastlint_grpc_rule_documents_total` severity, then resubmits
+the repaired control and verifies the original summary returns. It also checks
 compact acknowledgement, malformed and unsupported inputs, receive limits,
 cancellation and recovery. Result files contain metric text and test outcomes,
 with no production XML.
