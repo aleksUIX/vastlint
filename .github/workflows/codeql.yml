@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
-    branches: [main]
+    branches: [main, fix/prebid-parser-safety-20261012]
   schedule:
     # Weekly scan so the Security tab stays current
     - cron: '15 4 * * 1'  # Mondays 04:15 UTC
