@@ -133,15 +133,34 @@ impl Node {
     /// as evidence about the document itself rather than about an extension
     /// payload carried inside it.
     pub fn find_descendant_outside_standardised_extensions(&self, name: &str) -> Option<&Node> {
+        let version = self
+            .attr("version")
+            .and_then(crate::detect::parse_version_str);
+        let mut ancestors = vec![self.name.as_str()];
+        self.find_outside_extensions(name, version, &mut ancestors)
+    }
+
+    fn find_outside_extensions<'a>(
+        &'a self,
+        name: &str,
+        version: Option<crate::VastVersion>,
+        ancestors: &mut Vec<&'a str>,
+    ) -> Option<&'a Node> {
         for child in &self.children {
+            if child.is_standardised_iab_extension()
+                || crate::extensions::ctv_extension_at(child, version, ancestors.iter().copied())
+                    .is_some()
+            {
+                continue;
+            }
             if child.name == name {
                 return Some(child);
             }
-            if child.is_standardised_iab_extension() {
-                continue;
-            }
-            if let Some(found) = child.find_descendant_outside_standardised_extensions(name) {
-                return Some(found);
+            ancestors.push(child.name.as_str());
+            let found = child.find_outside_extensions(name, version, ancestors);
+            ancestors.pop();
+            if found.is_some() {
+                return found;
             }
         }
         None

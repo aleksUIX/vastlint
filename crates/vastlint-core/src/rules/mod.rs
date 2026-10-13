@@ -11,6 +11,7 @@
 pub mod ambiguous;
 pub mod consistency;
 pub mod ctv;
+pub mod ctv_addendum;
 pub mod ctv_portfolio;
 pub mod daast;
 pub mod deprecated;
@@ -46,8 +47,8 @@ pub(super) fn allows_ctv_nonlinear(version: Option<VastVersion>) -> bool {
     version.map(|v| v.is_v4()).unwrap_or(false)
 }
 use RuleSource::{
-    CtvAdPortfolio, DaastSpec, DaastXsd, IanaMediaTypes, IndustryBestPractice, Inferred, Iso4217,
-    Rfc3986, SimidSpec, VastSpec, VastXsd, VmapSpec, Xml,
+    CtvAdPortfolio, CtvAddendum2024, DaastSpec, DaastXsd, IanaMediaTypes, IndustryBestPractice,
+    Inferred, Iso4217, Rfc3986, SimidSpec, VastSpec, VastXsd, VmapSpec, Xml,
 };
 
 /// Run all applicable rules against the document and collect issues.
@@ -87,6 +88,7 @@ pub fn run(
     ambiguous::check(doc, version, ctx, issues);
     values::check(doc, version, ctx, issues);
     ctv::check(doc, version, ctx, issues);
+    ctv_addendum::check(doc, version, ctx, issues);
     ctv_portfolio::check(doc, version, ctx, issues);
     elements::check(doc, version, ctx, issues);
     simid::check(doc, version, ctx, issues);
@@ -279,6 +281,20 @@ pub static CATALOG: &[RuleMeta] = &[
     RuleMeta { id: "VAST-4.1-mezzanine-recommended",          default_severity: Severity::Info,    description: "<MediaFiles> has no <Mezzanine> — ad-stitching servers may reject in CTV/SSAI contexts",  source: IndustryBestPractice },
     RuleMeta { id: "VAST-4.1-vpaid-in-interactive-context",   default_severity: Severity::Warning, description: "VPAID MediaFile alongside InteractiveCreativeFile — VPAID unsupported in CTV, zero fill",  source: IndustryBestPractice },
     RuleMeta { id: "VAST-4.1-ad-serving-id-empty",            default_severity: Severity::Warning, description: "<AdServingId> is present but empty",                                                     source: Inferred },
+    // CTV Addendum 2024 (final July 2024).
+    RuleMeta { id: "VAST-2.0-ctv-mezzanine-values", default_severity: Severity::Error, description: "Mezzanine dimensions must be non-negative integers and type must be a MIME type", source: CtvAddendum2024 },
+    RuleMeta { id: "VAST-2.0-ctv-extension-location", default_severity: Severity::Warning, description: "Standardized CTV extension is not defined at this version or location", source: CtvAddendum2024 },
+    RuleMeta { id: "VAST-2.0-ctv-extension-payload", default_severity: Severity::Error, description: "Standardized CTV extension must contain one element matching its type", source: CtvAddendum2024 },
+    RuleMeta { id: "VAST-2.0-ctv-universaladid-registry", default_severity: Severity::Error, description: "UniversalAdId extension requires a non-empty idRegistry", source: CtvAddendum2024 },
+    RuleMeta { id: "VAST-2.0-ctv-universaladid-registry-format", default_severity: Severity::Warning, description: "UniversalAdId extension idRegistry should be a root domain or unknown", source: CtvAddendum2024 },
+    RuleMeta { id: "VAST-2.0-ctv-universaladid-content", default_severity: Severity::Error, description: "UniversalAdId extension requires an ID in element text or unknown", source: CtvAddendum2024 },
+    RuleMeta { id: "VAST-2.0-ctv-binding-unmatched", default_severity: Severity::Error, description: "CTV extension binding must identify exactly one creative or media file in the same ad", source: CtvAddendum2024 },
+    RuleMeta { id: "VAST-2.0-ctv-binding-implicit", default_severity: Severity::Info, description: "CTV extension without a binding applies to the first creative in a multi-creative ad", source: CtvAddendum2024 },
+    RuleMeta { id: "VAST-2.0-ctv-interactive-api", default_severity: Severity::Error, description: "InteractiveCreativeFile extension requires apiFramework=SIMID", source: CtvAddendum2024 },
+    RuleMeta { id: "VAST-2.0-ctv-interactive-duration", default_severity: Severity::Error, description: "Addendum variableDuration must be an XML boolean", source: CtvAddendum2024 },
+    RuleMeta { id: "VAST-2.0-ctv-interactive-payload", default_severity: Severity::Error, description: "InteractiveCreativeFile extension requires one URL/data URI or non-empty CDATA HTMLResource", source: CtvAddendum2024 },
+    RuleMeta { id: "VAST-2.0-ctv-icon-regs", default_severity: Severity::Error, description: "Icon regs must be 0 (not applicable) or 1 (DSA)", source: CtvAddendum2024 },
+
     // ctv_portfolio.rs — IAB CTV Ad Portfolio (final 2026-07-22) + VAST 4.4 draft schema
     RuleMeta { id: "VAST-4.4-version-attribute",              default_severity: Severity::Info,    description: "Document declares VAST 4.4, a working-group draft rather than a published spec",         source: VastXsd },
     RuleMeta { id: "VAST-4.4-nonlinear-no-renderable-asset",  default_severity: Severity::Warning, description: "<NonLinear> has a SIMID interactive file but no renderable fallback asset",              source: CtvAdPortfolio },

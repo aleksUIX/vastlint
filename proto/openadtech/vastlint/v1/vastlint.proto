@@ -452,4 +452,7 @@ enum RuleSource {
   // Distinct from RULE_SOURCE_VAST_XSD because the guidance is a published
   // final standard while the accompanying vast_4.4.xsd remains a draft.
   RULE_SOURCE_CTV_AD_PORTFOLIO = 14;
+
+  // IAB Tech Lab CTV Addendum 2024, final July 2024 release.
+  RULE_SOURCE_CTV_ADDENDUM_2024 = 15;
 }

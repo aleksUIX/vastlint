@@ -152,7 +152,12 @@ fn maybe_warn_on_non_cdata_uri(
 
 /// Check that a string is a plausible URL (not empty, starts with a known
 /// scheme). Uses the `url` crate for full parse validation.
-fn check_url_value(value: &str, path: &str, ctx: &ValidationContext, issues: &mut Vec<Issue>) {
+pub(super) fn check_url_value(
+    value: &str,
+    path: &str,
+    ctx: &ValidationContext,
+    issues: &mut Vec<Issue>,
+) {
     if value.is_empty() {
         emit(
             ctx,

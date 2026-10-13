@@ -56,6 +56,7 @@ pub fn check(
 
             "Icon" => {
                 let path = loc.path();
+                super::ctv_addendum::check_icon_regs(node, &path, ctx, issues);
                 required::check_icon_required_attrs(node, &path, version, ctx, issues);
                 ambiguous::check_icon(node, &path, ctx, issues);
                 ambiguous::check_icon_fallback_images(node, &path, v.as_ref(), ctx, issues);

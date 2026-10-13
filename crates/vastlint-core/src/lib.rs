@@ -92,6 +92,7 @@
 //! and `phf` (compile-time hash maps).
 
 mod detect;
+mod extensions;
 mod fix;
 mod inspect;
 mod parse;
@@ -628,6 +629,8 @@ pub enum RuleSource {
     /// final standard while the accompanying `vast_4.4.xsd` is still a
     /// working-group draft.
     CtvAdPortfolio,
+    /// IAB Tech Lab CTV Addendum 2024, final July 2024 release.
+    CtvAddendum2024,
 }
 
 impl RuleSource {
@@ -648,6 +651,7 @@ impl RuleSource {
             RuleSource::DaastXsd => "DAAST XSD",
             RuleSource::IndustryBestPractice => "revenue impact",
             RuleSource::CtvAdPortfolio => "IAB CTV Ad Portfolio",
+            RuleSource::CtvAddendum2024 => "IAB CTV Addendum 2024",
         }
     }
 }

@@ -7,7 +7,7 @@ use std::collections::HashMap;
 
 use super::emit;
 use super::walk::visit_vast_elements;
-use crate::parse::VastDocument;
+use crate::parse::{Node, VastDocument};
 use crate::{DetectedVersion, Issue, Severity, ValidationContext};
 
 pub fn check(
@@ -93,34 +93,57 @@ fn check_singular_children(doc: &VastDocument, ctx: &ValidationContext, issues: 
     let Some(vast) = doc.vast_root() else { return };
 
     visit_vast_elements(vast, "/VAST", &mut |node, loc| {
-        // Only count children when this element parents something singular.
-        if !SINGULAR_CHILDREN.iter().any(|(p, _, _)| *p == node.name) {
-            return;
-        }
-
-        let mut counts: HashMap<&str, usize> = HashMap::new();
-        for child in &node.children {
-            *counts.entry(child.name.as_str()).or_insert(0) += 1;
-        }
-
-        for (parent, child, message) in SINGULAR_CHILDREN {
-            if *parent != node.name {
-                continue;
-            }
-            if counts.get(child).copied().unwrap_or(0) > 1 {
-                emit(
-                    ctx,
-                    issues,
-                    "VAST-2.0-duplicate-singular-element",
-                    Severity::Error,
-                    message,
-                    Some(format!("{}/{}", loc.path(), child)),
-                    "IAB VAST 4.2 XSD",
-                    Some(node),
-                );
-            }
-        }
+        check_singular_node(node, || loc.path(), ctx, issues);
     });
+}
+
+/// Apply native singular-child constraints to a recognized extension's model.
+/// Start at its payload, so the extension container does not stop this walk.
+pub(super) fn check_singular_payload(
+    node: &Node,
+    base: &str,
+    ctx: &ValidationContext,
+    issues: &mut Vec<Issue>,
+) {
+    check_singular_node(node, || base.to_owned(), ctx, issues);
+    visit_vast_elements(node, base, &mut |child, loc| {
+        check_singular_node(child, || loc.path(), ctx, issues);
+    });
+}
+
+fn check_singular_node(
+    node: &Node,
+    path: impl Fn() -> String,
+    ctx: &ValidationContext,
+    issues: &mut Vec<Issue>,
+) {
+    // Only count children when this element parents something singular.
+    if !SINGULAR_CHILDREN.iter().any(|(p, _, _)| *p == node.name) {
+        return;
+    }
+
+    let mut counts: HashMap<&str, usize> = HashMap::new();
+    for child in &node.children {
+        *counts.entry(child.name.as_str()).or_insert(0) += 1;
+    }
+
+    for (parent, child, message) in SINGULAR_CHILDREN {
+        if *parent != node.name {
+            continue;
+        }
+        if counts.get(child).copied().unwrap_or(0) > 1 {
+            emit(
+                ctx,
+                issues,
+                "VAST-2.0-duplicate-singular-element",
+                Severity::Error,
+                message,
+                Some(format!("{}/{}", path(), child)),
+                "IAB VAST 4.2 XSD",
+                Some(node),
+            );
+        }
+    }
 }
 
 // VAST-2.0-wrapper-depth
