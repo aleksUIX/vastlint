@@ -23,8 +23,9 @@
 //! `<Extension>` or `<CreativeExtension>` that
 //! [`Node::is_standardised_iab_extension`] does not recognise, and descends
 //! into the ones it does, because those hold real VAST by definition. That
-//! single allowlist is the whole maintenance surface: a future IAB container
-//! joins it and inherits every element rule at once.
+//! allowlist covers relocated native elements. The 2024 CTV Addendum has its
+//! own content models, so ctv_addendum.rs validates those extension payloads
+//! explicitly while this native walker keeps them opaque.
 //!
 //! # What stays hand-written
 //!
@@ -92,6 +93,21 @@ impl Location<'_> {
             }
         }
         out
+    }
+
+    pub(super) fn ancestors(&self) -> impl Iterator<Item = &str> {
+        std::iter::once("VAST").chain(
+            self.stack[..self.stack.len().saturating_sub(1)]
+                .iter()
+                .map(|(name, _)| *name),
+        )
+    }
+
+    pub(super) fn ancestor_index(&self, name: &str) -> Option<usize> {
+        self.stack[..self.stack.len().saturating_sub(1)]
+            .iter()
+            .find(|(n, _)| *n == name)
+            .and_then(|(_, index)| *index)
     }
 
     /// True when any *ancestor* has this name. The visited element itself does

@@ -319,14 +319,10 @@ fn check_inline(
             ad_ver,
             &format!("{}/AdVerifications", path),
             version,
+            true,
             ctx,
             issues,
         );
-    }
-
-    if let Some(extensions) = inline.child("Extensions") {
-        let extensions_path = format!("{}/Extensions", path);
-        check_embedded_ad_verifications(extensions, &extensions_path, version, ctx, issues);
     }
 }
 
@@ -662,16 +658,12 @@ fn check_wrapper(
                     av,
                     &format!("{}/AdVerifications", path),
                     version,
+                    true,
                     ctx,
                     issues,
                 );
             }
         }
-    }
-
-    if let Some(extensions) = wrapper.child("Extensions") {
-        let extensions_path = format!("{}/Extensions", path);
-        check_embedded_ad_verifications(extensions, &extensions_path, version, ctx, issues);
     }
 }
 
@@ -964,10 +956,11 @@ pub(super) fn check_mezzanine_required_attrs(
     }
 }
 
-fn check_ad_verifications(
+pub(super) fn check_ad_verifications(
     ad_ver_node: &Node,
     ad_ver_path: &str,
     version: &DetectedVersion,
+    recommend_browser_optional: bool,
     ctx: &ValidationContext,
     issues: &mut Vec<Issue>,
 ) {
@@ -992,25 +985,14 @@ fn check_ad_verifications(
             }
         }
 
-        check_verification_resource(ver_node, &ver_path, version, ctx, issues);
-    }
-}
-
-fn check_embedded_ad_verifications(
-    node: &Node,
-    path: &str,
-    version: &DetectedVersion,
-    ctx: &ValidationContext,
-    issues: &mut Vec<Issue>,
-) {
-    if node.name == "AdVerifications" || node.has_child("Verification") {
-        check_ad_verifications(node, path, version, ctx, issues);
-        return;
-    }
-
-    for (child_index, child) in node.children.iter().enumerate() {
-        let child_path = format!("{}/{}[{}]", path, child.name, child_index);
-        check_embedded_ad_verifications(child, &child_path, version, ctx, issues);
+        check_verification_resource(
+            ver_node,
+            &ver_path,
+            version,
+            recommend_browser_optional,
+            ctx,
+            issues,
+        );
     }
 }
 
@@ -1027,6 +1009,7 @@ pub(super) fn check_verification_resource(
     ver_node: &Node,
     ver_path: &str,
     version: &DetectedVersion,
+    recommend_browser_optional: bool,
     ctx: &ValidationContext,
     issues: &mut Vec<Issue>,
 ) {
@@ -1148,8 +1131,9 @@ pub(super) fn check_verification_resource(
             );
         }
 
-        // VAST-4.3-js-resource-browser-optional: browserOptional is required (added 4.3).
-        if js.attr("browserOptional").is_none() {
+        // Preserve the native advisory. Legacy OMID extensions follow the
+        // VAST 4.1 model, where browserOptional is optional.
+        if recommend_browser_optional && js.attr("browserOptional").is_none() {
             emit(
                 ctx,
                 issues,

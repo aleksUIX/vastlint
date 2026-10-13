@@ -83,7 +83,7 @@ fn check_inline(
             "Impression" => check_text_only(child, &child_path, &["id"], ctx, issues),
             "Error" => check_text_only(child, &child_path, &[], ctx, issues),
             "Creatives" => check_creatives(child, &child_path, v, ctx, issues),
-            "Extensions" => check_extensions(child, &child_path, ctx, issues),
+            "Extensions" => check_extensions(child, &child_path, v, ctx, issues),
             "Survey" => check_text_only(child, &child_path, &["type"], ctx, issues),
             "Category" => check_text_only(child, &child_path, &["authority"], ctx, issues),
             "Expires" => check_text_only(child, &child_path, &[], ctx, issues),
@@ -134,7 +134,7 @@ fn check_wrapper(
             "Error" => check_text_only(child, &child_path, &[], ctx, issues),
             "Pricing" => check_text_only(child, &child_path, &["model", "currency"], ctx, issues),
             "Creatives" => check_creatives(child, &child_path, version, ctx, issues),
-            "Extensions" => check_extensions(child, &child_path, ctx, issues),
+            "Extensions" => check_extensions(child, &child_path, version, ctx, issues),
             "BlockedAdCategories" => {
                 check_text_only(child, &child_path, &["authority"], ctx, issues)
             }
@@ -208,7 +208,9 @@ fn check_creative(
             "UniversalAdId" => {
                 check_text_only(child, &child_path, &["idRegistry", "idValue"], ctx, issues)
             }
-            "CreativeExtensions" => check_creative_extensions(child, &child_path, ctx, issues),
+            "CreativeExtensions" => {
+                check_creative_extensions(child, &child_path, version, ctx, issues)
+            }
             other => emit(
                 ctx,
                 issues,
@@ -235,7 +237,7 @@ fn check_linear(node: &Node, path: &str, ctx: &ValidationContext, issues: &mut V
             "TrackingEvents" => check_tracking_events(child, &child_path, ctx, issues),
             "MediaFiles" => check_media_files(child, &child_path, ctx, issues),
             "Icons" => check_icons(child, &child_path, ctx, issues),
-            "Extensions" => check_extensions(child, &child_path, ctx, issues),
+            "Extensions" => check_extensions(child, &child_path, None, ctx, issues),
             other => emit(
                 ctx,
                 issues,
@@ -346,7 +348,13 @@ fn check_media_files(node: &Node, path: &str, ctx: &ValidationContext, issues: &
     }
 }
 
-fn check_extensions(node: &Node, path: &str, ctx: &ValidationContext, issues: &mut Vec<Issue>) {
+fn check_extensions(
+    node: &Node,
+    path: &str,
+    version: Option<VastVersion>,
+    ctx: &ValidationContext,
+    issues: &mut Vec<Issue>,
+) {
     for (i, child) in node.children.iter().enumerate() {
         if child.name != "Extension" {
             emit(
@@ -373,6 +381,7 @@ fn check_extensions(node: &Node, path: &str, ctx: &ValidationContext, issues: &m
                 child,
                 &ext_path,
                 "VAST-2.0-extension-misplaced-element",
+                version,
                 ctx,
                 issues,
             );
@@ -597,7 +606,9 @@ fn check_companion(node: &Node, path: &str, ctx: &ValidationContext, issues: &mu
             "CompanionClickThrough" => check_text_only(child, &child_path, &[], ctx, issues),
             "CompanionClickTracking" => check_text_only(child, &child_path, &["id"], ctx, issues),
             "TrackingEvents" => check_tracking_events(child, &child_path, ctx, issues),
-            "CreativeExtensions" => check_creative_extensions(child, &child_path, ctx, issues),
+            "CreativeExtensions" => {
+                check_creative_extensions(child, &child_path, None, ctx, issues)
+            }
             other => emit(
                 ctx,
                 issues,
@@ -634,7 +645,12 @@ fn check_icons(node: &Node, path: &str, ctx: &ValidationContext, issues: &mut Ve
     }
 }
 
-fn check_icon(node: &Node, path: &str, ctx: &ValidationContext, issues: &mut Vec<Issue>) {
+pub(super) fn check_icon(
+    node: &Node,
+    path: &str,
+    ctx: &ValidationContext,
+    issues: &mut Vec<Issue>,
+) {
     check_attrs(
         node,
         path,
@@ -648,6 +664,7 @@ fn check_icon(node: &Node, path: &str, ctx: &ValidationContext, issues: &mut Vec
             "offset",
             "apiFramework",
             "pxratio",
+            "regs",
         ],
         ctx,
         issues,
@@ -705,6 +722,7 @@ fn check_icon_clicks(node: &Node, path: &str, ctx: &ValidationContext, issues: &
 fn check_creative_extensions(
     node: &Node,
     path: &str,
+    version: Option<VastVersion>,
     ctx: &ValidationContext,
     issues: &mut Vec<Issue>,
 ) {
@@ -734,6 +752,7 @@ fn check_creative_extensions(
                 child,
                 &ext_path,
                 "VAST-2.0-creative-extension-misplaced-element",
+                version,
                 ctx,
                 issues,
             );
@@ -741,7 +760,7 @@ fn check_creative_extensions(
     }
 }
 
-fn check_ad_verifications(
+pub(super) fn check_ad_verifications(
     node: &Node,
     path: &str,
     ctx: &ValidationContext,
@@ -998,6 +1017,7 @@ fn scan_extension_for_misplaced_elements(
     node: &Node,
     path: &str,
     rule_id: &'static str,
+    version: Option<VastVersion>,
     ctx: &ValidationContext,
     issues: &mut Vec<Issue>,
 ) {
@@ -1005,7 +1025,9 @@ fn scan_extension_for_misplaced_elements(
     // they belong. `<Extension type="ctv_ad_portfolio">` carries MediaFiles,
     // Duration, TrackingEvents, Icons and AdParameters by design, because it
     // exists to give VAST 2.0 a NonLinear delivery model it never had.
-    if node.is_standardised_iab_extension() {
+    if node.is_standardised_iab_extension()
+        || crate::extensions::ctv_extension_at_path(node, version, path).is_some()
+    {
         return;
     }
 
@@ -1025,7 +1047,14 @@ fn scan_extension_for_misplaced_elements(
         } else {
             // Recurse into vendor-specific wrappers that might nest known
             // elements deeper (e.g., <MyVendor><Companion>...</Companion></MyVendor>).
-            scan_extension_for_misplaced_elements(child, &child_path, rule_id, ctx, issues);
+            scan_extension_for_misplaced_elements(
+                child,
+                &child_path,
+                rule_id,
+                version,
+                ctx,
+                issues,
+            );
         }
     }
 }
@@ -1034,7 +1063,7 @@ fn scan_extension_for_misplaced_elements(
 
 /// Assert that a node contains no child elements — only text content is valid.
 /// `allowed_attrs` lists attributes the element is permitted to carry.
-fn check_text_only(
+pub(super) fn check_text_only(
     node: &Node,
     path: &str,
     allowed_attrs: &[&str],
@@ -1060,7 +1089,7 @@ fn check_text_only(
 }
 
 /// Warn on any attribute not in the allowed list for this element.
-fn check_attrs(
+pub(super) fn check_attrs(
     node: &Node,
     path: &str,
     allowed: &[&str],

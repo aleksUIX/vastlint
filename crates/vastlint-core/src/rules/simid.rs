@@ -375,12 +375,12 @@ fn emit_apiframework_case(
     }
 }
 
-enum SimidUrlRules {
+pub(super) enum SimidUrlRules {
     Linear,
     Nonlinear,
 }
 
-fn check_simid_url(
+pub(super) fn check_simid_url(
     url: &str,
     path: &str,
     node: &Node,

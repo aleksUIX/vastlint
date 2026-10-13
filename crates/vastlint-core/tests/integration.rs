@@ -130,11 +130,11 @@ fn assert_large_publica_warning_fixture(name: &str) {
         "expected VAST-3.0-pricing-model-case for {name}, got: {:#?}",
         result.issues
     );
-    // 11 warnings: the tag's `AdID` (VAST 2.0 creative-id casing) is no longer
-    // false-flagged as an unknown attribute.
+    // 10 warnings: the standardized OMID extension no longer triggers a
+    // misplaced-element warning. Other vendor extension warnings remain.
     assert_eq!(
-        result.summary.warnings, 11,
-        "expected 11 warnings for {name}, got {}: {:#?}",
+        result.summary.warnings, 10,
+        "expected 10 warnings for {name}, got {}: {:#?}",
         result.summary.warnings, result.issues
     );
     assert!(result.summary.is_valid());
@@ -2495,7 +2495,7 @@ fn linear_with_quartile_tracking_does_not_fire() {
 fn all_rules_catalog_has_expected_count() {
     assert_eq!(
         vastlint_core::all_rules().len(),
-        234,
+        246,
         "catalog count changed — update this assertion and bump RULES.md"
     );
 }

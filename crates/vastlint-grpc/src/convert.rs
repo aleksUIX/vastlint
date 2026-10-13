@@ -63,6 +63,7 @@ pub fn rule_source(value: core::RuleSource) -> proto::RuleSource {
         core::RuleSource::DaastXsd => proto::RuleSource::DaastXsd,
         core::RuleSource::IndustryBestPractice => proto::RuleSource::IndustryBestPractice,
         core::RuleSource::CtvAdPortfolio => proto::RuleSource::CtvAdPortfolio,
+        core::RuleSource::CtvAddendum2024 => proto::RuleSource::CtvAddendum2024,
     }
 }
 
@@ -479,6 +480,12 @@ mod tests {
                 rule.id
             );
         }
+    }
+
+    #[test]
+    fn ctv_addendum_source_has_an_additive_wire_value() {
+        assert_eq!(rule_source(core::RuleSource::CtvAddendum2024) as i32, 15);
+        assert_eq!(rule_source(core::RuleSource::CtvAdPortfolio) as i32, 14);
     }
 
     #[test]

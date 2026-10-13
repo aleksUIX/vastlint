@@ -2,7 +2,7 @@
 
 Full reference documentation for every rule is at **[vastlint.org/docs/rules](https://vastlint.org/docs/rules/)**.
 
-234 rules across IAB VAST 2.0 – 4.4, VMAP 1.0, DAAST 1.0, and SIMID 1.0 – 1.1. Each rule has a stable ID, a default severity (`error` / `warning` / `info`), and a dedicated docs page with the spec reference, examples, and fix guidance.
+246 rules across IAB VAST 2.0 – 4.4, VMAP 1.0, DAAST 1.0, and SIMID 1.0 – 1.1. Each rule has a stable ID, a default severity (`error` / `warning` / `info`), and a dedicated docs page with the spec reference, examples, and fix guidance.
 
 The severity below is the default. A few rules resolve theirs from the document's declared version, because the schemas disagree about what is required: the `<Icon>` placement attributes are errors under VAST 3.0, which required them, and warnings under 4.x, whose XSDs declare them optional. `VAST-4.1-verification-vendor` and `VAST-4.1-js-resource-apiframework` behave the same way across 4.0 and 4.1. Config overrides always win over both.
 
@@ -79,6 +79,25 @@ The severity below is the default. A few rules resolve theirs from the document'
 | [VAST-2.0-adsystem-no-version](https://vastlint.org/docs/rules/VAST-2.0-adsystem-no-version/) | info | `<AdSystem>` has no `version` attribute; provenance is harder to trace in partner debugging |
 
 ---
+
+## CTV Addendum 2024 rules
+
+Supplied standardized payloads are checked by default. Legacy tags do not need to include optional addendum features. See [supported encodings](docs/ctv-addendum-2024.md).
+
+| Rule | Severity | Description |
+|------|----------|-------------|
+| [VAST-2.0-ctv-mezzanine-values](https://vastlint.org/docs/rules/VAST-2.0-ctv-mezzanine-values/) | error | Mezzanine dimensions must be non-negative integers and type must be a MIME type |
+| [VAST-2.0-ctv-extension-location](https://vastlint.org/docs/rules/VAST-2.0-ctv-extension-location/) | warning | Standardized CTV extension is not defined at this version or location |
+| [VAST-2.0-ctv-extension-payload](https://vastlint.org/docs/rules/VAST-2.0-ctv-extension-payload/) | error | Standardized CTV extension must contain one element matching its type |
+| [VAST-2.0-ctv-universaladid-registry](https://vastlint.org/docs/rules/VAST-2.0-ctv-universaladid-registry/) | error | UniversalAdId extension requires idRegistry; a blank registry is accepted only for unknown IDs |
+| [VAST-2.0-ctv-universaladid-registry-format](https://vastlint.org/docs/rules/VAST-2.0-ctv-universaladid-registry-format/) | warning | UniversalAdId extension idRegistry should be a registry name, root domain or unknown |
+| [VAST-2.0-ctv-universaladid-content](https://vastlint.org/docs/rules/VAST-2.0-ctv-universaladid-content/) | error | UniversalAdId extension requires an ID in element text or unknown |
+| [VAST-2.0-ctv-binding-unmatched](https://vastlint.org/docs/rules/VAST-2.0-ctv-binding-unmatched/) | error | CTV extension binding must identify exactly one creative or media file in the same ad |
+| [VAST-2.0-ctv-binding-implicit](https://vastlint.org/docs/rules/VAST-2.0-ctv-binding-implicit/) | info | CTV extension without a binding applies to the first creative in a multi-creative ad |
+| [VAST-2.0-ctv-interactive-api](https://vastlint.org/docs/rules/VAST-2.0-ctv-interactive-api/) | error | InteractiveCreativeFile extension requires apiFramework=SIMID |
+| [VAST-2.0-ctv-interactive-duration](https://vastlint.org/docs/rules/VAST-2.0-ctv-interactive-duration/) | error | Addendum variableDuration must be an XML boolean |
+| [VAST-2.0-ctv-interactive-payload](https://vastlint.org/docs/rules/VAST-2.0-ctv-interactive-payload/) | error | InteractiveCreativeFile extension requires one URL/data URI or non-empty CDATA HTMLResource |
+| [VAST-2.0-ctv-icon-regs](https://vastlint.org/docs/rules/VAST-2.0-ctv-icon-regs/) | error | Icon regs must be 0 (not applicable) or 1 (DSA) |
 
 ## VAST 3.0 rules
 

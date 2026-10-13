@@ -48,7 +48,7 @@ pub fn detect_version(doc: &VastDocument) -> DetectedVersion {
 }
 
 /// Parse a version string into a VastVersion, returning None for unrecognised values.
-fn parse_version_str(s: &str) -> Option<VastVersion> {
+pub(crate) fn parse_version_str(s: &str) -> Option<VastVersion> {
     match s.trim() {
         "2.0" | "2.0.1" => Some(VastVersion::V2_0),
         "3.0" => Some(VastVersion::V3_0),
@@ -86,7 +86,8 @@ fn infer_version(doc: &VastDocument) -> Option<VastVersion> {
     // precisely to carry later-version constructs (MediaFiles,
     // InteractiveCreativeFile, Icons, Duration) inside a 2.0 document, so
     // counting them as version signals would report every conforming tag as
-    // version-inconsistent. Same reasoning as the 4.4 note above.
+    // version-inconsistent. The 2024 CTV Addendum uses the same exclusion,
+    // with its own version/location mapping.
     let has = |name: &str| root.has_descendant_outside_standardised_extensions(name);
 
     // 4.1+ discriminators

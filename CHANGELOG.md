@@ -6,6 +6,22 @@ GitHub Releases: <https://github.com/aleksUIX/vastlint/releases>
 
 ---
 
+## [0.15.0] - 2026-10-13
+
+### Added
+
+- Validate supplied CTV Addendum 2024 extensions for UniversalAdId, Mezzanine, InteractiveCreativeFile and Icon at their specified VAST 2.0/3.0 locations. Support the richer SIMID creative-extension encoding on VAST 4.x, including CDATA HTMLResource, HTML data URIs and AdParameters.
+- Validate explicit creativeId/mediaFileId bindings within the same ad, surface implicit first-creative binding as info on multi-creative ads, and validate Icon regs as 0 or 1 on native and extension encodings. Optional addendum features remain optional.
+- Twelve addendum rules are catalogued separately with RuleSource::CtvAddendum2024. The gRPC RuleSource enum gains the additive value RULE_SOURCE_CTV_ADDENDUM_2024 = 15. Rust callers with exhaustive RuleSource matches need a new `CtvAddendum2024` arm.
+
+### Fixed
+
+- Recognized addendum payloads no longer trigger misplaced-element warnings or raise the inferred native VAST version.
+- OMID AdVerifications extensions on VAST 2.0, 3.0 and 4.0 use the VAST 4.1 content model. Arbitrary vendor extension payloads are no longer scanned for verification semantics. The existing native browserOptional advisory is preserved; legacy OMID extensions follow the 4.1 model where the attribute is optional.
+- UniversalAdId extension checks accept `unknown` IDs with blank registries and named registries such as `googlevideo` and `AmazonDSP`. Missing registry attributes, blank registries for actual IDs and malformed registry values still produce findings.
+
+---
+
 ## [0.14.5] - 2026-10-13
 
 ### Fixed
