@@ -3,7 +3,7 @@
   "image": "aleksuix/vastlint-grpc@sha256:3d77a1e66323b9ad7b0ba2322989780871eb3f0975a3b8d6bef8b840bbc810c7",
   "source_commit": "d5248ca7005015bb951bd855ee2972e3d3963f20",
   "pbs_repository": "aleksUIX/prebid-server",
-  "pbs_commit": "49d33411a86c235091543e0bc923db931c25ed40",
+  "pbs_commit": "9dbdf39b80afbecbd654cf69478d3f0090ac64f1",
   "image_build": "https://github.com/aleksUIX/vastlint/actions/runs/38325185186",
   "platforms": [
     "linux/amd64",
