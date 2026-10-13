@@ -293,8 +293,8 @@ pub fn set_policy(policy: &crate::policy::RulePolicy) {
     gauge.reset();
     gauge
         .with_label_values(&[
-            &policy.profile,
-            &policy.digest,
+            policy.profile.as_str(),
+            policy.digest.as_str(),
             core::VERSION,
             crate::provenance::catalog_digest(),
         ])
