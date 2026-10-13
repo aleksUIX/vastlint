@@ -50,6 +50,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 async fn serve(config: Config) -> Result<(), Box<dyn std::error::Error>> {
+    let policy = std::env::var_os("VASTLINT_RULES_FILE")
+        .map(|_| vastlint_grpc::policy::RulePolicy::from_env())
+        .transpose()?;
+    metrics::set_policy(
+        policy
+            .as_ref()
+            .unwrap_or(&vastlint_grpc::policy::RulePolicy::default()),
+    );
     let limiter = Arc::new(AdaptiveLimiter::new(config.limit.clone()));
     let rate_limiter = Arc::new(RateLimiter::new(config.rate_limit.clone()));
     metrics::set_concurrency_limit(limiter.limit());
@@ -97,8 +105,9 @@ async fn serve(config: Config) -> Result<(), Box<dyn std::error::Error>> {
     };
 
     if let Some(metrics_addr) = config.metrics_addr {
+        let listener = tokio::net::TcpListener::bind(metrics_addr).await?;
         tokio::spawn(async move {
-            if let Err(err) = metrics::serve(metrics_addr).await {
+            if let Err(err) = metrics::serve_listener(listener).await {
                 log_metrics_failure(err);
             }
         });
@@ -114,7 +123,12 @@ async fn serve(config: Config) -> Result<(), Box<dyn std::error::Error>> {
     // concurrency slot for its whole lifetime and report its entire duration as
     // a latency sample, driving the limit to the floor. Admission for streams
     // happens per message instead.
-    let mut api = VastlintApi::new().with_limiter(Arc::clone(&limiter), config.stream_buffer);
+    let mut api = VastlintApi::new()
+        .with_worker_limit(config.blocking_threads)
+        .with_limiter(Arc::clone(&limiter), config.stream_buffer);
+    if let Some(policy) = policy {
+        api = api.with_policy(policy);
+    }
     if let Some(publisher) = publisher {
         api = api.with_publisher(publisher, config.events.schema_id);
     }

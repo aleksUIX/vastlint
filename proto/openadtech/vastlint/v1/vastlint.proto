@@ -60,11 +60,27 @@ message ValidateRequest {
 
   // Optional. Server defaults apply when absent.
   ValidationContext context = 2;
+
+  // Return only validity, summary counts, and provenance. Detailed findings
+  // and version detection are omitted from the response, but validation and
+  // server-side finding metrics remain complete. False preserves full replies.
+  bool summary_only = 3;
 }
 
 // Result of a single validation.
 message ValidateResponse {
   Verdict verdict = 1;
+
+  // True when the server honored ValidateRequest.summary_only. Older servers
+  // leave this false, so clients can detect unsupported compact replies.
+  bool summary_only = 2;
+
+  // Input coverage, independent of rule severity: supported, unsupported or malformed.
+  string input_status = 3;
+
+  // Active host profile, default profile, or "request" for per-request overrides.
+  string rule_profile = 4;
+  string rule_policy_digest = 5;
 }
 
 // One document in a validation stream.

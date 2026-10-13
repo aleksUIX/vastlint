@@ -23,8 +23,8 @@ use std::net::SocketAddr;
 use std::sync::{Mutex, OnceLock};
 
 use prometheus::{
-    Encoder, HistogramOpts, HistogramVec, IntCounter, IntCounterVec, IntGauge, Opts, Registry,
-    TextEncoder,
+    Encoder, HistogramOpts, HistogramVec, IntCounter, IntCounterVec, IntGauge, IntGaugeVec, Opts,
+    Registry, TextEncoder,
 };
 use vastlint_core as core;
 
@@ -47,8 +47,12 @@ struct Metrics {
     events_published: IntCounter,
     events_dropped: IntCounter,
     concurrency_limit: IntGauge,
+    active_workers: IntGauge,
     verdicts: IntCounterVec,
     findings: IntCounterVec,
+    affected: IntCounterVec,
+    documents: IntCounterVec,
+    policy: IntGaugeVec,
 }
 
 static METRICS: OnceLock<Metrics> = OnceLock::new();
@@ -106,6 +110,11 @@ fn metrics() -> &'static Metrics {
         )
         .expect("valid metric definition");
 
+        let active_workers = IntGauge::new(
+            "vastlint_grpc_active_workers",
+            "CPU jobs holding capacity, including jobs whose RPC has ended",
+        ).expect("valid metric definition");
+
         let verdicts = IntCounterVec::new(
             Opts::new(
                 "vastlint_grpc_verdicts_total",
@@ -118,12 +127,18 @@ fn metrics() -> &'static Metrics {
         let findings = IntCounterVec::new(
             Opts::new(
                 "vastlint_grpc_findings_total",
-                "Individual rule findings, by caller, rule id, and revenue-impact flag",
+                "Individual finding occurrences by effective severity. Repeated occurrences count separately.",
             ),
-            &["caller", "rule_id", "revenue_impact"],
+            &["caller", "rule_id", "revenue_impact", "severity"],
         )
         .expect("valid metric definition");
 
+        let affected = IntCounterVec::new(Opts::new("vastlint_grpc_rule_documents_total", "Completed documents affected by a rule and effective severity, counted once per document"), &["caller", "rule_id", "severity"]).expect("valid metric definition");
+        let documents = IntCounterVec::new(Opts::new("vastlint_grpc_documents_total", "Completed documents by mutually exclusive outcome: malformed, unsupported, error, warning, info or clean"), &["caller", "outcome"]).expect("valid metric definition");
+        let policy = IntGaugeVec::new(Opts::new("vastlint_grpc_policy_info", "Immutable active host rule policy and engine identity; one series per process"), &["profile", "policy_digest", "engine_version", "catalog_digest"]).expect("valid metric definition");
+        registry.register(Box::new(affected.clone())).expect("unique metric");
+        registry.register(Box::new(documents.clone())).expect("unique metric");
+        registry.register(Box::new(policy.clone())).expect("unique metric");
         registry.register(Box::new(requests.clone())).expect("unique metric");
         registry.register(Box::new(latency.clone())).expect("unique metric");
         registry.register(Box::new(shed.clone())).expect("unique metric");
@@ -139,6 +154,7 @@ fn metrics() -> &'static Metrics {
         registry
             .register(Box::new(concurrency_limit.clone()))
             .expect("unique metric");
+        registry.register(Box::new(active_workers.clone())).expect("unique metric");
         registry
             .register(Box::new(verdicts.clone()))
             .expect("unique metric");
@@ -155,8 +171,12 @@ fn metrics() -> &'static Metrics {
             events_published,
             events_dropped,
             concurrency_limit,
+            active_workers,
             verdicts,
             findings,
+            affected,
+            documents,
+            policy,
         }
     })
 }
@@ -179,6 +199,13 @@ pub fn record_request(method: &str, status: &str, seconds: f64) {
 /// Records a request refused by the concurrency limiter.
 pub fn record_shed() {
     metrics().shed.inc();
+}
+
+pub fn worker_started() {
+    metrics().active_workers.inc();
+}
+pub fn worker_finished() {
+    metrics().active_workers.dec();
 }
 
 /// Records a request refused by the rate limiter.
@@ -225,6 +252,22 @@ pub fn record_verdict(caller: Option<&str>, result: &core::ValidationResult) {
         .with_label_values(&[caller.as_str(), valid])
         .inc();
 
+    let outcome = match result.input_status {
+        core::InputStatus::Malformed => "malformed",
+        core::InputStatus::Unsupported => "unsupported",
+        core::InputStatus::Supported if result.summary.errors > 0 => "error",
+        core::InputStatus::Supported if result.summary.warnings > 0 => "warning",
+        core::InputStatus::Supported if result.summary.infos > 0 => "info",
+        _ => "clean",
+    };
+    metrics
+        .documents
+        .with_label_values(&[caller.as_str(), outcome])
+        .inc();
+    if result.input_status == core::InputStatus::Unsupported {
+        return;
+    }
+    let mut affected = HashSet::new();
     for issue in &result.issues {
         let impact = if rule_revenue_impact(issue.id) {
             "true"
@@ -233,9 +276,29 @@ pub fn record_verdict(caller: Option<&str>, result: &core::ValidationResult) {
         };
         metrics
             .findings
-            .with_label_values(&[caller.as_str(), issue.id, impact])
+            .with_label_values(&[caller.as_str(), issue.id, impact, issue.severity.as_str()])
             .inc();
+        if affected.insert((issue.id, issue.severity.as_str())) {
+            metrics
+                .affected
+                .with_label_values(&[caller.as_str(), issue.id, issue.severity.as_str()])
+                .inc();
+        }
     }
+}
+
+/// Called once before accepting traffic. Profiles are host-owned, never request labels.
+pub fn set_policy(policy: &crate::policy::RulePolicy) {
+    let gauge = &metrics().policy;
+    gauge.reset();
+    gauge
+        .with_label_values(&[
+            policy.profile.as_str(),
+            policy.digest.as_str(),
+            core::VERSION,
+            crate::provenance::catalog_digest(),
+        ])
+        .set(1);
 }
 
 /// Distinct caller labels we will keep as their own series.
@@ -320,37 +383,37 @@ pub fn render() -> String {
 /// exactly when the main port is saturated, and sharing a listener would put
 /// them behind the same limiter that is shedding.
 pub async fn serve(addr: SocketAddr) -> std::io::Result<()> {
+    serve_listener(tokio::net::TcpListener::bind(addr).await?).await
+}
+
+/// Bounded HTTP handling. Slow or abandoned scrapes cannot create unlimited tasks.
+pub async fn serve_listener(listener: tokio::net::TcpListener) -> std::io::Result<()> {
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
-    use tokio::net::TcpListener;
-
-    let listener = TcpListener::bind(addr).await?;
-
+    let slots = std::sync::Arc::new(tokio::sync::Semaphore::new(16));
     loop {
-        let (mut socket, _) = match listener.accept().await {
-            Ok(accepted) => accepted,
-            // One failed accept, typically a file descriptor limit, must not
-            // take the metrics endpoint down for good.
-            Err(_) => continue,
+        let (mut socket, _) = listener.accept().await?;
+        let Ok(permit) = slots.clone().try_acquire_owned() else {
+            continue;
         };
-
         tokio::spawn(async move {
-            // Enough for a request line and headers. The endpoint answers the
-            // same way regardless of what was asked, so the request is read
-            // only to keep the client from seeing a reset before it finishes
-            // writing.
-            let mut discard = [0u8; 1024];
-            let _ = socket.read(&mut discard).await;
-
-            let body = render();
-            let response = format!(
-                "HTTP/1.1 200 OK\r\n\
-                 Content-Type: text/plain; version=0.0.4\r\n\
-                 Content-Length: {}\r\n\
-                 Connection: close\r\n\r\n{body}",
-                body.len()
-            );
-            let _ = socket.write_all(response.as_bytes()).await;
-            let _ = socket.shutdown().await;
+            let _permit = permit;
+            let _ = tokio::time::timeout(std::time::Duration::from_secs(2), async {
+                let mut request = [0u8; 4096];
+                let mut used = 0;
+                loop {
+                    let read = socket.read(&mut request[used..]).await?;
+                    if read == 0 { return Ok::<_, std::io::Error>(()); }
+                    used += read;
+                    if request[..used].windows(4).any(|w| w == b"\r\n\r\n") { break; }
+                    if used == request.len() { return Ok(()); }
+                }
+                let (status, body) = if request[..used].starts_with(b"GET /metrics HTTP/1.") {
+                    ("200 OK", render())
+                } else { ("404 Not Found", String::new()) };
+                let response = format!("HTTP/1.1 {status}\r\nContent-Type: text/plain; version=0.0.4\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len());
+                socket.write_all(response.as_bytes()).await?;
+                socket.shutdown().await
+            }).await;
         });
     }
 }
@@ -441,5 +504,48 @@ mod tests {
         let before = metrics().shed.get();
         record_shed();
         assert_eq!(metrics().shed.get(), before + 1);
+    }
+}
+
+#[cfg(test)]
+mod endpoint_tests {
+    use super::*;
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    #[tokio::test]
+    async fn metrics_http_rejects_other_paths_and_times_out_partial_headers() {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        let task = tokio::spawn(serve_listener(listener));
+        let mut stalled = Vec::new();
+        for _ in 0..16 {
+            let mut socket = tokio::net::TcpStream::connect(addr).await.unwrap();
+            socket
+                .write_all(b"GET /metrics HTTP/1.1\r\n")
+                .await
+                .unwrap();
+            stalled.push(socket);
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(2100)).await;
+        for path in ["/metrics", "/other"] {
+            let mut socket = tokio::net::TcpStream::connect(addr).await.unwrap();
+            socket
+                .write_all(format!("GET {path} HTTP/1.1\r\nHost: localhost\r\n\r\n").as_bytes())
+                .await
+                .unwrap();
+            let mut response = String::new();
+            tokio::time::timeout(
+                std::time::Duration::from_secs(2),
+                socket.read_to_string(&mut response),
+            )
+            .await
+            .unwrap()
+            .unwrap();
+            assert!(response.starts_with(if path == "/metrics" {
+                "HTTP/1.1 200"
+            } else {
+                "HTTP/1.1 404"
+            }));
+        }
+        task.abort();
     }
 }

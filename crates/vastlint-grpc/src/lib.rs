@@ -14,6 +14,7 @@ pub mod deadline;
 pub mod events;
 pub mod limit;
 pub mod metrics;
+pub mod policy;
 pub mod provenance;
 pub mod ratelimit;
 pub mod service;

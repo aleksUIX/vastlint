@@ -1,0 +1,90 @@
+name: Prebid validator compatibility
+
+on:
+  push:
+    branches: [main, fix/prebid-validator-safety-20261012]
+    paths:
+      - crates/**
+      - proto/**
+      - scripts/prebid-compatibility.py
+      - deploy/prebid/**
+      - .github/workflows/prebid-compatibility.yml
+  pull_request:
+    paths:
+      - crates/**
+      - proto/**
+      - scripts/prebid-compatibility.py
+      - deploy/prebid/**
+      - .github/workflows/prebid-compatibility.yml
+  workflow_dispatch:
+  schedule:
+    - cron: '21 9 * * 1'
+
+permissions:
+  contents: read
+
+jobs:
+  compatibility:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: validator
+      - name: Read immutable compatibility pins
+        id: pins
+        working-directory: validator
+        run: |
+          python3 - <<'PY'
+          import json, os, re
+          lock = json.load(open('deploy/prebid/release.json'))
+          assert re.fullmatch(r'[0-9a-f]{40}', lock['pbs_commit'])
+          assert re.fullmatch(r'aleksuix/vastlint-grpc@sha256:[0-9a-f]{64}', lock['image'])
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+              print('pbs_ref=' + lock['pbs_commit'], file=output)
+              print('image=' + lock['image'], file=output)
+          PY
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: aleksUIX/prebid-server
+          ref: ${{ steps.pins.outputs.pbs_ref }}
+          path: prebid
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067
+        with:
+          toolchain: stable
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: validator
+      - name: Install Go
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version: '1.25.x'
+          cache-dependency-path: prebid/go.sum
+      - name: Build current Rust service
+        working-directory: validator
+        run: cargo build --locked --release -p vastlint-grpc
+      - name: Test current source against actual Go client
+        run: python3 validator/scripts/prebid-compatibility.py --pbs-path "$PWD/prebid" --work-dir "$RUNNER_TEMP/wire-source" --validator-bin "$PWD/validator/target/release/vastlint-grpc"
+      - name: Pull released image by digest
+        env:
+          IMAGE: ${{ steps.pins.outputs.image }}
+        run: docker pull "$IMAGE"
+      - name: Test released image against actual Go client
+        env:
+          IMAGE: ${{ steps.pins.outputs.image }}
+        run: python3 validator/scripts/prebid-compatibility.py --pbs-path "$PWD/prebid" --work-dir "$RUNNER_TEMP/wire-release" --image "$IMAGE"
+      - name: Preserve compatibility diagnostics
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: prebid-validator-compatibility
+          if-no-files-found: ignore
+          retention-days: 14
+          path: |
+            ${{ runner.temp }}/wire-source/*.log
+            ${{ runner.temp }}/wire-source/*.txt
+            ${{ runner.temp }}/wire-source/*.json
+            ${{ runner.temp }}/wire-release/*.log
+            ${{ runner.temp }}/wire-release/*.txt
+            ${{ runner.temp }}/wire-release/*.json

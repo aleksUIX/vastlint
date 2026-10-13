@@ -6,6 +6,7 @@
 //! client, so a break in the generated codecs or in deadline propagation shows
 //! up as a failing test rather than as a surprise for the first caller.
 
+use prost::Message;
 use std::net::SocketAddr;
 use std::time::Duration;
 
@@ -60,6 +61,7 @@ async fn validate_round_trips_over_the_wire() {
         .validate(Request::new(ValidateRequest {
             document: INVALID_VAST.to_string(),
             context: None,
+            summary_only: false,
         }))
         .await
         .expect("validate succeeds")
@@ -110,6 +112,7 @@ async fn a_valid_document_reports_no_errors() {
         .validate(Request::new(ValidateRequest {
             document: valid.to_string(),
             context: None,
+            summary_only: false,
         }))
         .await
         .expect("validate succeeds")
@@ -141,6 +144,7 @@ async fn a_client_deadline_reaches_the_server() {
     let mut request = Request::new(ValidateRequest {
         document: INVALID_VAST.to_string(),
         context: None,
+        summary_only: false,
     });
     request.set_timeout(Duration::from_secs(30));
 
@@ -163,6 +167,7 @@ async fn an_unknown_rule_override_is_rejected_with_invalid_argument() {
                     .collect(),
                 ..Default::default()
             }),
+            summary_only: false,
         }))
         .await
         .expect_err("unknown rule id is rejected");
@@ -330,6 +335,7 @@ async fn streaming_and_unary_agree() {
         .validate(Request::new(ValidateRequest {
             document: INVALID_VAST.to_string(),
             context: None,
+            summary_only: false,
         }))
         .await
         .expect("validate succeeds")
@@ -367,4 +373,45 @@ async fn streaming_and_unary_agree() {
             .map(|i| &i.rule_id)
             .collect::<Vec<_>>(),
     );
+}
+
+/// A small invalid tag can produce a full reply well above monitoring's cap.
+#[tokio::test]
+async fn summary_only_preserves_counts_and_bounds_replies() {
+    let mut client = start().await;
+    let document = format!(
+        "<VAST version=\"2.0\"><Ad><InLine><Creatives><Creative><Linear><MediaFiles>{}</MediaFiles></Linear></Creative></Creatives></InLine></Ad></VAST>",
+        "<MediaFile/>".repeat(200)
+    );
+    let full = client
+        .validate(ValidateRequest {
+            document: document.clone(),
+            ..Default::default()
+        })
+        .await
+        .expect("legacy full validation succeeds")
+        .into_inner();
+    assert!(!full.summary_only);
+    assert!(full.encoded_len() > 64 * 1024);
+    let full_verdict = full.verdict.expect("full verdict");
+    assert!(!full_verdict.issues.is_empty());
+
+    let compact = client
+        .validate(ValidateRequest {
+            document,
+            summary_only: true,
+            ..Default::default()
+        })
+        .await
+        .expect("compact validation succeeds")
+        .into_inner();
+    assert!(compact.summary_only, "the server acknowledges compact mode");
+    assert!(compact.encoded_len() < 1024);
+    let compact_verdict = compact.verdict.expect("compact verdict");
+    assert_eq!(compact_verdict.valid, full_verdict.valid);
+    assert_eq!(compact_verdict.summary, full_verdict.summary);
+    assert_eq!(compact_verdict.provenance, full_verdict.provenance);
+    assert!(compact_verdict.issues.is_empty());
+    assert!(compact_verdict.detected_version.is_none());
+    assert_eq!(compact_verdict.document_type, 0);
 }
