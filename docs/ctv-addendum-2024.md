@@ -30,10 +30,13 @@ vendor payload handling and misplaced-element warnings still apply.
 
 ## Payload validation
 
-UniversalAdId extensions require non-empty `idRegistry` and element text. The
-text may be `unknown` for an unregistered ad. A registry value that is not a
-root domain or `unknown` receives a format warning. Validation does not contact
-registries or verify that the ID was registered.
+UniversalAdId extensions require an `idRegistry` attribute and non-empty element
+text. The text may be `unknown` for an unregistered ad. For compatibility with
+deployed placeholders, `unknown` IDs may have a blank registry. Actual IDs still
+require a non-empty registry. Registry names such as `googlevideo` and
+`AmazonDSP`, root domains and `unknown` are accepted. Values such as a full URL
+receive a format warning. Validation does not contact registries or verify that
+the ID was registered.
 
 Mezzanine extensions use the typed delivery model: `delivery`, `type`, `width`
 and `height` are required, and their values and asset URI are checked. Native

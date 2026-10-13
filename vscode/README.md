@@ -161,8 +161,8 @@ Supplied standardized payloads are checked by default. Legacy tags do not need t
 | [VAST-2.0-ctv-mezzanine-values](https://vastlint.org/docs/rules/VAST-2.0-ctv-mezzanine-values/) | error | Mezzanine dimensions must be non-negative integers and type must be a MIME type |
 | [VAST-2.0-ctv-extension-location](https://vastlint.org/docs/rules/VAST-2.0-ctv-extension-location/) | warning | Standardized CTV extension is not defined at this version or location |
 | [VAST-2.0-ctv-extension-payload](https://vastlint.org/docs/rules/VAST-2.0-ctv-extension-payload/) | error | Standardized CTV extension must contain one element matching its type |
-| [VAST-2.0-ctv-universaladid-registry](https://vastlint.org/docs/rules/VAST-2.0-ctv-universaladid-registry/) | error | UniversalAdId extension requires a non-empty idRegistry |
-| [VAST-2.0-ctv-universaladid-registry-format](https://vastlint.org/docs/rules/VAST-2.0-ctv-universaladid-registry-format/) | warning | UniversalAdId extension idRegistry should be a root domain or unknown |
+| [VAST-2.0-ctv-universaladid-registry](https://vastlint.org/docs/rules/VAST-2.0-ctv-universaladid-registry/) | error | UniversalAdId extension requires idRegistry; a blank registry is accepted only for unknown IDs |
+| [VAST-2.0-ctv-universaladid-registry-format](https://vastlint.org/docs/rules/VAST-2.0-ctv-universaladid-registry-format/) | warning | UniversalAdId extension idRegistry should be a registry name, root domain or unknown |
 | [VAST-2.0-ctv-universaladid-content](https://vastlint.org/docs/rules/VAST-2.0-ctv-universaladid-content/) | error | UniversalAdId extension requires an ID in element text or unknown |
 | [VAST-2.0-ctv-binding-unmatched](https://vastlint.org/docs/rules/VAST-2.0-ctv-binding-unmatched/) | error | CTV extension binding must identify exactly one creative or media file in the same ad |
 | [VAST-2.0-ctv-binding-implicit](https://vastlint.org/docs/rules/VAST-2.0-ctv-binding-implicit/) | info | CTV extension without a binding applies to the first creative in a multi-creative ad |

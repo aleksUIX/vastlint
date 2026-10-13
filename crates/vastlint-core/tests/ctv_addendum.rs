@@ -44,6 +44,55 @@ fn standardized_encodings_accept_their_own_content_model() {
 }
 
 #[test]
+fn universal_id_placeholders_and_named_registries_remain_compatible() {
+    let unknown = fixture("valid_ctv_addendum_unknown_id.xml");
+    let named = fixture("valid_ctv_addendum_named_registry.xml");
+    for xml in [
+        unknown.clone(),
+        unknown.replace("idRegistry=\"\"", "idRegistry=\"  \""),
+        named.clone(),
+        named.replace("googlevideo", "AmazonDSP"),
+        named.replace("googlevideo", "custom_registry-1"),
+    ] {
+        assert_clean_encoding(&xml);
+        let creative_extension = xml
+            .replace("version=\"2.0\"", "version=\"3.0\"")
+            .replace(" creativeId=\"c1\"", "")
+            .replace(
+                "</Linear></Creative>",
+                "</Linear><CreativeExtensions>PAYLOAD</CreativeExtensions></Creative>",
+            );
+        let extension = creative_extension
+            .split("<Extensions>")
+            .nth(1)
+            .unwrap()
+            .split("</Extensions>")
+            .next()
+            .unwrap();
+        let creative_extension = creative_extension
+            .replace(&format!("<Extensions>{extension}</Extensions>"), "")
+            .replace(
+                "PAYLOAD",
+                &extension.replace("Extension", "CreativeExtension"),
+            );
+        assert_clean_encoding(&creative_extension);
+    }
+
+    for xml in [
+        unknown.replace(" idRegistry=\"\"", ""),
+        unknown.replace(">unknown</UniversalAdId>", ">registered-id</UniversalAdId>"),
+    ] {
+        assert!(has(&validate(&xml), "VAST-2.0-ctv-universaladid-registry"));
+    }
+    for registry in ["https://ad-id.org", "ad-id.org/path", "google video"] {
+        assert!(has(
+            &validate(&named.replace("googlevideo", registry)),
+            "VAST-2.0-ctv-universaladid-registry-format"
+        ));
+    }
+}
+
+#[test]
 fn extension_attributes_and_payloads_are_checked_with_source_locations() {
     for (file, ids) in [
         (

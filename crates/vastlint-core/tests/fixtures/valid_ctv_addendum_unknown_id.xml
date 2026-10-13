@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<VAST version="2.0">
+  <Ad id="1"><InLine><AdSystem>Test</AdSystem><AdTitle>Addendum test</AdTitle>
+    <Impression><![CDATA[https://example.com/impression]]></Impression>
+    <Creatives><Creative id="c1"><Linear><Duration>00:00:30</Duration><MediaFiles><MediaFile id="m1" delivery="progressive" type="video/mp4" width="1920" height="1080"><![CDATA[https://cdn.example.com/ad.mp4]]></MediaFile></MediaFiles></Linear></Creative></Creatives>
+    <Extensions><Extension type="UniversalAdId"><UniversalAdId idRegistry="" creativeId="c1">unknown</UniversalAdId></Extension></Extensions>
+  </InLine></Ad>
+</VAST>

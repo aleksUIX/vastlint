@@ -223,19 +223,29 @@ fn check_mezzanine_values(
 }
 
 fn check_universal_id(uid: &Node, path: &str, ctx: &ValidationContext, issues: &mut Vec<Issue>) {
-    if uid.attr("idRegistry").is_none_or(|v| v.trim().is_empty()) {
+    let unknown_id = uid.text.trim() == "unknown";
+    if uid
+        .attr("idRegistry")
+        .is_none_or(|v| v.trim().is_empty() && !unknown_id)
+    {
         emit(
             ctx,
             issues,
             "VAST-2.0-ctv-universaladid-registry",
             Severity::Error,
-            "UniversalAdId extension requires a non-empty idRegistry",
+            "UniversalAdId extension requires idRegistry; a blank registry is accepted only for unknown IDs",
             Some(path.to_owned()),
             SPEC,
             Some(uid),
         );
     } else if let Some(registry) = uid.attr("idRegistry") {
-        let valid = registry == "unknown"
+        // Named registries occur in deployed traffic alongside root domains.
+        let named_registry = !registry.is_empty()
+            && registry
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || b == b'_' || b == b'-');
+        let valid = (unknown_id && registry.trim().is_empty())
+            || named_registry
             || url::Url::parse(&format!("https://{registry}")).is_ok_and(|u| {
                 registry.contains('.')
                     && u.host_str().is_some()
@@ -255,7 +265,7 @@ fn check_universal_id(uid: &Node, path: &str, ctx: &ValidationContext, issues: &
                 issues,
                 "VAST-2.0-ctv-universaladid-registry-format",
                 Severity::Warning,
-                "UniversalAdId idRegistry should be the registry's root domain or unknown",
+                "UniversalAdId idRegistry should be a registry name, root domain or unknown",
                 Some(path.to_owned()),
                 SPEC,
                 Some(uid),
