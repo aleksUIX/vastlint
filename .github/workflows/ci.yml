@@ -41,8 +41,13 @@ jobs:
       - name: cargo clippy
         run: cargo clippy --all-targets --all-features -- -D warnings
 
+      # vastlint_nif is cdylib-only; rustler 0.39+ cannot link lib tests without
+      # the BEAM. Compile the NIF here; cross-build and vastlint-erlang cover it.
+      - name: cargo build NIF
+        run: cargo build -p vastlint_nif
+
       - name: cargo test
-        run: cargo test --all
+        run: cargo test --workspace --exclude vastlint_nif
 
   audit:
     name: Security audit

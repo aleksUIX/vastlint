@@ -84,9 +84,13 @@ jobs:
         if: ${{ github.event_name != 'workflow_dispatch' || inputs.tag == '' }}
 
       # ── 1. Unit + integration tests (core, ffi, cli) ──────────────────────
-      - name: cargo test --all
+      - name: cargo build NIF
         if: ${{ github.event_name != 'workflow_dispatch' || inputs.tag == '' }}
-        run: cargo test --all
+        run: cargo build -p vastlint_nif
+
+      - name: cargo test --workspace
+        if: ${{ github.event_name != 'workflow_dispatch' || inputs.tag == '' }}
+        run: cargo test --workspace --exclude vastlint_nif
 
       # ── 2. CLI smoke test ─────────────────────────────────────────────────
       - name: Build CLI (release)
