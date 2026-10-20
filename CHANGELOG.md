@@ -6,6 +6,14 @@ GitHub Releases: <https://github.com/aleksUIX/vastlint/releases>
 
 ---
 
+## [0.15.1] - 2026-10-20
+
+### Fixed
+
+- **`rustls` 0.23.45 → 0.23.46**, **`sha2` 0.11.0 → 0.11.1**, **`tokio` 1.53.2 → 1.53.3**, **`rustler` 0.38.0 → 0.39.0**, **`serde_json` 1.0.151 → 1.0.154**: dependency updates.
+
+---
+
 ## [0.15.0] - 2026-10-13
 
 ### Added
