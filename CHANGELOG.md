@@ -6,6 +6,14 @@ GitHub Releases: <https://github.com/aleksUIX/vastlint/releases>
 
 ---
 
+## [0.15.2] - 2026-10-21
+
+### Fixed
+
+- **`rustls-webpki` 0.103.14 → 0.103.16**, **`webpki-roots` 1.0.9 → 1.0.10**: address RUSTSEC-2026-0382 and RUSTSEC-2026-0381 (emSign distrusted intermediate certificates).
+
+---
+
 ## [0.15.1] - 2026-10-20
 
 ### Fixed
