@@ -1892,9 +1892,9 @@ jobs:
             "https://vastlint.org/mcp" \
             -n "io.github.aleksUIX/vastlint" 2>&1) && echo "$out" && exit 0
           echo "$out"
-          # Treat "Namespace not found" (one-time setup not done yet) and
-          # duplicate/already-published as non-fatal.
-          echo "$out" | grep -qiE "namespace not found|already exists|duplicate" && exit 0
+          # Treat "Namespace not found" (one-time setup not done yet),
+          # duplicate/already-published, and Smithery API retirements as non-fatal.
+          echo "$out" | grep -qiE "namespace not found|already exists|duplicate|updating servers has been removed" && exit 0
           exit 1
 
   # ── Sync vastlint-go ────────────────────────────────────────────────────────
