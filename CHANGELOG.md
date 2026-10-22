@@ -13,6 +13,7 @@ GitHub Releases: <https://github.com/aleksUIX/vastlint/releases>
 - **`input_status` on `ValidationResult`**: `supported`, `unsupported` or `malformed`, decided independently of rule severity overrides, so callers can tell "not VAST" from "VAST with findings". Rust callers that construct `ValidationResult` literals gain one field.
 - **`vastlint_core::json`**: the one JSON writer for result documents, the rule catalog and error documents, shared by the FFI library and the new ABI crate. Result documents gain `document_type` and `input_status`; existing fields are unchanged.
 - **`vastlint-abi` crate**: plain C-ABI exports of the engine for WebAssembly runtimes without a JavaScript host (wazero, Chicory). Length-prefixed buffers, text rule overrides, strict about unknown rule ids and levels. Not published to crates.io; the build artifact is the wasm module.
+- **`vastlint_core::find_rule(id)`**: catalog lookup built once per process, used by the FFI and ABI rule-override parsers instead of rebuilding an index on every call.
 - **`vastlint_rules_json()` FFI export**: the rule catalog with default severity, source and revenue-impact flag, for bindings to validate configuration and hash the catalog they run.
 
 ### Changed

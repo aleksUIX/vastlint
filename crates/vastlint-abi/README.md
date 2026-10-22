@@ -17,7 +17,8 @@ The module imports nothing. simd128 speeds up large documents by roughly a third
 | Function | Purpose |
 |---|---|
 | `vl_alloc(len) -> ptr` | Allocate an input buffer for the host to fill |
-| `vl_dealloc(ptr, len)` | Free an input buffer, or a returned buffer with `len = payload + 4` |
+| `vl_dealloc(ptr, len)` | Free an input buffer the host allocated |
+| `vl_result_free(ptr)` | Free a returned buffer; it reads its own length prefix |
 | `vl_validate(ptr, len) -> ptr` | Validate with defaults |
 | `vl_validate_with_options(ptr, len, wrapper_depth, max_wrapper_depth, rules_ptr, rules_len) -> ptr` | Validate with depth settings and rule overrides |
 | `vl_rules() -> ptr` | The rule catalog as JSON |
@@ -36,7 +37,7 @@ out, _ := mod.ExportedFunction("vl_validate").Call(ctx, in[0], uint64(len(xml)))
 prefix, _ := mod.Memory().Read(uint32(out[0]), 4)
 n := binary.LittleEndian.Uint32(prefix)
 payload, _ := mod.Memory().Read(uint32(out[0])+4, n)
-mod.ExportedFunction("vl_dealloc").Call(ctx, out[0], uint64(n+4))
+mod.ExportedFunction("vl_result_free").Call(ctx, out[0])
 mod.ExportedFunction("vl_dealloc").Call(ctx, in[0], uint64(len(xml)))
 ```
 

@@ -104,6 +104,7 @@ pub use fix::{fix, fix_with_context, AppliedFix, FixResult};
 pub use inspect::{inspect_document, InspectAdType, InspectDocumentMeta, InspectMediaFile};
 
 use std::collections::HashMap;
+use std::sync::OnceLock;
 
 // ── Public types ─────────────────────────────────────────────────────────────
 
@@ -492,16 +493,13 @@ pub fn validate_with_context(input: &str, context: ValidationContext) -> Validat
         InputStatus::Malformed
     } else {
         let declared = doc.root.attr("version").map(str::trim);
+        // Same acceptance as the rules that check these attributes: a VAST
+        // version the engine knows, VMAP 1.0, DAAST 1.0 or 1.1. A VAST root with
+        // no version attribute is still supported; the version rule reports it.
         let supported = match doc.root.name.as_str() {
-            "VAST" => {
-                declared.is_none()
-                    || matches!(
-                        declared,
-                        Some("2.0" | "2.0.1" | "3.0" | "4.0" | "4.1" | "4.2" | "4.3" | "4.4")
-                    )
-            }
+            "VAST" => declared.is_none_or(|v| detect::parse_version_str(v).is_some()),
             "VMAP" => declared == Some("1.0"),
-            "DAAST" => declared == Some("1.0"),
+            "DAAST" => matches!(declared, Some("1.0" | "1.1")),
             _ => false,
         };
         if supported {
@@ -761,4 +759,18 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 /// IDs before passing them into `ValidationContext.rule_overrides`.
 pub fn all_rules() -> &'static [RuleMeta] {
     rules::CATALOG
+}
+
+/// Looks up one rule by id.
+///
+/// Bindings resolve host-supplied rule ids through this before building a
+/// [`ValidationContext`], so an unknown id can be reported instead of silently
+/// ignored, and so the lookup does not rebuild an index on every call. The
+/// index is built once per process.
+pub fn find_rule(id: &str) -> Option<&'static RuleMeta> {
+    static INDEX: OnceLock<HashMap<&'static str, &'static RuleMeta>> = OnceLock::new();
+    INDEX
+        .get_or_init(|| rules::CATALOG.iter().map(|rule| (rule.id, rule)).collect())
+        .get(id)
+        .copied()
 }

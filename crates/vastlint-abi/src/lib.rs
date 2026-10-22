@@ -15,7 +15,7 @@
 //! - Every call that returns data returns a pointer to a buffer laid out as
 //!   `[payload length as little-endian u32][payload bytes]`. The host reads the
 //!   four-byte prefix, then the payload, then frees the buffer with
-//!   [`vl_dealloc`]`(pointer, payload length + 4)`.
+//!   [`vl_result_free`]`(pointer)`.
 //! - Input buffers are owned by the host: the engine never frees them.
 //! - A null return means the request could not be allocated; the host should
 //!   treat it as an engine failure.
@@ -75,6 +75,9 @@ pub unsafe extern "C" fn vl_dealloc(ptr: *mut u8, len: usize) {
 
 /// Copy `payload` into a fresh length-prefixed buffer and hand it to the host.
 fn pack(payload: &[u8]) -> *mut u8 {
+    let Ok(len) = u32::try_from(payload.len()) else {
+        return pack(json::error("result exceeds 4 GiB").as_bytes());
+    };
     let total = payload.len() + 4;
     let Ok(layout) = Layout::array::<u8>(total) else {
         return ptr::null_mut();
@@ -84,13 +87,29 @@ fn pack(payload: &[u8]) -> *mut u8 {
     if out.is_null() {
         return out;
     }
-    let len = payload.len() as u32;
     // SAFETY: `out` has `total` writable bytes; the prefix and the payload fit.
     unsafe {
         ptr::copy_nonoverlapping(len.to_le_bytes().as_ptr(), out, 4);
         ptr::copy_nonoverlapping(payload.as_ptr(), out.add(4), payload.len());
     }
     out
+}
+
+/// Free a buffer returned by a call. Reads the length prefix itself, so the
+/// host never computes a size for memory it did not allocate. Null is a no-op.
+///
+/// # Safety
+///
+/// `ptr` must be a buffer returned by this module that has not been freed.
+#[no_mangle]
+pub unsafe extern "C" fn vl_result_free(ptr: *mut u8) {
+    if ptr.is_null() {
+        return;
+    }
+    let mut prefix = [0u8; 4];
+    ptr::copy_nonoverlapping(ptr, prefix.as_mut_ptr(), 4);
+    let len = u32::from_le_bytes(prefix) as usize;
+    vl_dealloc(ptr, len + 4);
 }
 
 fn pack_str(payload: &str) -> *mut u8 {
@@ -144,7 +163,7 @@ fn parse_rules(text: &str) -> Result<Option<HashMap<&'static str, RuleLevel>>, S
             "error" => RuleLevel::Error,
             other => return Err(format!("unknown level for rule {id}: {other}")),
         };
-        let Some(known) = vastlint_core::all_rules().iter().find(|r| r.id == id) else {
+        let Some(known) = vastlint_core::find_rule(id) else {
             return Err(format!("unknown rule id: {id}"));
         };
         overrides.insert(known.id, level);
@@ -254,7 +273,7 @@ mod tests {
         ptr::copy_nonoverlapping(buf, prefix.as_mut_ptr(), 4);
         let len = u32::from_le_bytes(prefix) as usize;
         let payload = std::slice::from_raw_parts(buf.add(4), len).to_vec();
-        vl_dealloc(buf, len + 4);
+        vl_result_free(buf);
         String::from_utf8(payload).expect("payload is UTF-8")
     }
 
@@ -344,6 +363,35 @@ mod tests {
                 vastlint_core::all_rules().len()
             );
             assert_eq!(take(vl_version()), vastlint_core::VERSION);
+        }
+    }
+
+    #[test]
+    fn options_accept_absent_rules_and_refuse_oversized_depths() {
+        unsafe {
+            let (xml, xml_len) = load(INVALID);
+            let doc: serde_json::Value = serde_json::from_str(&take(vl_validate_with_options(
+                xml,
+                xml_len,
+                0,
+                0,
+                ptr::null(),
+                0,
+            )))
+            .unwrap();
+            assert_eq!(doc["input_status"], "supported");
+            let doc: serde_json::Value = serde_json::from_str(&take(vl_validate_with_options(
+                xml,
+                xml_len,
+                256,
+                0,
+                ptr::null(),
+                0,
+            )))
+            .unwrap();
+            assert_eq!(doc["error"], "wrapper depth settings must be 0 to 255");
+            vl_dealloc(xml, xml_len);
+            vl_result_free(ptr::null_mut());
         }
     }
 

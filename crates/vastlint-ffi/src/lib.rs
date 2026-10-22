@@ -73,13 +73,9 @@ fn build_result(result: vastlint_core::ValidationResult) -> *mut VastlintResult 
     let valid = result.summary.is_valid();
 
     let json = vastlint_core::json::validation_result(&result);
-    // The writer never emits NUL; fall back to an empty verdict rather than panic.
-    let c_json = CString::new(json).unwrap_or_else(|_| {
-        CString::new(
-            "{\"document_type\":\"VAST\",\"version\":null,\"input_status\":\"malformed\",\"issues\":[],\"summary\":{\"errors\":0,\"warnings\":0,\"infos\":0,\"valid\":true}}",
-        )
-        .expect("static fallback has no NUL")
-    });
+    // The writer escapes NUL, so this cannot fail; if it ever did, the panic is
+    // caught by `guarded` and the caller sees NULL.
+    let c_json = CString::new(json).expect("the JSON writer never emits NUL");
 
     Box::into_raw(Box::new(VastlintResult {
         json: c_json,
@@ -215,12 +211,6 @@ unsafe fn parse_rule_overrides(
     // to None (caller gets default overrides).
     let s = s.trim().strip_prefix('{')?.strip_suffix('}')?;
 
-    // Build a lookup from rule ID string → &'static str from the catalog.
-    let catalog_ids: std::collections::HashMap<&str, &'static str> = vastlint_core::all_rules()
-        .iter()
-        .map(|r| (r.id, r.id))
-        .collect();
-
     let mut map = std::collections::HashMap::new();
 
     // Split on `","` boundaries. This works for well-formed flat objects.
@@ -231,8 +221,8 @@ unsafe fn parse_rule_overrides(
         let key_raw = parts.next()?.trim().trim_matches('"');
         let val_raw = parts.next()?.trim().trim_matches('"');
 
-        let static_id = match catalog_ids.get(key_raw) {
-            Some(id) => *id,
+        let static_id = match vastlint_core::find_rule(key_raw) {
+            Some(rule) => rule.id,
             None => continue,
         };
         let level = match val_raw {
