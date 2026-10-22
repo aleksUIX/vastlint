@@ -63,108 +63,23 @@ pub struct VastlintResult {
 
 /// Serialise a `ValidationResult` into a `VastlintResult` heap allocation.
 ///
-/// The JSON schema is:
-/// ```json
-/// {
-///   "version": "4.2" | null,
-///   "issues": [
-///     {
-///       "id": "VAST-4.2-3.4.1",
-///       "severity": "error" | "warning" | "info",
-///       "message": "...",
-///       "path": "VAST/Ad/InLine/Creatives" | null,
-///       "spec_ref": "IAB VAST 4.2 §3.4.1"
-///     }
-///   ],
-///   "summary": {
-///     "errors": 0,
-///     "warnings": 1,
-///     "infos": 0,
-///     "valid": true
-///   }
-/// }
-/// ```
+/// The JSON is produced by `vastlint_core::json::validation_result`, the one
+/// writer shared by every binding. Its schema is documented there and in
+/// `vastlint.h`.
 fn build_result(result: vastlint_core::ValidationResult) -> *mut VastlintResult {
-    let version_str = result.version.best().map(|v| v.as_str().to_owned());
-
-    // Build JSON manually to avoid pulling in serde_json. The structure is
-    // simple and fixed; hand-rolling it keeps the dependency count at zero.
-    let mut json = String::with_capacity(256);
-    json.push('{');
-
-    // "version"
-    match &version_str {
-        Some(v) => {
-            json.push_str("\"version\":\"");
-            json.push_str(v);
-            json.push('"');
-        }
-        None => json.push_str("\"version\":null"),
-    }
-    json.push(',');
-
-    // "issues"
-    json.push_str("\"issues\":[");
-    for (i, issue) in result.issues.iter().enumerate() {
-        if i > 0 {
-            json.push(',');
-        }
-        json.push('{');
-        json.push_str("\"id\":\"");
-        json_escape_into(&mut json, issue.id);
-        json.push_str("\",\"severity\":\"");
-        json.push_str(issue.severity.as_str());
-        json.push_str("\",\"message\":\"");
-        json_escape_into(&mut json, issue.message);
-        json.push_str("\",\"path\":");
-        match &issue.path {
-            Some(p) => {
-                json.push('"');
-                json_escape_into(&mut json, p);
-                json.push('"');
-            }
-            None => json.push_str("null"),
-        }
-        json.push_str(",\"spec_ref\":\"");
-        json_escape_into(&mut json, issue.spec_ref);
-        json.push_str("\",\"line\":");
-        match issue.line {
-            Some(l) => json.push_str(&l.to_string()),
-            None => json.push_str("null"),
-        }
-        json.push_str(",\"col\":");
-        match issue.col {
-            Some(c) => json.push_str(&c.to_string()),
-            None => json.push_str("null"),
-        }
-        json.push('}');
-    }
-    json.push(']');
-    json.push(',');
-
-    // "summary"
     let errors = result.summary.errors;
     let warnings = result.summary.warnings;
     let infos = result.summary.infos;
     let valid = result.summary.is_valid();
-    json.push_str("\"summary\":{\"errors\":");
-    json.push_str(&errors.to_string());
-    json.push_str(",\"warnings\":");
-    json.push_str(&warnings.to_string());
-    json.push_str(",\"infos\":");
-    json.push_str(&infos.to_string());
-    json.push_str(",\"valid\":");
-    json.push_str(if valid { "true" } else { "false" });
-    json.push_str("}}");
 
-    let c_json = match CString::new(json) {
-        Ok(s) => s,
-        Err(_) => {
-            // Embedded NUL — should never happen with our serialiser, but
-            // return a minimal error result rather than panic.
-            CString::new("{\"version\":null,\"issues\":[],\"summary\":{\"errors\":0,\"warnings\":0,\"infos\":0,\"valid\":true}}").unwrap()
-        }
-    };
+    let json = vastlint_core::json::validation_result(&result);
+    // The writer never emits NUL; fall back to an empty verdict rather than panic.
+    let c_json = CString::new(json).unwrap_or_else(|_| {
+        CString::new(
+            "{\"document_type\":\"VAST\",\"version\":null,\"input_status\":\"malformed\",\"issues\":[],\"summary\":{\"errors\":0,\"warnings\":0,\"infos\":0,\"valid\":true}}",
+        )
+        .expect("static fallback has no NUL")
+    });
 
     Box::into_raw(Box::new(VastlintResult {
         json: c_json,
@@ -175,23 +90,12 @@ fn build_result(result: vastlint_core::ValidationResult) -> *mut VastlintResult 
     }))
 }
 
-/// Append `s` to `buf`, escaping the six characters that are special in JSON
-/// strings (`"`, `\`, and the C0 control characters that matter: `\n`, `\r`,
-/// `\t`, `\0`). All other bytes pass through unchanged — vastlint messages are
-/// ASCII-clean in practice.
-#[inline]
-fn json_escape_into(buf: &mut String, s: &str) {
-    for c in s.chars() {
-        match c {
-            '"' => buf.push_str("\\\""),
-            '\\' => buf.push_str("\\\\"),
-            '\n' => buf.push_str("\\n"),
-            '\r' => buf.push_str("\\r"),
-            '\t' => buf.push_str("\\t"),
-            '\0' => buf.push_str("\\u0000"),
-            other => buf.push(other),
-        }
-    }
+/// Run validation so that a Rust panic becomes a NULL return instead of
+/// unwinding across the C boundary, which is undefined behaviour and in
+/// practice aborts the host process. Callers already treat NULL as "the engine
+/// failed and the input was not validated".
+fn guarded(work: impl FnOnce() -> *mut VastlintResult) -> *mut VastlintResult {
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(work)).unwrap_or(ptr::null_mut())
 }
 
 // ── Public C API ──────────────────────────────────────────────────────────────
@@ -230,7 +134,7 @@ pub unsafe extern "C" fn vastlint_validate(
         Err(_) => return ptr::null_mut(),
     };
 
-    build_result(vastlint_core::validate(input))
+    guarded(|| build_result(vastlint_core::validate(input)))
 }
 
 /// Validate a VAST XML string with caller-supplied options.
@@ -272,20 +176,22 @@ pub unsafe extern "C" fn vastlint_validate_with_options(
         Err(_) => return ptr::null_mut(),
     };
 
-    let overrides = parse_rule_overrides(rule_overrides);
+    guarded(|| {
+        let overrides = parse_rule_overrides(rule_overrides);
 
-    let ctx = ValidationContext {
-        wrapper_depth: wrapper_depth as u8,
-        max_wrapper_depth: if max_wrapper_depth == 0 {
-            5
-        } else {
-            max_wrapper_depth as u8
-        },
-        rule_overrides: overrides,
-        forced_version: None,
-    };
+        let ctx = ValidationContext {
+            wrapper_depth: wrapper_depth as u8,
+            max_wrapper_depth: if max_wrapper_depth == 0 {
+                5
+            } else {
+                max_wrapper_depth as u8
+            },
+            rule_overrides: overrides,
+            forced_version: None,
+        };
 
-    build_result(vastlint_core::validate_with_context(input, ctx))
+        build_result(vastlint_core::validate_with_context(input, ctx))
+    })
 }
 
 /// Parse the optional JSON rule-overrides string into a `HashMap`.
@@ -347,6 +253,30 @@ unsafe fn parse_rule_overrides(
 }
 
 /// Return the result as a null-terminated UTF-8 JSON string.
+///
+/// The schema is `vastlint_core::json::validation_result`:
+///
+/// ```json
+/// {
+///   "document_type": "VAST" | "VMAP" | "DAAST",
+///   "version": "4.2" | null,
+///   "input_status": "supported" | "unsupported" | "malformed",
+///   "issues": [
+///     {
+///       "id": "VAST-2.0-inline-impression",
+///       "severity": "error" | "warning" | "info",
+///       "message": "...",
+///       "path": "/VAST/Ad[0]/InLine" | null,
+///       "spec_ref": "IAB VAST 4.2 §3.4.1",
+///       "line": 12 | null,
+///       "col": 5 | null
+///     }
+///   ],
+///   "summary": { "errors": 1, "warnings": 0, "infos": 0, "valid": false }
+/// }
+/// ```
+///
+/// Fields are only ever added, never renamed or removed.
 ///
 /// The returned pointer is valid until `vastlint_result_free` is called on
 /// `result`. Do not free the returned pointer directly.
@@ -460,6 +390,27 @@ pub extern "C" fn vastlint_version() -> *const c_char {
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
+
+/// Return the rule catalog as a static null-terminated JSON array.
+///
+/// Schema (`vastlint_core::json::rules_catalog`):
+///
+/// ```json
+/// [{"id":"VAST-2.0-inline-impression","default_severity":"error",
+///   "description":"...","source":"VAST spec","revenue_impact":true}]
+/// ```
+///
+/// Bindings use this to validate rule-override configuration before calling
+/// `vastlint_validate_with_options`, which ignores unknown ids, and to hash the
+/// catalog they are running against. The pointer is valid for the lifetime of
+/// the process and must NOT be freed.
+#[no_mangle]
+pub extern "C" fn vastlint_rules_json() -> *const c_char {
+    static RULES: std::sync::OnceLock<CString> = std::sync::OnceLock::new();
+    RULES
+        .get_or_init(|| CString::new(vastlint_core::json::rules_catalog()).unwrap_or_default())
+        .as_ptr()
+}
 
 #[cfg(test)]
 mod tests {

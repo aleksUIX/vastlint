@@ -95,6 +95,7 @@ mod detect;
 mod extensions;
 mod fix;
 mod inspect;
+pub mod json;
 mod parse;
 mod rules;
 mod summarize;
