@@ -307,6 +307,8 @@ impl Summary {
 /// The `issues` vector is ordered by document position (depth-first traversal).
 #[derive(Debug, Clone)]
 pub struct ValidationResult {
+    /// Input coverage, independent of rule severity overrides.
+    pub input_status: InputStatus,
     /// The kind of document that was validated (VAST, VMAP, or DAAST),
     /// decided by the root element.
     pub document_type: DocumentType,
@@ -315,6 +317,23 @@ pub struct ValidationResult {
     pub version: DetectedVersion,
     pub issues: Vec<Issue>,
     pub summary: Summary,
+}
+
+/// Whether the root and declared version are supported. Malformed takes precedence.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum InputStatus {
+    Supported,
+    Unsupported,
+    Malformed,
+}
+impl InputStatus {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Supported => "supported",
+            Self::Unsupported => "unsupported",
+            Self::Malformed => "malformed",
+        }
+    }
 }
 
 // ── Rule configuration ────────────────────────────────────────────────────────
@@ -468,6 +487,28 @@ pub fn validate_with_context(input: &str, context: ValidationContext) -> Validat
     let source = unescaped.as_deref().unwrap_or(input);
     let doc = parse::parse(source);
     let document_type = detect::detect_document_type(&doc);
+    let input_status = if doc.parse_error.is_some() {
+        InputStatus::Malformed
+    } else {
+        let declared = doc.root.attr("version").map(str::trim);
+        let supported = match doc.root.name.as_str() {
+            "VAST" => {
+                declared.is_none()
+                    || matches!(
+                        declared,
+                        Some("2.0" | "2.0.1" | "3.0" | "4.0" | "4.1" | "4.2" | "4.3" | "4.4")
+                    )
+            }
+            "VMAP" => declared == Some("1.0"),
+            "DAAST" => declared == Some("1.0"),
+            _ => false,
+        };
+        if supported {
+            InputStatus::Supported
+        } else {
+            InputStatus::Unsupported
+        }
+    };
     let version = match document_type {
         // version attributes on VMAP/DAAST roots are validated by their own
         // rule chains; DetectedVersion only describes VAST versions.
@@ -497,6 +538,7 @@ pub fn validate_with_context(input: &str, context: ValidationContext) -> Validat
     }
     let summary = summarize::summarize(&issues);
     ValidationResult {
+        input_status,
         document_type,
         version,
         issues,
