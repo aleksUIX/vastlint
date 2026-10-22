@@ -168,7 +168,7 @@ export function createVastPlaybackController(options) {
         if (!snapshot.resolvedAd || !snapshot.resolvedAd.resolved) {
             throw new Error("No resolved inline VAST ad is available for playback.");
         }
-        if (snapshot.status !== "ready" || snapshot.error !== null) {
+        if (snapshot.status === "idle" || snapshot.status === "error" || snapshot.error !== null) {
             setSnapshot({
                 ...snapshot,
                 status: "ready",

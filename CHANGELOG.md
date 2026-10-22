@@ -6,6 +6,21 @@ GitHub Releases: <https://github.com/aleksUIX/vastlint/releases>
 
 ---
 
+## [0.15.3] - 2026-10-21
+
+### Security
+
+- Update VS Code publishing dependencies to Open VSX CLI 1.3.0 and patched redirect handling. Remove the obsolete Markdown and glob dependency chains.
+- Replace the Chrome asset-copy plugin with Node filesystem operations. Cover packaged runtime assets and repeated watch-mode HTML updates with an integration test.
+- Update all three Vite examples to 6.4.5 and audit runtime and development JavaScript dependencies in CI.
+- Use maintained Node 24 for release tooling.
+
+### Fixed
+
+- Preserve active playback state during client readiness checks so pause and resume tracking events are dispatched.
+
+---
+
 ## [0.15.2] - 2026-10-21
 
 ### Fixed
