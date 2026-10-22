@@ -4,13 +4,35 @@
 // chrome.runtime.getURL — no custom plugin needed.
 
 import * as esbuild from 'esbuild';
-import { copy } from 'esbuild-plugin-copy';
-import { dirname } from 'path';
-import { fileURLToPath } from 'url';
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
-
+import { cp, mkdir } from 'node:fs/promises';
+import { watch as watchDirectory } from 'node:fs';
+import { basename, dirname } from 'path';
 const watch = process.argv.includes('--watch');
+
+const assets = [
+  ['src/popup/popup.html', 'dist/popup.html'],
+  ['src/analysis/analysis.html', 'dist/analysis.html'],
+  ['manifest.json', 'dist/manifest.json'],
+  ['node_modules/vastlint/vastlint_wasm_bg.wasm', 'dist/vastlint_wasm_bg.wasm'],
+  ['src/icons', 'dist/icons'],
+];
+
+async function copyAssets() {
+  await mkdir('dist', { recursive: true });
+  await Promise.all(assets.map(([from, to]) => cp(from, to, {
+    recursive: true,
+    filter: (file) => !basename(file).startsWith('.'),
+  })));
+}
+
+const copyPlugin = {
+  name: 'extension-assets',
+  setup(build) {
+    build.onEnd(async (result) => {
+      if (!result.errors.length) await copyAssets();
+    });
+  },
+};
 
 const sharedConfig = {
   bundle: true,
@@ -25,18 +47,7 @@ const builds = [
     ...sharedConfig,
     entryPoints: ['src/content/index.ts'],
     outfile: 'dist/content.js',
-    plugins: [
-      copy({
-        resolveFrom: __dirname,
-        assets: [
-          { from: ['src/popup/popup.html'],                              to: ['dist/popup.html'] },
-          { from: ['src/analysis/analysis.html'],                        to: ['dist/analysis.html'] },
-          { from: ['manifest.json'],                                     to: ['dist/manifest.json'] },
-          { from: ['node_modules/vastlint/vastlint_wasm_bg.wasm'],       to: ['dist/vastlint_wasm_bg.wasm'] },
-          { from: ['src/icons/*'],                                       to: ['dist/icons'] },
-        ],
-      }),
-    ],
+    plugins: [copyPlugin],
   },
   // Service worker (MV3 background)
   {
@@ -68,6 +79,20 @@ const builds = [
 if (watch) {
   const ctxs = await Promise.all(builds.map(c => esbuild.context(c)));
   await Promise.all(ctxs.map(c => c.watch()));
+  const directories = new Map();
+  for (const [from] of assets) {
+    const directory = from === 'src/icons' ? from : dirname(from);
+    if (!directories.has(directory)) directories.set(directory, new Set());
+    directories.get(directory).add(from === 'src/icons' ? '*' : basename(from));
+  }
+  let pending;
+  for (const [directory, names] of directories) {
+    watchDirectory(directory, (_event, file) => {
+      if (file && !names.has('*') && !names.has(String(file))) return;
+      clearTimeout(pending);
+      pending = setTimeout(() => copyAssets().catch(console.error), 50);
+    });
+  }
   console.log('Watching for changes…');
 } else {
   await Promise.all(builds.map(c => esbuild.build(c)));

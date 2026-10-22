@@ -170,7 +170,7 @@ jobs:
         if: ${{ github.event_name != 'workflow_dispatch' || inputs.tag == '' }}
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7.1.0
         with:
-          node-version: '20'
+          node-version: '24'
 
       - name: Build WASM (nodejs target)
         if: ${{ github.event_name != 'workflow_dispatch' || inputs.tag == '' }}
@@ -459,8 +459,7 @@ jobs:
           XMLEOF
 
           # Use stdin mode (-) so the fixed XML is written to stdout, not in-place.
-          FIXED=$(./target/release/vastlint fix - < /tmp/http_vast.xml 2>/dev/null)
-          if [ $? -ne 0 ]; then
+          if ! FIXED=$(./target/release/vastlint fix - < /tmp/http_vast.xml 2>/dev/null); then
             echo "FAIL: fix subcommand exited non-zero"
             exit 1
           fi
@@ -876,7 +875,7 @@ jobs:
       - name: Install Node.js
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7.1.0
         with:
-          node-version: '20'
+          node-version: '24'
 
       - name: Build WASM (bundler target — ESM)
         run: wasm-pack build crates/vastlint-wasm --target bundler --out-dir ../../npm/pkg
@@ -1004,7 +1003,7 @@ jobs:
       - name: Package
         run: |
           BINARY=target/${{ matrix.target }}/release/${{ matrix.binary }}
-          tar czf ${{ matrix.archive }} -C $(dirname $BINARY) $(basename $BINARY)
+          tar czf "${{ matrix.archive }}" -C "$(dirname "$BINARY")" "$(basename "$BINARY")"
 
       - name: Upload artifact
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
@@ -1176,9 +1175,7 @@ jobs:
           mkdir -p "$STAGING"
 
           # Rust names the output libvastlint_nif.{so,dylib}.
-          # Derive extension from matrix.lib via bash parameter expansion.
           LIB="${{ matrix.lib }}"
-          EXT="${LIB##*.}"
           cp "$OUTDIR/${LIB}" "$STAGING/${LIB}"
 
           tar czf ${{ matrix.archive }} -C "$STAGING" .
@@ -1215,7 +1212,7 @@ jobs:
           set -euo pipefail
           TAG="${RELEASE_TAG}"
           needs_approval=true
-          bump=unknown
+          bump="unknown"
 
           if [[ "$TAG" =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
             VERSION="${BASH_REMATCH[1]}.${BASH_REMATCH[2]}.${BASH_REMATCH[3]}"
@@ -1249,16 +1246,16 @@ jobs:
             if [ -n "$PREV" ]; then
               IFS=. read -r P_MAJ P_MIN _ <<< "${PREV#v}"
               if [ "$C_MAJ" != "$P_MAJ" ]; then
-                bump=major
+                bump="major"
               elif [ "$C_MIN" != "$P_MIN" ]; then
-                bump=minor
+                bump="minor"
               else
-                bump=patch
+                bump="patch"
                 needs_approval=false
               fi
               echo "Previous tag ${PREV} -> ${TAG} (${bump})"
             else
-              bump=initial
+              bump="initial"
               echo "No previous version tag; requiring approval"
             fi
           else
@@ -1578,7 +1575,7 @@ jobs:
 
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7.1.0
         with:
-          node-version: '20'
+          node-version: '24'
 
       # buf comes from the npm devDependency, the same version CI already lints
       # and breaking-checks with. Pulling a different buf here would mean the
@@ -1878,7 +1875,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7.1.0
         with:
-          node-version: '20'
+          node-version: '24'
 
       - name: Publish to Smithery
         env:
@@ -1934,8 +1931,6 @@ jobs:
 
       - name: Unpack libs into vastlint-go
         run: |
-          TAG="${{ env.RELEASE_TAG }}"
-
           cd vastlint-go
 
           declare -A TARBALL_TO_DIR=(
@@ -1974,7 +1969,6 @@ jobs:
       - name: Commit and push
         run: |
           TAG="${{ env.RELEASE_TAG }}"
-          VERSION="${TAG#v}"
 
           cd vastlint-go
           git config user.name  "vastlint release bot"
@@ -2170,7 +2164,7 @@ jobs:
 
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7.1.0
         with:
-          node-version: 20
+          node-version: 24
 
       - name: Install dependencies
         working-directory: chrome
@@ -2196,13 +2190,17 @@ jobs:
             const expected = process.env.VERSION.replace(/^v/, '');
             const m = JSON.parse(fs.readFileSync('manifest.json','utf8'));
             if (m.version !== expected) {
-              throw new Error(`manifest.json version mismatch: ${m.version}`);
+              throw new Error('manifest.json version mismatch: ' + m.version);
             }
           "
 
       - name: Build extension
         working-directory: chrome
         run: npm run build
+
+      - name: Test extension assets and watch updates
+        working-directory: chrome
+        run: npm test
 
       - name: Zip dist/
         working-directory: chrome
@@ -2269,9 +2267,6 @@ jobs:
 
       - name: Regenerate checksum file
         run: |
-          TAG="${{ env.RELEASE_TAG }}"
-          VERSION="${TAG#v}"
-
           CHECKSUM_FILE="vastlint-erlang/checksum-Elixir.VastlintNif.exs"
 
           # Write a fresh checksum map.  RustlerPrecompiled resolves tarballs by
@@ -2296,7 +2291,6 @@ jobs:
       - name: Commit and push
         run: |
           TAG="${{ env.RELEASE_TAG }}"
-          VERSION="${TAG#v}"
 
           cd vastlint-erlang
           git config user.name  "vastlint release bot"
@@ -2381,7 +2375,6 @@ jobs:
       - name: Commit and push
         run: |
           TAG="${{ env.RELEASE_TAG }}"
-          VERSION="${TAG#v}"
 
           cd vastlint-infra
           git config user.name  "vastlint release bot"

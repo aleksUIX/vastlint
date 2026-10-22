@@ -1,12 +1,13 @@
 {
   "name": "vastlint-extension",
-  "version": "0.15.2",
+  "version": "0.15.3",
   "private": true,
   "description": "Chrome extension that detects VAST XML in the DOM and displays inline validation errors/warnings powered by VASTlint WASM",
   "scripts": {
     "build": "node esbuild.config.mjs",
     "dev": "node esbuild.config.mjs --watch",
-    "clean": "rm -rf dist"
+    "clean": "rm -rf dist",
+    "test": "node --test test/build.test.mjs"
   },
   "dependencies": {
     "vastlint": "file:../npm"
@@ -14,7 +15,6 @@
   "devDependencies": {
     "@types/chrome": "^0.0.299",
     "esbuild": "^0.28.2",
-    "esbuild-plugin-copy": "^2.1.1",
     "typescript": "^6.0.3"
   }
 }

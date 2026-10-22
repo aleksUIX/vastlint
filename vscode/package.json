@@ -1,8 +1,8 @@
 {
   "name": "vastlint",
-  "displayName": "VASTlint — VAST XML Validator",
-  "description": "Inline linting for IAB VAST 2.0–4.4, VMAP 1.0, and DAAST 1.0 ad tags. 246 rules, Problems entries, hovers, fix guidance, docs links. CLI backend with WASM fallback.",
-  "version": "0.15.2",
+  "displayName": "VASTlint \u2014 VAST XML Validator",
+  "description": "Inline linting for IAB VAST 2.0\u20134.4, VMAP 1.0, and DAAST 1.0 ad tags. 246 rules, Problems entries, hovers, fix guidance, docs links. CLI backend with WASM fallback.",
+  "version": "0.15.3",
   "publisher": "aleksUIX",
   "license": "Apache-2.0",
   "repository": {
@@ -97,7 +97,7 @@
         "vastlint.templateIgnoreRegex": {
           "type": "string",
           "default": "",
-          "description": "A JavaScript regex pattern whose matches are erased (same-length replacement) before validation. Use this to strip template expressions so they don't produce false-positive XML parse errors. Examples: Mustache/Handlebars: '\\{\\{[^}]*\\}\\}' · ERB/EJS: '<[%=].*?%>' · Go templates: '\\{\\{[\\s\\S]*?\\}\\}'"
+          "description": "A JavaScript regex pattern whose matches are erased (same-length replacement) before validation. Use this to strip template expressions so they don't produce false-positive XML parse errors. Examples: Mustache/Handlebars: '\\{\\{[^}]*\\}\\}' \u00b7 ERB/EJS: '<[%=].*?%>' \u00b7 Go templates: '\\{\\{[\\s\\S]*?\\}\\}'"
         },
         "vastlint.cliPath": {
           "type": "string",
@@ -124,7 +124,7 @@
     "@vscode/vsce": "4.0.0",
     "esbuild": "^0.28.2",
     "fast-uri": "4.2.2",
-    "ovsx": "1.2.0",
+    "ovsx": "1.3.0",
     "typescript": "^7.0.2"
   },
   "overrides": {

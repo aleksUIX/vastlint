@@ -473,9 +473,11 @@ test("playback controller selects media and dispatches lifecycle tracking", asyn
   assert.equal(readySnapshot.status, "ready");
   assert.equal(readySnapshot.mediaSelection.selected?.url, "https://cdn.example.com/video.mp4");
 
-  await controller.start();
-  await controller.pause();
-  await controller.resume();
+  assert.equal((await controller.start()).status, "playing");
+  assert.equal((await controller.pause()).status, "paused");
+  assert.equal((await controller.pause()).status, "paused");
+  assert.equal((await controller.resume()).status, "playing");
+  assert.equal((await controller.resume()).status, "playing");
   await controller.setMuted(true);
   await controller.setMuted(false);
   await controller.setFullscreen(true);
