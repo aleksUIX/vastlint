@@ -6,6 +6,24 @@ GitHub Releases: <https://github.com/aleksUIX/vastlint/releases>
 
 ---
 
+## [Unreleased]
+
+### Added
+
+- **`input_status` on `ValidationResult`**: `supported`, `unsupported` or `malformed`, decided independently of rule severity overrides, so callers can tell "not VAST" from "VAST with findings". Rust callers that construct `ValidationResult` literals gain one field.
+- **`vastlint_core::json`**: the one JSON writer for result documents, the rule catalog and error documents, shared by the FFI library and the new ABI crate. Result documents gain `document_type` and `input_status`; existing fields are unchanged.
+- **`vastlint-abi` crate**: plain C-ABI exports of the engine for WebAssembly runtimes without a JavaScript host (wazero, Chicory). Length-prefixed buffers, text rule overrides, strict about unknown rule ids and levels. Not published to crates.io; the build artifact is the wasm module.
+- **`vastlint_core::find_rule(id)`**: catalog lookup built once per process, used by the FFI and ABI rule-override parsers instead of rebuilding an index on every call.
+- **`vastlint_rules_json()` FFI export**: the rule catalog with default severity, source and revenue-impact flag, for bindings to validate configuration and hash the catalog they run.
+
+### Changed
+
+- **Parser rejects malformed XML and bounds resource use** (from #170): unclosed or multiple roots, duplicate or malformed attributes, undefined entities and invalid XML 1.0 characters now produce the parse-error finding instead of a verdict. Limits: 4 MiB input, 128 element levels, 100,000 elements. DOCTYPE and XML 1.1 are unsupported. The whole-document character check scans bytes rather than decoding characters, which keeps the cost of the new checks to about 15 percent on a corpus of real tags instead of 40 percent. See `docs/parser-safety.md`.
+- **FFI panic guard**: `vastlint_validate` and `vastlint_validate_with_options` catch a Rust panic and return NULL instead of unwinding into the host process.
+- **Release profile**: fat LTO, one codegen unit and stripped symbols for every release artifact. The native static library drops from 21 MB to about 7 MB on disk and about 1 MB of linked code.
+
+---
+
 ## [0.15.2] - 2026-10-21
 
 ### Fixed

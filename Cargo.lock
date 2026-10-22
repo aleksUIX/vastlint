@@ -2841,6 +2841,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "vastlint-abi"
+version = "0.15.2"
+dependencies = [
+ "serde_json",
+ "vastlint-core",
+]
+
+[[package]]
 name = "vastlint-cli"
 version = "0.15.2"
 dependencies = [
@@ -2865,6 +2873,7 @@ dependencies = [
  "criterion",
  "phf",
  "quick-xml",
+ "serde_json",
  "url",
 ]
 

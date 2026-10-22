@@ -47,7 +47,8 @@ typedef struct VastlintResult VastlintResult;
  *           Pass 0 to have this function compute the length via strlen.
  *
  * Returns a pointer to a VastlintResult that the caller MUST free with
- * vastlint_result_free. Returns NULL if xml is NULL.
+ * vastlint_result_free. Returns NULL if xml is NULL, is not UTF-8, or the
+ * engine failed internally; a NULL result means the input was not validated.
  */
 VastlintResult *vastlint_validate(const char *xml, size_t xml_len);
 
@@ -74,24 +75,23 @@ VastlintResult *vastlint_validate_with_options(const char *xml,
 /**
  * Return the result as a null-terminated UTF-8 JSON string.
  *
- * The JSON schema:
+ * The JSON schema (fields are only ever added, never renamed or removed):
  * {
+ *   "document_type": "VAST" | "VMAP" | "DAAST",
  *   "version": "4.2" | null,
+ *   "input_status": "supported" | "unsupported" | "malformed",
  *   "issues": [
  *     {
- *       "id": "VAST-4.2-3.4.1",
+ *       "id": "VAST-2.0-inline-impression",
  *       "severity": "error" | "warning" | "info",
  *       "message": "...",
- *       "path": "VAST/Ad/InLine/Creatives" | null,
- *       "spec_ref": "IAB VAST 4.2 §3.4.1"
+ *       "path": "/VAST/Ad[0]/InLine" | null,
+ *       "spec_ref": "IAB VAST 4.2 §3.4.1",
+ *       "line": 12 | null,
+ *       "col": 5 | null
  *     }
  *   ],
- *   "summary": {
- *     "errors": 0,
- *     "warnings": 1,
- *     "infos": 0,
- *     "valid": true
- *   }
+ *   "summary": { "errors": 1, "warnings": 0, "infos": 0, "valid": false }
  * }
  *
  * The returned pointer is valid until vastlint_result_free is called.
@@ -135,6 +135,17 @@ void vastlint_result_free(VastlintResult *result);
  * and must NOT be freed.
  */
 const char *vastlint_version(void);
+
+/**
+ * Return the rule catalog as a static null-terminated JSON array:
+ *   [{"id":"VAST-2.0-inline-impression","default_severity":"error",
+ *     "description":"...","source":"VAST spec","revenue_impact":true}]
+ *
+ * Use it to validate rule-override configuration before calling
+ * vastlint_validate_with_options, which ignores unknown ids. The pointer is
+ * valid for the lifetime of the process and must NOT be freed.
+ */
+const char *vastlint_rules_json(void);
 
 #ifdef __cplusplus
 } /* extern "C" */

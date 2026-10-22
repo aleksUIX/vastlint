@@ -1,0 +1,20 @@
+[package]
+name = "vastlint-abi"
+version = "0.15.2"
+edition = "2021"
+rust-version = "1.86"
+authors = ["Aleks <aleks@vastlint.org>"]
+description = "Plain C-ABI exports of vastlint-core for WebAssembly runtimes (wazero, Chicory) with no JavaScript glue"
+license = "Apache-2.0"
+repository = "https://github.com/aleksUIX/vastlint"
+homepage = "https://vastlint.org"
+publish = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+vastlint-core = { path = "../vastlint-core", version = "0.15.2" }
+
+[dev-dependencies]
+serde_json = "1"
