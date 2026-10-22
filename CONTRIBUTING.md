@@ -23,6 +23,19 @@ If all three commands pass, your environment matches CI. The WASM package and
 the Go/Erlang bindings need extra toolchains, but you only need those if you
 are changing them; the Rust workspace builds and tests without them.
 
+Development and test builds disable debug information and incremental compilation
+to keep `target/` small. Debug assertions and overflow checks remain enabled.
+For source-level debugging, opt in for one command:
+
+```sh
+CARGO_PROFILE_DEV_DEBUG=2 CARGO_PROFILE_TEST_DEBUG=2 CARGO_INCREMENTAL=1 cargo test --all
+```
+
+Cargo retains old build variants. Use `cargo clean` when accumulated artifacts
+need clearing. In a linked worktree, reuse the primary checkout's cache with
+`CARGO_TARGET_DIR=/absolute/path/to/vastlint/target`. Run Cargo from the checkout
+being tested so it reads that checkout's configuration.
+
 ## Filing bugs
 
 File bugs via GitHub Issues. Include:

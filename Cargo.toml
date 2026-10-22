@@ -13,3 +13,8 @@ resolver = "2"
 
 [workspace.package]
 rust-version = "1.91"
+
+# Tests inherit this profile. Keep routine builds small across release worktrees.
+[profile.dev]
+debug = 0
+incremental = false
