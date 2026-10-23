@@ -669,6 +669,10 @@ DOI: [10.13140/RG.2.2.11404.27520](https://doi.org/10.13140/RG.2.2.11404.27520)
 
 Using VASTlint in production or in your workflow? [Let us know!](https://github.com/aleksUIX/vastlint/discussions/1)
 
+## Thanks
+
+[Serge Aleynikov](https://github.com/saleyn) encouraged the project early, in particular the CLI and [vastlint-erlang](https://github.com/aleksUIX/vastlint-erlang).
+
 ## Enterprise support
 
 Enterprise support agreements, SLA contracts, priority issue resolution, custom rule development, and on-site integration consulting are available. If you are evaluating VASTlint for use at scale — in a DSP bid pipeline, SSAI platform, ad server, CTV device, or brand safety workflow — contact the author directly to discuss requirements:
