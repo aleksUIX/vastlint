@@ -21,6 +21,18 @@ GitHub Releases: <https://github.com/aleksUIX/vastlint/releases>
 - **Parser rejects malformed XML and bounds resource use** (from #170): unclosed or multiple roots, duplicate or malformed attributes, undefined entities and invalid XML 1.0 characters now produce the parse-error finding instead of a verdict. Limits: 4 MiB input, 128 element levels, 100,000 elements. DOCTYPE and XML 1.1 are unsupported. The whole-document character check scans bytes rather than decoding characters, which keeps the cost of the new checks to about 15 percent on a corpus of real tags instead of 40 percent. See `docs/parser-safety.md`.
 - **FFI panic guard**: `vastlint_validate` and `vastlint_validate_with_options` catch a Rust panic and return NULL instead of unwinding into the host process.
 - **Release profile**: fat LTO, one codegen unit and stripped symbols for every release artifact. The native static library drops from 21 MB to about 7 MB on disk and about 1 MB of linked code.
+## [0.15.3] - 2026-10-21
+
+### Security
+
+- Update VS Code publishing dependencies to Open VSX CLI 1.3.0 and patched redirect handling. Remove the obsolete Markdown and glob dependency chains.
+- Replace the Chrome asset-copy plugin with Node filesystem operations. Cover packaged runtime assets and repeated watch-mode HTML updates with an integration test.
+- Update all three Vite examples to 6.4.5 and audit runtime and development JavaScript dependencies in CI.
+- Use maintained Node 24 for release tooling.
+
+### Fixed
+
+- Preserve active playback state during client readiness checks so pause and resume tracking events are dispatched.
 
 ---
 

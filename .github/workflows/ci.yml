@@ -16,6 +16,32 @@ permissions:
   contents: read
 
 jobs:
+  javascript-audit:
+    name: JavaScript audit (${{ matrix.directory }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        directory:
+          - .
+          - npm
+          - vscode
+          - chrome
+          - examples/vastlint-client-browser
+          - examples/vastlint-client-react-scratch
+          - examples/vastlint-react-demo
+          - scripts/ecosystem-smoke/vastlint-client-smoke
+          - scripts/ecosystem-smoke/vastlint-react-smoke
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7.1.0
+        with:
+          node-version: 24
+          check-latest: true
+      - name: Audit runtime and development dependencies
+        working-directory: ${{ matrix.directory }}
+        run: npm audit --audit-level=low
+
   test:
     name: Test (${{ matrix.os }})
     runs-on: ${{ matrix.os }}

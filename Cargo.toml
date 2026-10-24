@@ -15,6 +15,11 @@ resolver = "2"
 [workspace.package]
 rust-version = "1.91"
 
+# Tests inherit this profile. Keep routine builds small across release worktrees.
+[profile.dev]
+debug = 0
+incremental = false
+
 # Release artifacts are linked into other processes (Go via cgo, the JVM, Erlang)
 # and shipped as wasm. Whole-program optimisation keeps the native library near
 # 1 MB of code. Panics keep unwinding so the FFI boundary can catch them.

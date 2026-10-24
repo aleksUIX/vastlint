@@ -48,7 +48,7 @@ jobs:
 
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7.1.0
         with:
-          node-version: '20'
+          node-version: '24'
 
       # The extension depends on the vastlint npm package (file:../npm).
       # That package requires the compiled WASM blobs to be present.
@@ -94,7 +94,7 @@ jobs:
             const fs = require('fs');
             const m = JSON.parse(fs.readFileSync('manifest.json','utf8'));
             if (m.version !== process.env.VERSION) {
-              throw new Error(`manifest.json version mismatch: ${m.version}`);
+              throw new Error('manifest.json version mismatch: ' + m.version);
             }
           "
           echo "Stamped manifest.json to version $VERSION"
@@ -106,6 +106,10 @@ jobs:
       - name: Build extension
         working-directory: chrome
         run: npm run build
+
+      - name: Test extension assets and watch updates
+        working-directory: chrome
+        run: npm test
 
       # Smoke-check: dist/ must contain the key files the extension needs.
       - name: Verify build output
