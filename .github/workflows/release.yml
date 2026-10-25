@@ -1219,8 +1219,10 @@ jobs:
       - name: Record upstream engine provenance
         env:
           ENGINE_TAG: ${{ env.RELEASE_TAG }}
-          ENGINE_COMMIT: ${{ github.sha }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          ENGINE_COMMIT="$(gh api "repos/${GITHUB_REPOSITORY}/commits/${ENGINE_TAG}" --jq .sha)"
+          export ENGINE_COMMIT
           python3 - <<'PYMETA'
           import hashlib, json, os
           from pathlib import Path
@@ -1228,7 +1230,7 @@ jobs:
           if len(archives) != 4:
               raise ValueError(f"expected four engine NIF archives, found {len(archives)}")
           metadata = {
-              "engine_repository": "https://github.com/aleksUIX/vastlint",
+              "engine_repository": "https://github.com/" + os.environ["GITHUB_REPOSITORY"],
               "release_tag": os.environ["ENGINE_TAG"],
               "commit": os.environ["ENGINE_COMMIT"],
               "archives": [{"name": p.name, "sha256": hashlib.sha256(p.read_bytes()).hexdigest()} for p in archives],
