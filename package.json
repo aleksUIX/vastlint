@@ -1,12 +1,10 @@
 {
   "name": "vastlint-packages",
+  "author": "Aleksander Sekowski <aleks@vastlint.org>",
   "private": true,
-  "workspaces": [
-    "packages/*"
-  ],
   "scripts": {
-    "build": "npm run build --workspaces",
-    "typecheck": "npm run typecheck --workspaces"
+    "build": "npm --prefix npm run build",
+    "test": "npm --prefix npm run test:runtime"
   },
   "devDependencies": {
     "@bufbuild/buf": "^1.72.0"

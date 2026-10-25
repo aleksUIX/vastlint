@@ -1,5 +1,7 @@
 # vastlint-grpc
 
+Created by [Aleksander Sekowski](https://github.com/aleksUIX).
+
 gRPC server for [vastlint](https://vastlint.org). Serves `openadtech.vastlint.v1`
 over HTTP/2, with server reflection and `grpc.health.v1`.
 

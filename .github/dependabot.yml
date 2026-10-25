@@ -1,60 +1,35 @@
 version: 2
 updates:
-  # Rust crate dependencies
-  - package-ecosystem: cargo
-    directory: /
-    schedule:
-      interval: weekly
-      day: monday
-      time: "06:00"
-      timezone: UTC
-    open-pull-requests-limit: 10
-    labels:
-      - dependencies
-      - rust
-
-  # GitHub Actions
-  - package-ecosystem: github-actions
-    directory: /
-    schedule:
-      interval: weekly
-      day: monday
-      time: "06:00"
-      timezone: UTC
-    open-pull-requests-limit: 10
-    labels:
-      - dependencies
-      - github-actions
-    ignore:
-      # v7 requires CHROME_PUBLISHER_ID, which is not in repo secrets.
-      - dependency-name: mnao305/chrome-extension-upload
-        update-types: ["version-update:semver-major"]
-
-  # npm (WASM package + VS Code extension)
-  - package-ecosystem: npm
-    directory: /npm
-    schedule:
-      interval: weekly
-      day: monday
-      time: "06:00"
-      timezone: UTC
-    open-pull-requests-limit: 5
-    labels:
-      - dependencies
-      - javascript
-
-  - package-ecosystem: npm
-    directory: /vscode
-    schedule:
-      interval: weekly
-      day: monday
-      time: "06:00"
-      timezone: UTC
-    open-pull-requests-limit: 5
-    labels:
-      - dependencies
-      - javascript
-    ignore:
-      # engines.vscode is pinned at ^1.85.0; @types/vscode must never exceed that.
-      - dependency-name: "@types/vscode"
-        update-types: ["version-update:semver-minor", "version-update:semver-major", "version-update:semver-patch"]
+- package-ecosystem: cargo
+  directory: /
+  schedule:
+    interval: weekly
+    day: monday
+    time: 06:00
+    timezone: UTC
+  open-pull-requests-limit: 10
+  labels:
+  - dependencies
+  - rust
+- package-ecosystem: github-actions
+  directory: /
+  schedule:
+    interval: weekly
+    day: monday
+    time: 06:00
+    timezone: UTC
+  open-pull-requests-limit: 10
+  labels:
+  - dependencies
+  - github-actions
+- package-ecosystem: npm
+  directory: /npm
+  schedule:
+    interval: weekly
+    day: monday
+    time: 06:00
+    timezone: UTC
+  open-pull-requests-limit: 5
+  labels:
+  - dependencies
+  - javascript

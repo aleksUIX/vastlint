@@ -1,170 +1,63 @@
-# Release Checklist
+# Release the engine and its language bindings.
 
-Use this file every time you cut a release. Work top to bottom.
+Created by Aleksander Sekowski.
 
----
+This repository releases the validation engine, CLI and daemon, FFI, WebAssembly ABI and WASM binding, and gRPC reference server. Application and marketplace releases now live in [vastlint-tools](https://github.com/aleksUIX/vastlint-tools).
 
-## 1 — Pre-release (local)
+## Keep the public validation interfaces independently maintainable.
 
-- [ ] `CHANGELOG.md` — new `## [X.Y.Z] - YYYY-MM-DD` section written with today's date
+The core release workflow retains its test, documentation, security, protocol, fuzz, build, approval and provenance gates. It builds the CLI, FFI, NIF, WASM binding and standalone WebAssembly ABI artifacts; publishes the engine and CLI crates, engine npm package and reference containers; and synchronizes the language bindings and Homebrew distribution.
 
-That is the only edit a release needs. **The git tag is the single source of every
-version number in this project.** At build time CI stamps the tag (minus the
-leading `v`) into all of them:
+The npm staging helper prepares only `vastlint`. The `vastlint-client` and `vastlint-react` packages are released by the tools repository. Engine release tags no longer publish Chrome, VS Code, Open VSX, MCP Registry or Smithery artifacts.
 
-| File | Stamped by |
-|---|---|
-| `crates/*/Cargo.toml` and their inter-crate `version =` pins | `release` and `publish` jobs |
-| `npm/package.json` | `publish-npm` |
-| `vscode/package.json` | `publish-vscode`, via `npm version` |
-| `chrome/manifest.json` | `chrome-extension`, which then asserts it took |
-| `crates/vastlint-mcp/server.json` (version, package URL, SHA-256) | `publish-mcp-registry` |
+## Prepare a core release.
 
-None of those commits are pushed, so the in-repo values are cosmetic and exist
-only so a local `cargo run` reports its version honestly. Keep them equal to the
-last released tag. **Do not maintain separate version numbers for the VS Code
-and Chrome extensions.** An earlier version of this checklist asked for that,
-and it produced entries in `CHANGELOG.md` naming extension versions that were
-never published: the Marketplace has always carried the release version.
+Update the core changelog and relevant crate versions, run the workspace tests and required formatting, lint and protocol checks, then create the agreed release tag. Existing credentials, registry ownership and downstream deploy keys for engine and binding releases remain configured here.
 
----
+The release workflow supports manual republication of an existing core tag. Separate recovery workflows remain available for crates.io, the engine npm package and CLI Docker image. Historical tags and release artifacts are not removed by the repository split.
 
-## 2 — Commit + tag
+Patch releases retain the existing `patch` environment. Initial, minor and major releases retain the `production` approval gate.
 
-```bash
-git add CHANGELOG.md
-git commit -m "chore: release vX.Y.Z"
-git tag vX.Y.Z
-git push && git push origin vX.Y.Z
+## Keep core and tools releases separate.
+
+Tools pin a published core version and can update on their own schedule. Core CI and releases do not depend on the tools source or its marketplace accounts. Coordinate any externally visible API change with consumers, including the tools repository and independent language binding repositories.
+
+The Java binding continues to use `vastlint-grpc`. Erlang's OTP integration continues to use the CLI daemon. Both remain in this repository and keep their existing release paths.
+
+## Use the tag as the publication version.
+
+Write a dated `CHANGELOG.md` section before releasing. CI stamps the tag version into crate manifests and inter-crate dependency pins, and into the engine npm package. Keep the checked-in versions aligned with the last core release for honest local version output. Only rewrite VASTlint inter-crate version pins; do not replace third-party dependency versions.
+
+Before a tag, run:
+
+```sh
+cargo fmt --all -- --check
+cargo clippy --all-targets --all-features -- -D warnings
+cargo test --workspace --exclude vastlint_nif
+cargo build -p vastlint_nif
+cargo audit
+npm ci
+npx --no-install buf lint
+npx --no-install buf format --diff --exit-code
+npm test
 ```
 
-Sync the cosmetic in-repo versions to the tag in the same commit, so a local
-build reports the right number:
+The NIF is compiled separately because its test harness needs the BEAM runtime. Binding tests retain their own release checks. Do not skip the shared approval job for patches: downstream publish jobs depend on its success.
 
-```bash
-sed -i '' "s/^version = \".*\"/version = \"X.Y.Z\"/" crates/*/Cargo.toml
-sed -i '' "s/^vastlint-core = { path = \"..\/vastlint-core\", version = \"[^\"]*\" }/vastlint-core = { path = \"..\/vastlint-core\", version = \"X.Y.Z\" }/" crates/*/Cargo.toml
-sed -i '' "s/\"version\": \"[^\"]*\"/\"version\": \"X.Y.Z\"/" \
-  npm/package.json vscode/package.json chrome/package.json chrome/manifest.json \
-  crates/vastlint-mcp/server.json
-cargo check --workspace   # refreshes Cargo.lock
-git diff crates/    # only version lines should appear
+Publication switches remain `ENABLE_CRATES_PUBLISH`, `ENABLE_NPM_PUBLISH`, `ENABLE_DOCKER_PUBLISH` and `ENABLE_BSR_PUBLISH`. Binding jobs use their existing `ENABLE_*_SYNC` variables and deploy keys. `sync-go` now embeds the standalone WebAssembly ABI and verifies its version, SHA-256 and binding tests before pushing. Erlang receives NIFs; Java receives the public protocol; Python and Homebrew retain their existing release paths.
+
+`sync-infra` still requires `ENABLE_INFRA_SYNC` and `VASTLINT_INFRA_DEPLOY_KEY`. If they are absent, update the `vastlint` engine pin and lockfile in `vastlint-infra` manually and run its typecheck and web build before deployment.
+
+## Verify every destination after release.
+
+Inspect individual job outcomes as well as the overall workflow result. Confirm the release assets and provenance, the `vastlint-core` and `vastlint-cli` crates, engine npm version, reference Docker images, Homebrew formula checksums and downstream binding commits and tags. Marketplace versions are verified in the tools release process.
+
+For an existing core tag, recovery commands are:
+
+```sh
+gh workflow run publish-crates.yml -f tag=vX.Y.Z
+gh workflow run release.yml -f npm_tag=vX.Y.Z
+gh workflow run release.yml -f tag=vX.Y.Z
 ```
 
-The second `sed` names `vastlint-core` in full on purpose. An earlier version
-matched any `version = "..." }`, which also rewrote third-party pins written in
-table form: cutting 0.11.3 it turned `quick-xml = { version = "0.41" }` into
-`quick-xml = { version = "0.11.3" }`. Read the `git diff` before committing.
-
-CI stamps the same values again at build time, so a sync that is one release
-behind still ships correctly. It just makes `cargo run -- --version` honest.
-
----
-
-## 3 — CI (automatic after tag push)
-
-Go to **GitHub Actions → Release** and watch the run. Patch tags (only `Z` changed from the previous `vX.Y.Z`) use the unprotected `patch` environment and publish without waiting. Minor and major tags wait on one human approval gate (`production` environment), which unblocks all publish jobs simultaneously. Do not skip the approval job on patches: GitHub would then skip every publish job after it.
-
-| Job | Destination | Gate variable |
-|-----|-------------|---------------|
-| `release` | GitHub Release + binary assets | always on |
-| `publish-vscode` | VS Code Marketplace + Open VSX | `ENABLE_VSCODE_PUBLISH=true` |
-| `publish-npm` | npmjs.com (`vastlint`) | `ENABLE_NPM_PUBLISH=true` |
-| `publish` | crates.io (`vastlint-core`, `vastlint-cli`) | `ENABLE_CRATES_PUBLISH=true` |
-| `publish-docker` | Docker Hub (`aleksuix/vastlint`) | `ENABLE_DOCKER_PUBLISH=true` |
-| `publish-mcp-registry` | MCP Registry (`io.github.aleksUIX/vastlint`) | `ENABLE_MCP_REGISTRY_PUBLISH=true` |
-| `provenance` | GitHub attestation store (SLSA L3) | always on |
-| `chrome-extension` | GitHub Release asset + Chrome Web Store | tag push, or `publish_chrome=true` on manual `Release` dispatch |
-
-Chrome publish paths:
-
-1. Tagged release: the `chrome-extension` job in `Release` runs on tag pushes and publishes the zipped extension.
-2. Standalone publish: run the `Chrome Extension` workflow with `publish: true` and optional `version: 0.11.2` when you need to ship the extension outside a full repo release.
-
-Chrome publish stays on `mnao305/chrome-extension-upload` v6.0.0. v7 requires `CHROME_PUBLISHER_ID` (Chrome Web Store Developer Dashboard, Publisher, Settings) and that secret is not configured yet.
-
----
-
-## 4 — Downstream repos the same run pushes to
-
-These used to be manual. They are jobs in the same `Release` run now, each
-gated on a repo variable and a deploy key, and each pushes straight to `main`
-of its target repo.
-
-| Job | Target repo | What it writes | Gate variable |
-|-----|-------------|----------------|---------------|
-| `sync-homebrew-tap` | `aleksUIX/homebrew-tap` | `Formula/vastlint.rb`: version, four URLs, four SHA-256 values taken from the run's own tarballs | `ENABLE_HOMEBREW_TAP_SYNC=true` |
-| `sync-go` | `aleksUIX/vastlint-go` | prebuilt `libs/` FFI artifacts | `ENABLE_GO_SYNC=true` |
-| `sync-python` | `aleksUIX/vastlint-python` | release commit + tag | `ENABLE_PYTHON_SYNC=true` |
-| `sync-erlang` | `aleksUIX/vastlint-erlang` | prebuilt NIFs and checksums | `ENABLE_ERLANG_SYNC=true` |
-| `sync-java` | `aleksUIX/vastlint-java` | vendored proto + Gradle version | `ENABLE_JAVA_SYNC=true` |
-
-Check each one landed rather than assuming: `gh api repos/aleksUIX/<repo>/commits -q '.[0].commit.message'`.
-
----
-
-## 5 — vastlint-infra (manual)
-
-`sync-infra` exists in the workflow but stays skipped: it needs
-`ENABLE_INFRA_SYNC=true` and a `VASTLINT_INFRA_DEPLOY_KEY` secret, and neither
-is set. Until they are, bump the pin by hand after `publish-npm` finishes:
-
-```bash
-cd ../vastlint-infra
-sed -i '' 's/"vastlint": "[^"]*"/"vastlint": "X.Y.Z"/' package.json apps/vastlint-web/package.json
-pnpm install && pnpm build:web    # the build is the only check that the new WASM loads
-git commit -am "chore: point the web validator at vastlint X.Y.Z" && git push
-```
-
-Pushing to `main` deploys the web app and the worker through `deploy.yml`.
-
----
-
-## 6 — Post-release verification
-
-- [ ] GitHub Release page has correct assets and CHANGELOG notes
-- [ ] `npm info vastlint version` returns new version
-- [ ] VS Code Marketplace page shows new version
-- [ ] Open VSX page shows new version (`open-vsx.org/extension/aleksUIX/vastlint`)
-- [ ] `docker pull aleksuix/vastlint:latest` pulls new image
-- [ ] MCP Registry entry updated (if `ENABLE_MCP_REGISTRY_PUBLISH=true`)
-- [ ] `cargo info vastlint-core` and `cargo info vastlint-cli` report the new version
-- [ ] Homebrew: `brew upgrade vastlint` installs new version
-- [ ] vastlint.org/validate reports the release version and the current rule count
-
-Read the job list, do not read the run's overall conclusion. A failed publish
-job leaves the run red while everything else shipped, and a skipped one leaves
-it green. `gh run view <id> --json jobs -q '.jobs[] | "\(.name): \(.conclusion)"'`.
-
-If crates.io failed on its own, re-run just that half:
-`gh workflow run publish-crates.yml -f tag=vX.Y.Z`.
-
-If npm failed or was skipped, re-run just that half from this workflow file
-(so npm trusted publishing still matches `release.yml`):
-`gh workflow run release.yml -f npm_tag=vX.Y.Z`.
-
-To republish GitHub Release, Docker, Homebrew, VS Code, and language bindings
-for an existing tag:
-`gh workflow run release.yml -f tag=vX.Y.Z`.
-
-`gh workflow run publish-npm.yml -f tag=vX.Y.Z` also rebuilds and publishes,
-but only if that workflow is added as a trusted publisher or `NPM_TOKEN` is valid.
-
----
-
-## Version locations at a glance
-
-Everything published carries the tag version. The only version numbers that need
-a human are the ones outside this repo.
-
-| File | Updated by | Notes |
-|------|-----------|-------|
-| `CHANGELOG.md` | manual | always |
-| `crates/*/Cargo.toml` | CI (sed at build time) | in-repo value is cosmetic |
-| `npm/package.json` | CI (`npm version`) | in-repo value is cosmetic |
-| `vscode/package.json` | CI (`npm version`) | in-repo value is cosmetic |
-| `chrome/manifest.json` + `chrome/package.json` | CI (node, then asserted) | in-repo value is cosmetic |
-| `crates/vastlint-mcp/server.json` | CI (jq: version, URL, SHA-256) | in-repo value is cosmetic |
-| `homebrew-tap/Formula/vastlint.rb` | CI (`sync-homebrew-tap`) | version, URLs and SHA-256 values |
-| `vastlint-erlang`, `vastlint-go`, `vastlint-python`, `vastlint-java` | CI (`sync-*` jobs) | prebuilt artifacts, vendored proto, and release commits |
-| `vastlint-infra` `package.json` + `apps/vastlint-web/package.json` | manual | pins the `vastlint` npm package the web validator runs |
+The separate `publish-npm.yml` recovery workflow also works when it is configured as an npm trusted publisher or has a valid `NPM_TOKEN`.

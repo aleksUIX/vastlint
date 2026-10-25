@@ -1,20 +1,17 @@
 name: CI
-
-on:
+'on':
   push:
-    branches: [main]
+    branches:
+      - main
   pull_request:
-    branches: [main]
-  workflow_dispatch:
-
+    branches:
+      - main
+  workflow_dispatch: null
 env:
   CARGO_TERM_COLOR: always
   RUST_BACKTRACE: 1
-
-# Default every job to read-only. Jobs that need more declare it explicitly.
 permissions:
   contents: read
-
 jobs:
   javascript-audit:
     name: JavaScript audit (${{ matrix.directory }})
@@ -25,23 +22,15 @@ jobs:
         directory:
           - .
           - npm
-          - vscode
-          - chrome
-          - examples/vastlint-client-browser
-          - examples/vastlint-client-react-scratch
-          - examples/vastlint-react-demo
-          - scripts/ecosystem-smoke/vastlint-client-smoke
-          - scripts/ecosystem-smoke/vastlint-react-smoke
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7.1.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
           node-version: 24
           check-latest: true
       - name: Audit runtime and development dependencies
         working-directory: ${{ matrix.directory }}
         run: npm audit --audit-level=low
-
   test:
     name: Test (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
@@ -108,62 +97,6 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
       - name: Dependency review
         uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294  # v5.0.0
-
-  mcp-smoke:
-    name: MCP smoke test
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
-
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8  # v (pinned SHA)
-        with:
-          toolchain: stable
-
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6  # v2.9.2
-
-      - name: Build vastlint-mcp
-        run: cargo build --release -p vastlint-mcp
-
-      - name: MCP smoke — initialize + tools/list returns 7 tools
-        run: |
-          RESPONSE=$(
-            (
-              echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"ci","version":"1.0"}}}'
-              sleep 0.2
-              echo '{"jsonrpc":"2.0","method":"notifications/initialized","params":{}}'
-              sleep 0.2
-              echo '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}'
-              sleep 1
-            ) | ./target/release/vastlint-mcp 2>/dev/null
-          )
-
-          # capabilities must include tools
-          echo "$RESPONSE" | grep -q '"tools"' || {
-            echo "FAIL: initialize response missing tools capability"
-            echo "$RESPONSE"
-            exit 1
-          }
-          echo "capabilities.tools present ✓"
-
-          # tools/list must return exactly 7 tools
-          TOOL_COUNT=$(echo "$RESPONSE" | grep '"tools":\[' | grep -o '"name":"' | wc -l | tr -d ' ')
-          if [ "$TOOL_COUNT" -ne 7 ]; then
-            echo "FAIL: expected 7 tools, got $TOOL_COUNT"
-            echo "$RESPONSE"
-            exit 1
-          fi
-          echo "tools/list returned $TOOL_COUNT tools ✓"
-
-          # each expected tool must be present
-          for TOOL in validate_vast validate_vast_url fix_vast list_rules explain_rule inspect_vast; do
-            echo "$RESPONSE" | grep -q "\"$TOOL\"" || {
-              echo "FAIL: tool '$TOOL' missing from tools/list"
-              echo "$RESPONSE"
-              exit 1
-            }
-            echo "  $TOOL ✓"
-          done
 
   doc:
     name: Documentation
@@ -241,25 +174,11 @@ jobs:
     name: Docker images build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
-
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069  # v4.4.1
-
-      # CLI, gRPC, and MCP images are built here and pushed nowhere. Until now
-      # the only thing that ever built them was a release, so a Dockerfile that
-      # no longer compiles would surface in the middle of publishing rather than
-      # on the pull request that broke it. Two other gates failed that way this
-      # week (cargo publish on a dev-dependency, and buf breaking with no prior
-      # contract), which is enough of a pattern to close this one deliberately.
-      #
-      # linux/amd64 only. The release builds amd64 and arm64 through QEMU, which
-      # roughly doubles the time for a second architecture that cannot fail
-      # independently here: the binary is a statically linked musl build with no
-      # architecture-specific code, and its dependencies are the same on both.
-      # Paying that on every pull request would buy very little.
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069
       - name: Build the CLI image
-        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc  # v7.4.0
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc
         with:
           context: .
           file: Dockerfile
@@ -267,9 +186,8 @@ jobs:
           push: false
           cache-from: type=gha
           cache-to: type=gha,mode=max
-
       - name: Build the gRPC server image
-        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc  # v7.4.0
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc
         with:
           context: .
           file: Dockerfile.grpc
@@ -277,17 +195,6 @@ jobs:
           push: false
           cache-from: type=gha
           cache-to: type=gha,mode=max
-
-      - name: Build the MCP server image
-        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc  # v7.4.0
-        with:
-          context: .
-          file: Dockerfile.mcp
-          platforms: linux/amd64
-          push: false
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
   codeql:
     name: CodeQL (SAST)
     runs-on: ubuntu-latest

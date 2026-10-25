@@ -5,7 +5,6 @@ members = [
     "crates/vastlint-core",
     "crates/vastlint-ffi",
     "crates/vastlint-grpc",
-    "crates/vastlint-mcp",
     "crates/vastlint-nif",
     "crates/vastlint-wasm",
 ]

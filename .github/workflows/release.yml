@@ -1,954 +1,295 @@
 name: Release
-
-on:
+'on':
   push:
     tags:
-      - "v[0-9]+.[0-9]+.[0-9]+"
+      - v[0-9]+.[0-9]+.[0-9]+
   workflow_dispatch:
     inputs:
-      publish_chrome:
-        description: "Publish Chrome extension to Web Store"
-        type: boolean
-        default: false
-        required: false
       npm_tag:
-        description: "Rebuild WASM and publish npm for this existing tag (e.g. v0.13.7). Leaves the rest of Release idle."
+        description: Rebuild WASM and publish npm for this existing tag (e.g. v0.13.7). Leaves the rest of Release idle.
         type: string
-        default: ""
+        default: ''
         required: false
       tag:
-        description: "Existing tag to fully republish (GitHub Release, Docker, Homebrew, bindings, VS Code). Empty on tag push."
+        description: Existing core tag to republish, including SDKs and bindings
         type: string
-        default: ""
+        default: ''
         required: false
-
 env:
   CARGO_TERM_COLOR: always
-  # Tag-push uses github.ref_name. A dispatch with `tag` republishes that tag from the current workflow file.
   RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag != '' && inputs.tag || github.ref_name }}
-
-# Workflow-level default: every job gets read-only access unless it explicitly
-# declares broader permissions.  Jobs that publish or attest override below.
 permissions:
   contents: read
-
 jobs:
-  # ── Smoke tests ─────────────────────────────────────────────────────────────
-  # All publish / release jobs declare `needs: smoke-test` so no artefact ever
-  # leaves the repo unless every module passes validation.
-  #
-  # Covers:
-  #   1. vastlint-core + vastlint-ffi  — cargo test --all (unit + integration)
-  #   2. vastlint-cli                  — build release binary; valid fixture
-  #                                      exits 0; invalid fixture exits non-0;
-  #                                      specific error/warning/info rule IDs
-  #                                      asserted via --format json; --vast-version
-  #                                      override (up and down); --ignore-pattern
-  #                                      macro suppression; fix subcommand;
-  #                                      daemon OTP protocol (Python struct.pack)
-  #   3. vastlint-mcp                  — build release binary, drive initialize +
-  #                                      tools/list via stdin, assert 7 tools
-  #                                      returned with correct names; actual
-  #                                      tools/call for validate_vast (valid +
-  #                                      invalid), fix_vast, list_rules,
-  #                                      explain_rule, inspect_vast
-  #   4. vastlint-wasm                 — wasm-pack build (nodejs target) then
-  #                                      a Node.js script that imports the
-  #                                      package and validates the same fixtures;
-  #                                      specific rule IDs asserted; warning
-  #                                      fixture checked for valid=true
   smoke-test:
     name: Smoke test all modules
     runs-on: ubuntu-latest
     if: ${{ github.event_name != 'workflow_dispatch' || inputs.npm_tag == '' }}
-
     steps:
       - name: Skip smoke on tag republish
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.tag != '' }}
         run: echo "Skipping smoke for republish of ${RELEASE_TAG}; it ran when this tag was cut."
-
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         if: ${{ github.event_name != 'workflow_dispatch' || inputs.tag == '' }}
         with:
           ref: ${{ env.RELEASE_TAG }}
-
       - name: Install Rust toolchain
         if: ${{ github.event_name != 'workflow_dispatch' || inputs.tag == '' }}
-        uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8  # v (pinned SHA)
+        uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
         with:
           toolchain: stable
           targets: wasm32-unknown-unknown
           components: clippy
-
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6  # v2.9.2
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
         if: ${{ github.event_name != 'workflow_dispatch' || inputs.tag == '' }}
-
-      # ── 1. Unit + integration tests (core, ffi, cli) ──────────────────────
       - name: cargo build NIF
         if: ${{ github.event_name != 'workflow_dispatch' || inputs.tag == '' }}
         run: cargo build -p vastlint_nif
-
       - name: cargo test --workspace
         if: ${{ github.event_name != 'workflow_dispatch' || inputs.tag == '' }}
         run: cargo test --workspace --exclude vastlint_nif
-
-      # ── 2. CLI smoke test ─────────────────────────────────────────────────
       - name: Build CLI (release)
         if: ${{ github.event_name != 'workflow_dispatch' || inputs.tag == '' }}
         run: cargo build --release -p vastlint-cli
-
-      - name: CLI smoke — valid fixture exits 0
+      - name: 'CLI smoke : valid fixture exits 0'
         if: ${{ github.event_name != 'workflow_dispatch' || inputs.tag == '' }}
         run: |
           ./target/release/vastlint check \
             crates/vastlint-core/tests/fixtures/valid_4.2.xml
           echo "Exit code: $?"
-
-      - name: CLI smoke — invalid fixture exits 1
+      - name: 'CLI smoke : invalid fixture exits 1'
         if: ${{ github.event_name != 'workflow_dispatch' || inputs.tag == '' }}
-        run: |
-          set +e
-          ./target/release/vastlint check \
-            crates/vastlint-core/tests/fixtures/err_no_version.xml
-          CODE=$?
-          set -e
-          if [ "$CODE" -eq 0 ]; then
-            echo "ERROR: vastlint exited 0 on an invalid fixture — expected non-zero"
-            exit 1
-          fi
-          echo "Exit code $CODE (expected non-zero) ✓"
-
-      # ── 3. MCP smoke test ─────────────────────────────────────────────────
-      - name: Build MCP server (release)
-        if: ${{ github.event_name != 'workflow_dispatch' || inputs.tag == '' }}
-        run: cargo build --release -p vastlint-mcp
-
-      - name: MCP smoke — initialize + tools/list returns 5 tools
-        if: ${{ github.event_name != 'workflow_dispatch' || inputs.tag == '' }}
-        run: |
-          RESPONSE=$(
-            (
-              echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"ci","version":"1.0"}}}'
-              sleep 0.2
-              echo '{"jsonrpc":"2.0","method":"notifications/initialized","params":{}}'
-              sleep 0.2
-              echo '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}'
-              sleep 1
-            ) | ./target/release/vastlint-mcp 2>/dev/null
-          )
-
-          echo "$RESPONSE" | grep -q '"tools"' || {
-            echo "FAIL: initialize response missing tools capability"
-            echo "$RESPONSE"
-            exit 1
-          }
-          echo "capabilities.tools present ✓"
-
-          TOOL_COUNT=$(echo "$RESPONSE" | grep '"tools":\[' | grep -o '"name":"' | wc -l | tr -d ' ')
-          if [ "$TOOL_COUNT" -ne 7 ]; then
-            echo "FAIL: expected 7 tools, got $TOOL_COUNT"
-            echo "$RESPONSE"
-            exit 1
-          fi
-          echo "tools/list returned $TOOL_COUNT tools ✓"
-
-          for TOOL in validate_vast validate_vast_url fix_vast list_rules explain_rule inspect_vast; do
-            echo "$RESPONSE" | grep -q "\"$TOOL\"" || {
-              echo "FAIL: tool '$TOOL' missing from tools/list"
-              echo "$RESPONSE"
-              exit 1
-            }
-            echo "  $TOOL ✓"
-          done
-
-      # ── 4. WASM smoke test ────────────────────────────────────────────────
+        run: "set +e\n./target/release/vastlint check \\\n  crates/vastlint-core/tests/fixtures/err_no_version.xml\nCODE=$?\n\
+          set -e\nif [ \"$CODE\" -eq 0 ]; then\n  echo \"ERROR: vastlint exited 0 on an invalid fixture : expected non-zero\"\
+          \n  exit 1\nfi\necho \"Exit code $CODE (expected non-zero) \u2713\"\n"
       - name: Install wasm-pack
         if: ${{ github.event_name != 'workflow_dispatch' || inputs.tag == '' }}
         run: cargo install wasm-pack --locked
-
       - name: Install Node.js
         if: ${{ github.event_name != 'workflow_dispatch' || inputs.tag == '' }}
-        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7.1.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
           node-version: '24'
-
       - name: Build WASM (nodejs target)
         if: ${{ github.event_name != 'workflow_dispatch' || inputs.tag == '' }}
         run: wasm-pack build crates/vastlint-wasm --target nodejs --out-dir ../../npm/pkg-node
-
       - name: Build WASM (bundler target)
         if: ${{ github.event_name != 'workflow_dispatch' || inputs.tag == '' }}
         run: wasm-pack build crates/vastlint-wasm --target bundler --out-dir ../../npm/pkg
-
       - name: Assemble npm package
         if: ${{ github.event_name != 'workflow_dispatch' || inputs.tag == '' }}
         run: node npm/scripts/assemble.js
-
-      - name: WASM smoke — valid fixture returns no errors
+      - name: 'WASM smoke : valid fixture returns no errors'
         if: ${{ github.event_name != 'workflow_dispatch' || inputs.tag == '' }}
-        run: |
-          node - <<'EOF'
-          const { validate } = require('./npm');
-          const fs = require('fs');
-
-          const validXml = fs.readFileSync(
-            'crates/vastlint-core/tests/fixtures/valid_4.2.xml', 'utf8'
-          );
-          const result = validate(validXml);
-          if (result.summary.errors !== 0) {
-            console.error('WASM smoke FAILED: expected 0 errors on valid fixture, got', result.summary.errors);
-            process.exit(1);
-          }
-          if (!result.summary.valid) {
-            console.error('WASM smoke FAILED: expected valid=true on valid fixture');
-            process.exit(1);
-          }
-          console.log('WASM valid fixture ✓ (errors=0, valid=true)');
-          EOF
-
-      - name: WASM smoke — invalid fixture returns errors
+        run: "node - <<'EOF'\nconst { validate } = require('./npm');\nconst fs = require('fs');\n\nconst validXml = fs.readFileSync(\n\
+          \  'crates/vastlint-core/tests/fixtures/valid_4.2.xml', 'utf8'\n);\nconst result = validate(validXml);\nif (result.summary.errors\
+          \ !== 0) {\n  console.error('WASM smoke FAILED: expected 0 errors on valid fixture, got', result.summary.errors);\n\
+          \  process.exit(1);\n}\nif (!result.summary.valid) {\n  console.error('WASM smoke FAILED: expected valid=true on\
+          \ valid fixture');\n  process.exit(1);\n}\nconsole.log('WASM valid fixture \u2713 (errors=0, valid=true)');\nEOF\n"
+      - name: 'WASM smoke : invalid fixture returns errors'
         if: ${{ github.event_name != 'workflow_dispatch' || inputs.tag == '' }}
-        run: |
-          node - <<'EOF'
-          const { validate } = require('./npm');
-          const fs = require('fs');
-
-          const invalidXml = fs.readFileSync(
-            'crates/vastlint-core/tests/fixtures/err_no_version.xml', 'utf8'
-          );
-          const result = validate(invalidXml);
-          if (result.summary.errors === 0) {
-            console.error('WASM smoke FAILED: expected errors > 0 on invalid fixture');
-            process.exit(1);
-          }
-          if (result.summary.valid) {
-            console.error('WASM smoke FAILED: expected valid=false on invalid fixture');
-            process.exit(1);
-          }
-          console.log('WASM invalid fixture ✓ (errors=' + result.summary.errors + ', valid=false)');
-          EOF
-
-      # ── 2b. CLI smoke — specific rule IDs ────────────────────────────────
-      # Pick a representative spread across rule families and VAST versions to
-      # catch regressions in the core rule engine that cargo test would not catch
-      # at the binary level (e.g. a broken --format json serialisation).
-      - name: CLI smoke — error rule IDs (JSON output)
+        run: "node - <<'EOF'\nconst { validate } = require('./npm');\nconst fs = require('fs');\n\nconst invalidXml = fs.readFileSync(\n\
+          \  'crates/vastlint-core/tests/fixtures/err_no_version.xml', 'utf8'\n);\nconst result = validate(invalidXml);\n\
+          if (result.summary.errors === 0) {\n  console.error('WASM smoke FAILED: expected errors > 0 on invalid fixture');\n\
+          \  process.exit(1);\n}\nif (result.summary.valid) {\n  console.error('WASM smoke FAILED: expected valid=false on\
+          \ invalid fixture');\n  process.exit(1);\n}\nconsole.log('WASM invalid fixture \u2713 (errors=' + result.summary.errors\
+          \ + ', valid=false)');\nEOF\n"
+      - name: 'CLI smoke : error rule IDs (JSON output)'
         if: ${{ github.event_name != 'workflow_dispatch' || inputs.tag == '' }}
-        run: |
-          FIXTURES=(
-            "err_inline_missing_impression.xml:VAST-2.0-inline-impression"
-            "err_missing_adsystem.xml:VAST-2.0-inline-adsystem"
-            "err_no_version.xml:VAST-2.0-root-version"
-            "err_missing_duration.xml:VAST-2.0-linear-duration"
-            "err_mediafile_missing_attrs.xml:VAST-2.0-mediafile-delivery"
-            "err_wrapper_missing_vasttag.xml:VAST-2.0-wrapper-vastadtaguri"
-            "err_adservingid_missing.xml:VAST-4.1-adservingid-present"
-            "err_universaladid_missing.xml:VAST-4.0-universaladid-present"
-            "err_verification_vendor.xml:VAST-4.1-verification-vendor"
-            "err_companion_clicktracking_no_id.xml:VAST-4.0-companion-clicktracking-id"
-            "err_icon_missing_resource.xml:VAST-3.0-icon-resource"
-            "err_progress_no_offset.xml:VAST-3.0-progress-offset"
-          )
-          PASS=0; FAIL=0
-          for ENTRY in "${FIXTURES[@]}"; do
-            FILE="${ENTRY%%:*}"
-            RULE="${ENTRY##*:}"
-            FIXTURE="crates/vastlint-core/tests/fixtures/$FILE"
-            OUTPUT=$(./target/release/vastlint check "$FIXTURE" --format json 2>/dev/null || true)
-            if echo "$OUTPUT" | python3 -c "import sys,json; d=json.load(sys.stdin); sys.exit(0 if any(i['id']=='$RULE' for i in d['issues']) else 1)"; then
-              echo "PASS [$FILE → $RULE]"
-              PASS=$((PASS+1))
-            else
-              echo "FAIL [$FILE → $RULE not found in issues]"
-              echo "  Output: $OUTPUT" | head -5
-              FAIL=$((FAIL+1))
-            fi
-          done
-          echo "Results: $PASS passed, $FAIL failed"
-          [ "$FAIL" -eq 0 ] || exit 1
-
-      - name: CLI smoke — warning and info rule IDs (JSON output)
+        run: "FIXTURES=(\n  \"err_inline_missing_impression.xml:VAST-2.0-inline-impression\"\n  \"err_missing_adsystem.xml:VAST-2.0-inline-adsystem\"\
+          \n  \"err_no_version.xml:VAST-2.0-root-version\"\n  \"err_missing_duration.xml:VAST-2.0-linear-duration\"\n  \"\
+          err_mediafile_missing_attrs.xml:VAST-2.0-mediafile-delivery\"\n  \"err_wrapper_missing_vasttag.xml:VAST-2.0-wrapper-vastadtaguri\"\
+          \n  \"err_adservingid_missing.xml:VAST-4.1-adservingid-present\"\n  \"err_universaladid_missing.xml:VAST-4.0-universaladid-present\"\
+          \n  \"err_verification_vendor.xml:VAST-4.1-verification-vendor\"\n  \"err_companion_clicktracking_no_id.xml:VAST-4.0-companion-clicktracking-id\"\
+          \n  \"err_icon_missing_resource.xml:VAST-3.0-icon-resource\"\n  \"err_progress_no_offset.xml:VAST-3.0-progress-offset\"\
+          \n)\nPASS=0; FAIL=0\nfor ENTRY in \"${FIXTURES[@]}\"; do\n  FILE=\"${ENTRY%%:*}\"\n  RULE=\"${ENTRY##*:}\"\n  FIXTURE=\"\
+          crates/vastlint-core/tests/fixtures/$FILE\"\n  OUTPUT=$(./target/release/vastlint check \"$FIXTURE\" --format json\
+          \ 2>/dev/null || true)\n  if echo \"$OUTPUT\" | python3 -c \"import sys,json; d=json.load(sys.stdin); sys.exit(0\
+          \ if any(i['id']=='$RULE' for i in d['issues']) else 1)\"; then\n    echo \"PASS [$FILE \u2192 $RULE]\"\n    PASS=$((PASS+1))\n\
+          \  else\n    echo \"FAIL [$FILE \u2192 $RULE not found in issues]\"\n    echo \"  Output: $OUTPUT\" | head -5\n\
+          \    FAIL=$((FAIL+1))\n  fi\ndone\necho \"Results: $PASS passed, $FAIL failed\"\n[ \"$FAIL\" -eq 0 ] || exit 1\n"
+      - name: 'CLI smoke : warning and info rule IDs (JSON output)'
         if: ${{ github.event_name != 'workflow_dispatch' || inputs.tag == '' }}
-        run: |
-          FIXTURES=(
-            "warn_vpaid.xml:VAST-4.1-vpaid-apiframework"
-            "warn_duplicate_impression.xml:VAST-2.0-duplicate-impression"
-            "warn_version_mismatch.xml:VAST-2.0-version-mismatch"
-            "warn_flash_mediafile.xml:VAST-2.0-flash-mediafile"
-            "warn_survey_deprecated.xml:VAST-4.1-survey-deprecated"
-            "warn_url_invalid.xml:VAST-2.0-url-invalid"
-            "warn_bitrate_conflict.xml:VAST-3.0-bitrate-conflict"
-            "warn_companion_renderingmode.xml:VAST-4.1-companion-renderingmode-value"
-            "warn_tracking_event_unknown.xml:VAST-4.1-tracking-event-value"
-            "warn_adtype_invalid.xml:VAST-4.1-adtype-value"
-            "warn_blockedadcategories_no_authority.xml:VAST-4.1-blockedadcategories-no-authority"
-            "warn_universaladid_idvalue_removed.xml:VAST-4.1-universaladid-idvalue-removed"
-            "info_http_tracking.xml:VAST-2.0-tracking-https"
-          )
-          PASS=0; FAIL=0
-          for ENTRY in "${FIXTURES[@]}"; do
-            FILE="${ENTRY%%:*}"
-            RULE="${ENTRY##*:}"
-            FIXTURE="crates/vastlint-core/tests/fixtures/$FILE"
-            OUTPUT=$(./target/release/vastlint check "$FIXTURE" --format json 2>/dev/null || true)
-            if echo "$OUTPUT" | python3 -c "import sys,json; d=json.load(sys.stdin); sys.exit(0 if any(i['id']=='$RULE' for i in d['issues']) else 1)"; then
-              echo "PASS [$FILE → $RULE]"
-              PASS=$((PASS+1))
-            else
-              echo "FAIL [$FILE → $RULE not found in issues]"
-              FAIL=$((FAIL+1))
-            fi
-          done
-          echo "Results: $PASS passed, $FAIL failed"
-          [ "$FAIL" -eq 0 ] || exit 1
-
-      # ── 2c. CLI smoke — --vast-version override ───────────────────────────
-      - name: CLI smoke — --vast-version upgrade fires 4.1 rules on 2.0 doc
+        run: "FIXTURES=(\n  \"warn_vpaid.xml:VAST-4.1-vpaid-apiframework\"\n  \"warn_duplicate_impression.xml:VAST-2.0-duplicate-impression\"\
+          \n  \"warn_version_mismatch.xml:VAST-2.0-version-mismatch\"\n  \"warn_flash_mediafile.xml:VAST-2.0-flash-mediafile\"\
+          \n  \"warn_survey_deprecated.xml:VAST-4.1-survey-deprecated\"\n  \"warn_url_invalid.xml:VAST-2.0-url-invalid\"\n\
+          \  \"warn_bitrate_conflict.xml:VAST-3.0-bitrate-conflict\"\n  \"warn_companion_renderingmode.xml:VAST-4.1-companion-renderingmode-value\"\
+          \n  \"warn_tracking_event_unknown.xml:VAST-4.1-tracking-event-value\"\n  \"warn_adtype_invalid.xml:VAST-4.1-adtype-value\"\
+          \n  \"warn_blockedadcategories_no_authority.xml:VAST-4.1-blockedadcategories-no-authority\"\n  \"warn_universaladid_idvalue_removed.xml:VAST-4.1-universaladid-idvalue-removed\"\
+          \n  \"info_http_tracking.xml:VAST-2.0-tracking-https\"\n)\nPASS=0; FAIL=0\nfor ENTRY in \"${FIXTURES[@]}\"; do\n\
+          \  FILE=\"${ENTRY%%:*}\"\n  RULE=\"${ENTRY##*:}\"\n  FIXTURE=\"crates/vastlint-core/tests/fixtures/$FILE\"\n  OUTPUT=$(./target/release/vastlint\
+          \ check \"$FIXTURE\" --format json 2>/dev/null || true)\n  if echo \"$OUTPUT\" | python3 -c \"import sys,json; d=json.load(sys.stdin);\
+          \ sys.exit(0 if any(i['id']=='$RULE' for i in d['issues']) else 1)\"; then\n    echo \"PASS [$FILE \u2192 $RULE]\"\
+          \n    PASS=$((PASS+1))\n  else\n    echo \"FAIL [$FILE \u2192 $RULE not found in issues]\"\n    FAIL=$((FAIL+1))\n\
+          \  fi\ndone\necho \"Results: $PASS passed, $FAIL failed\"\n[ \"$FAIL\" -eq 0 ] || exit 1\n"
+      - name: 'CLI smoke : --vast-version upgrade fires 4.1 rules on 2.0 doc'
         if: ${{ github.event_name != 'workflow_dispatch' || inputs.tag == '' }}
-        run: |
-          # A plain VAST 2.0 document forced to 4.1 must:
-          #   • report version "4.1" in JSON
-          #   • fire VAST-4.1-adservingid-present (missing on 2.0 doc)
-          cat > /tmp/v2_simple.xml <<'XMLEOF'
-          <VAST version="2.0"><Ad id="1"><InLine>
-            <AdSystem>Test</AdSystem><AdTitle>Test Ad</AdTitle>
-            <Impression><![CDATA[https://t.example.com/imp]]></Impression>
-            <Creatives><Creative><Linear>
-              <Duration>00:00:30</Duration>
-              <MediaFiles><MediaFile type="video/mp4" width="640" height="480" bitrate="500" delivery="progressive">
-                <![CDATA[https://cdn.example.com/ad.mp4]]>
-              </MediaFile></MediaFiles>
-            </Linear></Creative></Creatives>
-          </InLine></Ad></VAST>
-          XMLEOF
-
-          OUTPUT=$(./target/release/vastlint check /tmp/v2_simple.xml --vast-version 4.1 --format json 2>/dev/null || true)
-
-          VERSION=$(echo "$OUTPUT" | python3 -c "import sys,json; print(json.load(sys.stdin)['version'])")
-          if [ "$VERSION" != "4.1" ]; then
-            echo "FAIL: expected version=4.1 in JSON, got '$VERSION'"
-            exit 1
-          fi
-          echo "PASS: version field is 4.1 ✓"
-
-          echo "$OUTPUT" | python3 -c "import sys,json; d=json.load(sys.stdin); sys.exit(0 if any(i['id']=='VAST-4.1-adservingid-present' for i in d['issues']) else 1)" || {
-            echo "FAIL: VAST-4.1-adservingid-present did not fire after --vast-version 4.1 override"
-            exit 1
-          }
-          echo "PASS: VAST-4.1-adservingid-present fires on forced 4.1 ✓"
-
-      - name: CLI smoke — --vast-version downgrade suppresses 4.x rules
+        run: "# A plain VAST 2.0 document forced to 4.1 must:\n#   \u2022 report version \"4.1\" in JSON\n#   \u2022 fire\
+          \ VAST-4.1-adservingid-present (missing on 2.0 doc)\ncat > /tmp/v2_simple.xml <<'XMLEOF'\n<VAST version=\"2.0\"\
+          ><Ad id=\"1\"><InLine>\n  <AdSystem>Test</AdSystem><AdTitle>Test Ad</AdTitle>\n  <Impression><![CDATA[https://t.example.com/imp]]></Impression>\n\
+          \  <Creatives><Creative><Linear>\n    <Duration>00:00:30</Duration>\n    <MediaFiles><MediaFile type=\"video/mp4\"\
+          \ width=\"640\" height=\"480\" bitrate=\"500\" delivery=\"progressive\">\n      <![CDATA[https://cdn.example.com/ad.mp4]]>\n\
+          \    </MediaFile></MediaFiles>\n  </Linear></Creative></Creatives>\n</InLine></Ad></VAST>\nXMLEOF\n\nOUTPUT=$(./target/release/vastlint\
+          \ check /tmp/v2_simple.xml --vast-version 4.1 --format json 2>/dev/null || true)\n\nVERSION=$(echo \"$OUTPUT\" |\
+          \ python3 -c \"import sys,json; print(json.load(sys.stdin)['version'])\")\nif [ \"$VERSION\" != \"4.1\" ]; then\n\
+          \  echo \"FAIL: expected version=4.1 in JSON, got '$VERSION'\"\n  exit 1\nfi\necho \"PASS: version field is 4.1\
+          \ \u2713\"\n\necho \"$OUTPUT\" | python3 -c \"import sys,json; d=json.load(sys.stdin); sys.exit(0 if any(i['id']=='VAST-4.1-adservingid-present'\
+          \ for i in d['issues']) else 1)\" || {\n  echo \"FAIL: VAST-4.1-adservingid-present did not fire after --vast-version\
+          \ 4.1 override\"\n  exit 1\n}\necho \"PASS: VAST-4.1-adservingid-present fires on forced 4.1 \u2713\"\n"
+      - name: 'CLI smoke : --vast-version downgrade suppresses 4.x rules'
         if: ${{ github.event_name != 'workflow_dispatch' || inputs.tag == '' }}
-        run: |
-          # A VAST 4.1 document forced to 2.0 must NOT fire any 4.x-only rules.
-          OUTPUT=$(./target/release/vastlint check \
-            crates/vastlint-core/tests/fixtures/valid_4.1.xml \
-            --vast-version 2.0 --format json 2>/dev/null || true)
-
-          HITS=$(echo "$OUTPUT" | python3 -c "
-          import sys, json
-          d = json.load(sys.stdin)
-          bad = [i['id'] for i in d['issues'] if i['id'].startswith('VAST-4.')]
-          print(len(bad), bad)
-          ")
-          COUNT=$(echo "$HITS" | awk '{print $1}')
-          if [ "$COUNT" -ne 0 ]; then
-            echo "FAIL: 4.x rules fired after --vast-version 2.0 downgrade: $HITS"
-            exit 1
-          fi
-          echo "PASS: no 4.x rules fired after downgrade ✓"
-
-      - name: CLI smoke — --vast-version invalid value exits non-zero
+        run: "# A VAST 4.1 document forced to 2.0 must NOT fire any 4.x-only rules.\nOUTPUT=$(./target/release/vastlint check\
+          \ \\\n  crates/vastlint-core/tests/fixtures/valid_4.1.xml \\\n  --vast-version 2.0 --format json 2>/dev/null ||\
+          \ true)\n\nHITS=$(echo \"$OUTPUT\" | python3 -c \"\nimport sys, json\nd = json.load(sys.stdin)\nbad = [i['id'] for\
+          \ i in d['issues'] if i['id'].startswith('VAST-4.')]\nprint(len(bad), bad)\n\")\nCOUNT=$(echo \"$HITS\" | awk '{print\
+          \ $1}')\nif [ \"$COUNT\" -ne 0 ]; then\n  echo \"FAIL: 4.x rules fired after --vast-version 2.0 downgrade: $HITS\"\
+          \n  exit 1\nfi\necho \"PASS: no 4.x rules fired after downgrade \u2713\"\n"
+      - name: 'CLI smoke : --vast-version invalid value exits non-zero'
         if: ${{ github.event_name != 'workflow_dispatch' || inputs.tag == '' }}
-        run: |
-          set +e
-          ./target/release/vastlint check \
-            crates/vastlint-core/tests/fixtures/valid_4.2.xml \
-            --vast-version 9.9 >/dev/null 2>&1
-          CODE=$?
-          set -e
-          if [ "$CODE" -eq 0 ]; then
-            echo "FAIL: invalid --vast-version 9.9 should exit non-zero, got 0"
-            exit 1
-          fi
-          echo "PASS: --vast-version 9.9 exits $CODE (non-zero) ✓"
-
-      # ── 2d. CLI smoke — --ignore-pattern ─────────────────────────────────
-      - name: CLI smoke — --ignore-pattern suppresses macro URL errors
+        run: "set +e\n./target/release/vastlint check \\\n  crates/vastlint-core/tests/fixtures/valid_4.2.xml \\\n  --vast-version\
+          \ 9.9 >/dev/null 2>&1\nCODE=$?\nset -e\nif [ \"$CODE\" -eq 0 ]; then\n  echo \"FAIL: invalid --vast-version 9.9\
+          \ should exit non-zero, got 0\"\n  exit 1\nfi\necho \"PASS: --vast-version 9.9 exits $CODE (non-zero) \u2713\"\n"
+      - name: 'CLI smoke : --ignore-pattern suppresses macro URL errors'
         if: ${{ github.event_name != 'workflow_dispatch' || inputs.tag == '' }}
-        run: |
-          # A VAST with macro placeholders in URL fields fires url-empty/url-invalid
-          # without the flag.  With --ignore-pattern the macros are replaced before
-          # validation and no URL errors should appear.
-          cat > /tmp/vmacro.xml <<'XMLEOF'
-          <VAST version="4.2"><Ad id="1"><InLine>
-            <AdSystem>Acme DSP</AdSystem>
-            <AdServingId>srv-macro-01</AdServingId>
-            <AdTitle>Macro Test Ad</AdTitle>
-            <Impression><![CDATA[${IMP_URL}]]></Impression>
-            <Creatives><Creative>
-              <UniversalAdId idRegistry="Ad-ID">mac01</UniversalAdId>
-              <Linear>
-                <Duration>00:00:30</Duration>
-                <TrackingEvents>
-                  <Tracking event="start"><![CDATA[%%TRACKER_START%%]]></Tracking>
-                  <Tracking event="firstQuartile"><![CDATA[${Q1_URL}]]></Tracking>
-                  <Tracking event="midpoint"><![CDATA[${MID_URL}]]></Tracking>
-                  <Tracking event="thirdQuartile"><![CDATA[${Q3_URL}]]></Tracking>
-                  <Tracking event="complete"><![CDATA[${COMP_URL}]]></Tracking>
-                </TrackingEvents>
-                <MediaFiles><MediaFile type="video/mp4" width="1920" height="1080" bitrate="2000" delivery="progressive">
-                  <![CDATA[https://cdn.example.com/hd.mp4]]>
-                </MediaFile></MediaFiles>
-              </Linear>
-            </Creative></Creatives>
-          </InLine></Ad></VAST>
-          XMLEOF
-
-          # Without flag: url-empty must fire
-          URL_ISSUES=$(./target/release/vastlint check /tmp/vmacro.xml --format json 2>/dev/null \
-            | python3 -c "import sys,json; d=json.load(sys.stdin); print([i['id'] for i in d['issues'] if 'url' in i['id'].lower()])" || true)
-          if [ "$URL_ISSUES" = "[]" ]; then
-            echo "FAIL: expected URL errors without --ignore-pattern, got none"
-            exit 1
-          fi
-          echo "PASS: URL errors present without flag: $URL_ISSUES ✓"
-
-          # With flag: no URL errors
-          OUTPUT=$(./target/release/vastlint check /tmp/vmacro.xml \
-            --ignore-pattern '\$\{[^}]+\}|%%[^%]+%%' \
-            --format json 2>/dev/null || true)
-          URL_ISSUES=$(echo "$OUTPUT" | python3 -c "import sys,json; d=json.load(sys.stdin); print([i['id'] for i in d['issues'] if 'url' in i['id'].lower()])" || true)
-          if [ "$URL_ISSUES" != "[]" ]; then
-            echo "FAIL: expected no URL errors with --ignore-pattern, got: $URL_ISSUES"
-            exit 1
-          fi
-          echo "PASS: no URL errors after --ignore-pattern replacement ✓"
-
-      - name: CLI smoke — --ignore-pattern invalid regex exits non-zero
+        run: "# A VAST with macro placeholders in URL fields fires url-empty/url-invalid\n# without the flag.  With --ignore-pattern\
+          \ the macros are replaced before\n# validation and no URL errors should appear.\ncat > /tmp/vmacro.xml <<'XMLEOF'\n\
+          <VAST version=\"4.2\"><Ad id=\"1\"><InLine>\n  <AdSystem>Acme DSP</AdSystem>\n  <AdServingId>srv-macro-01</AdServingId>\n\
+          \  <AdTitle>Macro Test Ad</AdTitle>\n  <Impression><![CDATA[${IMP_URL}]]></Impression>\n  <Creatives><Creative>\n\
+          \    <UniversalAdId idRegistry=\"Ad-ID\">mac01</UniversalAdId>\n    <Linear>\n      <Duration>00:00:30</Duration>\n\
+          \      <TrackingEvents>\n        <Tracking event=\"start\"><![CDATA[%%TRACKER_START%%]]></Tracking>\n        <Tracking\
+          \ event=\"firstQuartile\"><![CDATA[${Q1_URL}]]></Tracking>\n        <Tracking event=\"midpoint\"><![CDATA[${MID_URL}]]></Tracking>\n\
+          \        <Tracking event=\"thirdQuartile\"><![CDATA[${Q3_URL}]]></Tracking>\n        <Tracking event=\"complete\"\
+          ><![CDATA[${COMP_URL}]]></Tracking>\n      </TrackingEvents>\n      <MediaFiles><MediaFile type=\"video/mp4\" width=\"\
+          1920\" height=\"1080\" bitrate=\"2000\" delivery=\"progressive\">\n        <![CDATA[https://cdn.example.com/hd.mp4]]>\n\
+          \      </MediaFile></MediaFiles>\n    </Linear>\n  </Creative></Creatives>\n</InLine></Ad></VAST>\nXMLEOF\n\n# Without\
+          \ flag: url-empty must fire\nURL_ISSUES=$(./target/release/vastlint check /tmp/vmacro.xml --format json 2>/dev/null\
+          \ \\\n  | python3 -c \"import sys,json; d=json.load(sys.stdin); print([i['id'] for i in d['issues'] if 'url' in\
+          \ i['id'].lower()])\" || true)\nif [ \"$URL_ISSUES\" = \"[]\" ]; then\n  echo \"FAIL: expected URL errors without\
+          \ --ignore-pattern, got none\"\n  exit 1\nfi\necho \"PASS: URL errors present without flag: $URL_ISSUES \u2713\"\
+          \n\n# With flag: no URL errors\nOUTPUT=$(./target/release/vastlint check /tmp/vmacro.xml \\\n  --ignore-pattern\
+          \ '\\$\\{[^}]+\\}|%%[^%]+%%' \\\n  --format json 2>/dev/null || true)\nURL_ISSUES=$(echo \"$OUTPUT\" | python3 -c\
+          \ \"import sys,json; d=json.load(sys.stdin); print([i['id'] for i in d['issues'] if 'url' in i['id'].lower()])\"\
+          \ || true)\nif [ \"$URL_ISSUES\" != \"[]\" ]; then\n  echo \"FAIL: expected no URL errors with --ignore-pattern,\
+          \ got: $URL_ISSUES\"\n  exit 1\nfi\necho \"PASS: no URL errors after --ignore-pattern replacement \u2713\"\n"
+      - name: 'CLI smoke : --ignore-pattern invalid regex exits non-zero'
         if: ${{ github.event_name != 'workflow_dispatch' || inputs.tag == '' }}
-        run: |
-          set +e
-          ./target/release/vastlint check \
-            crates/vastlint-core/tests/fixtures/valid_4.2.xml \
-            --ignore-pattern '[invalid' >/dev/null 2>&1
-          CODE=$?
-          set -e
-          if [ "$CODE" -eq 0 ]; then
-            echo "FAIL: invalid --ignore-pattern should exit non-zero, got 0"
-            exit 1
-          fi
-          echo "PASS: invalid --ignore-pattern exits $CODE (non-zero) ✓"
-
-      # ── 2e. CLI smoke — fix subcommand ────────────────────────────────────
-      - name: CLI smoke — fix subcommand upgrades HTTP to HTTPS
+        run: "set +e\n./target/release/vastlint check \\\n  crates/vastlint-core/tests/fixtures/valid_4.2.xml \\\n  --ignore-pattern\
+          \ '[invalid' >/dev/null 2>&1\nCODE=$?\nset -e\nif [ \"$CODE\" -eq 0 ]; then\n  echo \"FAIL: invalid --ignore-pattern\
+          \ should exit non-zero, got 0\"\n  exit 1\nfi\necho \"PASS: invalid --ignore-pattern exits $CODE (non-zero) \u2713\
+          \"\n"
+      - name: 'CLI smoke : fix subcommand upgrades HTTP to HTTPS'
         if: ${{ github.event_name != 'workflow_dispatch' || inputs.tag == '' }}
-        run: |
-          # A fixture with HTTP URLs: fix should exit 0 and output HTTPS URLs.
-          cat > /tmp/http_vast.xml <<'XMLEOF'
-          <VAST version="2.0"><Ad id="1"><InLine>
-            <AdSystem>Test</AdSystem><AdTitle>Test Ad</AdTitle>
-            <Impression>http://t.example.com/imp</Impression>
-            <Creatives><Creative><Linear>
-              <Duration>00:00:30</Duration>
-              <MediaFiles><MediaFile type="video/mp4" width="640" height="480" bitrate="500" delivery="progressive">
-                http://cdn.example.com/ad.mp4
-              </MediaFile></MediaFiles>
-            </Linear></Creative></Creatives>
-          </InLine></Ad></VAST>
-          XMLEOF
-
-          # Use stdin mode (-) so the fixed XML is written to stdout, not in-place.
-          if ! FIXED=$(./target/release/vastlint fix - < /tmp/http_vast.xml 2>/dev/null); then
-            echo "FAIL: fix subcommand exited non-zero"
-            exit 1
-          fi
-          echo "PASS: fix subcommand exits 0 ✓"
-
-          if echo "$FIXED" | grep -q 'http://'; then
-            echo "FAIL: fixed output still contains http:// URLs"
-            exit 1
-          fi
-          echo "PASS: no http:// in fixed output ✓"
-
-          if ! echo "$FIXED" | grep -q 'https://'; then
-            echo "FAIL: fixed output has no https:// URLs"
-            exit 1
-          fi
-          echo "PASS: fixed output contains https:// ✓"
-
-      - name: CLI smoke — fix --dry-run exits 0 and does not modify file
+        run: "# A fixture with HTTP URLs: fix should exit 0 and output HTTPS URLs.\ncat > /tmp/http_vast.xml <<'XMLEOF'\n\
+          <VAST version=\"2.0\"><Ad id=\"1\"><InLine>\n  <AdSystem>Test</AdSystem><AdTitle>Test Ad</AdTitle>\n  <Impression>http://t.example.com/imp</Impression>\n\
+          \  <Creatives><Creative><Linear>\n    <Duration>00:00:30</Duration>\n    <MediaFiles><MediaFile type=\"video/mp4\"\
+          \ width=\"640\" height=\"480\" bitrate=\"500\" delivery=\"progressive\">\n      http://cdn.example.com/ad.mp4\n\
+          \    </MediaFile></MediaFiles>\n  </Linear></Creative></Creatives>\n</InLine></Ad></VAST>\nXMLEOF\n\n# Use stdin\
+          \ mode (-) so the fixed XML is written to stdout, not in-place.\nif ! FIXED=$(./target/release/vastlint fix - <\
+          \ /tmp/http_vast.xml 2>/dev/null); then\n  echo \"FAIL: fix subcommand exited non-zero\"\n  exit 1\nfi\necho \"\
+          PASS: fix subcommand exits 0 \u2713\"\n\nif echo \"$FIXED\" | grep -q 'http://'; then\n  echo \"FAIL: fixed output\
+          \ still contains http:// URLs\"\n  exit 1\nfi\necho \"PASS: no http:// in fixed output \u2713\"\n\nif ! echo \"\
+          $FIXED\" | grep -q 'https://'; then\n  echo \"FAIL: fixed output has no https:// URLs\"\n  exit 1\nfi\necho \"PASS:\
+          \ fixed output contains https:// \u2713\"\n"
+      - name: 'CLI smoke : fix --dry-run exits 0 and does not modify file'
         if: ${{ github.event_name != 'workflow_dispatch' || inputs.tag == '' }}
-        run: |
-          cp crates/vastlint-core/tests/fixtures/valid_4.2.xml /tmp/dryrun_test.xml
-          ./target/release/vastlint fix /tmp/dryrun_test.xml --dry-run > /dev/null 2>&1
-          CODE=$?
-          if [ "$CODE" -ne 0 ]; then
-            echo "FAIL: fix --dry-run exited $CODE, expected 0"
-            exit 1
-          fi
-          echo "PASS: fix --dry-run exits 0 ✓"
-          # File must be unmodified
-          if ! diff -q crates/vastlint-core/tests/fixtures/valid_4.2.xml /tmp/dryrun_test.xml > /dev/null; then
-            echo "FAIL: --dry-run modified the input file"
-            exit 1
-          fi
-          echo "PASS: --dry-run did not modify input file ✓"
-
-      # ── 2f. CLI smoke — daemon OTP protocol ──────────────────────────────
-      - name: CLI smoke — daemon OTP protocol (valid XML → valid=true)
+        run: "cp crates/vastlint-core/tests/fixtures/valid_4.2.xml /tmp/dryrun_test.xml\n./target/release/vastlint fix /tmp/dryrun_test.xml\
+          \ --dry-run > /dev/null 2>&1\nCODE=$?\nif [ \"$CODE\" -ne 0 ]; then\n  echo \"FAIL: fix --dry-run exited $CODE,\
+          \ expected 0\"\n  exit 1\nfi\necho \"PASS: fix --dry-run exits 0 \u2713\"\n# File must be unmodified\nif ! diff\
+          \ -q crates/vastlint-core/tests/fixtures/valid_4.2.xml /tmp/dryrun_test.xml > /dev/null; then\n  echo \"FAIL: --dry-run\
+          \ modified the input file\"\n  exit 1\nfi\necho \"PASS: --dry-run did not modify input file \u2713\"\n"
+      - name: "CLI smoke : daemon OTP protocol (valid XML \u2192 valid=true)"
         if: ${{ github.event_name != 'workflow_dispatch' || inputs.tag == '' }}
-        run: |
-          python3 - <<'PYEOF'
-          import subprocess, struct, json, sys
-
-          VALID_XML = open('crates/vastlint-core/tests/fixtures/valid_4.2.xml').read()
-          INVALID_XML = open('crates/vastlint-core/tests/fixtures/err_no_version.xml').read()
-
-          def daemon_call(xml_str):
-              proc = subprocess.Popen(
-                  ['./target/release/vastlint', 'daemon'],
-                  stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL
-              )
-              encoded = xml_str.encode('utf-8')
-              proc.stdin.write(struct.pack('>I', len(encoded)) + encoded)
-              proc.stdin.close()
-              resp_len = struct.unpack('>I', proc.stdout.read(4))[0]
-              result = json.loads(proc.stdout.read(resp_len).decode('utf-8'))
-              proc.wait(timeout=5)
-              return result
-
-          # Valid fixture → valid=true, errors=0
-          r = daemon_call(VALID_XML)
-          assert r.get('valid') is True, f"FAIL: daemon valid fixture: expected valid=true, got {r}"
-          assert r.get('summary', {}).get('errors') == 0, f"FAIL: daemon valid fixture: expected errors=0, got {r}"
-          assert r.get('version') == '4.2', f"FAIL: daemon valid fixture: expected version=4.2, got {r.get('version')}"
-          print(f"PASS: daemon valid fixture → valid=true, errors=0, version=4.2 ✓")
-
-          # Invalid fixture → valid=false, errors>0
-          r = daemon_call(INVALID_XML)
-          assert r.get('valid') is False, f"FAIL: daemon invalid fixture: expected valid=false, got {r}"
-          assert r.get('summary', {}).get('errors', 0) > 0, f"FAIL: daemon invalid fixture: expected errors>0, got {r}"
-          print(f"PASS: daemon invalid fixture → valid=false, errors={r['summary']['errors']} ✓")
-
-          # Rule ID check via daemon
-          IMP_XML = open('crates/vastlint-core/tests/fixtures/err_inline_missing_impression.xml').read()
-          r = daemon_call(IMP_XML)
-          ids = [i['id'] for i in r.get('issues', [])]
-          assert 'VAST-2.0-inline-impression' in ids, f"FAIL: daemon rule ID check: VAST-2.0-inline-impression not in {ids}"
-          print(f"PASS: daemon rule ID VAST-2.0-inline-impression fires correctly ✓")
-
-          print("All daemon smoke tests passed.")
-          PYEOF
-
-      # ── 3b. MCP smoke — actual tool calls ────────────────────────────────
-      - name: MCP smoke — validate_vast (valid + invalid) and fix_vast tool calls
+        run: "python3 - <<'PYEOF'\nimport subprocess, struct, json, sys\n\nVALID_XML = open('crates/vastlint-core/tests/fixtures/valid_4.2.xml').read()\n\
+          INVALID_XML = open('crates/vastlint-core/tests/fixtures/err_no_version.xml').read()\n\ndef daemon_call(xml_str):\n\
+          \    proc = subprocess.Popen(\n        ['./target/release/vastlint', 'daemon'],\n        stdin=subprocess.PIPE,\
+          \ stdout=subprocess.PIPE, stderr=subprocess.DEVNULL\n    )\n    encoded = xml_str.encode('utf-8')\n    proc.stdin.write(struct.pack('>I',\
+          \ len(encoded)) + encoded)\n    proc.stdin.close()\n    resp_len = struct.unpack('>I', proc.stdout.read(4))[0]\n\
+          \    result = json.loads(proc.stdout.read(resp_len).decode('utf-8'))\n    proc.wait(timeout=5)\n    return result\n\
+          \n# Valid fixture \u2192 valid=true, errors=0\nr = daemon_call(VALID_XML)\nassert r.get('valid') is True, f\"FAIL:\
+          \ daemon valid fixture: expected valid=true, got {r}\"\nassert r.get('summary', {}).get('errors') == 0, f\"FAIL:\
+          \ daemon valid fixture: expected errors=0, got {r}\"\nassert r.get('version') == '4.2', f\"FAIL: daemon valid fixture:\
+          \ expected version=4.2, got {r.get('version')}\"\nprint(f\"PASS: daemon valid fixture \u2192 valid=true, errors=0,\
+          \ version=4.2 \u2713\")\n\n# Invalid fixture \u2192 valid=false, errors>0\nr = daemon_call(INVALID_XML)\nassert\
+          \ r.get('valid') is False, f\"FAIL: daemon invalid fixture: expected valid=false, got {r}\"\nassert r.get('summary',\
+          \ {}).get('errors', 0) > 0, f\"FAIL: daemon invalid fixture: expected errors>0, got {r}\"\nprint(f\"PASS: daemon\
+          \ invalid fixture \u2192 valid=false, errors={r['summary']['errors']} \u2713\")\n\n# Rule ID check via daemon\n\
+          IMP_XML = open('crates/vastlint-core/tests/fixtures/err_inline_missing_impression.xml').read()\nr = daemon_call(IMP_XML)\n\
+          ids = [i['id'] for i in r.get('issues', [])]\nassert 'VAST-2.0-inline-impression' in ids, f\"FAIL: daemon rule ID\
+          \ check: VAST-2.0-inline-impression not in {ids}\"\nprint(f\"PASS: daemon rule ID VAST-2.0-inline-impression fires\
+          \ correctly \u2713\")\n\nprint(\"All daemon smoke tests passed.\")\nPYEOF\n"
+      - name: 'WASM smoke : specific error rule ID fires'
         if: ${{ github.event_name != 'workflow_dispatch' || inputs.tag == '' }}
-        run: |
-          python3 - <<'PYEOF'
-          import subprocess, json, sys, time
-
-          VALID_XML   = open('crates/vastlint-core/tests/fixtures/valid_4.2.xml').read()
-          INVALID_XML = open('crates/vastlint-core/tests/fixtures/err_inline_missing_impression.xml').read()
-          HTTP_XML    = ('<VAST version="2.0"><Ad id="1"><InLine>'
-                         '<AdSystem>T</AdSystem><AdTitle>T</AdTitle>'
-                         '<Impression>http://t.example.com/imp</Impression>'
-                         '<Creatives><Creative><Linear><Duration>00:00:30</Duration>'
-                         '<MediaFiles><MediaFile delivery="progressive" type="video/mp4"'
-                         ' width="640" height="480">http://cdn.example.com/ad.mp4'
-                         '</MediaFile></MediaFiles></Linear></Creative></Creatives>'
-                         '</InLine></Ad></VAST>')
-
-          proc = subprocess.Popen(
-              ['./target/release/vastlint-mcp'],
-              stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL
-          )
-
-          _id = [0]
-          def send(msg):
-              _id[0] += 1
-              if 'id' not in msg:
-                  msg = dict(msg, id=_id[0])
-              proc.stdin.write((json.dumps(msg) + '\n').encode())
-              proc.stdin.flush()
-              return msg.get('id')
-
-          def read_until(target_id, timeout=10):
-              import select
-              deadline = time.monotonic() + timeout
-              buf = b''
-              while time.monotonic() < deadline:
-                  r, _, _ = select.select([proc.stdout], [], [], 0.5)
-                  if r:
-                      chunk = proc.stdout.read1(4096)
-                      if chunk:
-                          buf += chunk
-                          while b'\n' in buf:
-                              line, buf = buf.split(b'\n', 1)
-                              line = line.strip()
-                              if not line:
-                                  continue
-                              try:
-                                  d = json.loads(line)
-                              except Exception:
-                                  continue
-                              if d.get('id') == target_id:
-                                  return d
-              raise TimeoutError(f'no response for id={target_id}')
-
-          # Initialize
-          init_id = send({'jsonrpc':'2.0','method':'initialize','params':{
-              'protocolVersion':'2024-11-05','capabilities':{},'clientInfo':{'name':'ci','version':'1.0'}}})
-          read_until(init_id)
-          proc.stdin.write((json.dumps({'jsonrpc':'2.0','method':'notifications/initialized','params':{}}) + '\n').encode())
-          proc.stdin.flush()
-
-          # validate_vast — valid fixture
-          vid = send({'jsonrpc':'2.0','method':'tools/call','params':{'name':'validate_vast','arguments':{'xml': VALID_XML}}})
-          r = read_until(vid)
-          obj = json.loads(r['result']['content'][0]['text'])
-          assert obj['valid'] is True,  f"FAIL: MCP validate_vast valid: expected valid=true, got {obj}"
-          assert obj['summary']['errors'] == 0, f"FAIL: MCP validate_vast valid: errors={obj['summary']['errors']}"
-          assert obj['version'] == '4.2', f"FAIL: MCP validate_vast valid: version={obj['version']}"
-          print("PASS: MCP validate_vast valid fixture ✓")
-
-          # validate_vast — invalid fixture with specific rule ID
-          iid = send({'jsonrpc':'2.0','method':'tools/call','params':{'name':'validate_vast','arguments':{'xml': INVALID_XML}}})
-          r = read_until(iid)
-          obj = json.loads(r['result']['content'][0]['text'])
-          assert obj['valid'] is False, f"FAIL: MCP validate_vast invalid: expected valid=false, got {obj}"
-          assert obj['summary']['errors'] > 0, f"FAIL: MCP validate_vast invalid: errors=0"
-          ids = [i['id'] for i in obj['issues']]
-          assert 'VAST-2.0-inline-impression' in ids, f"FAIL: MCP validate_vast invalid: rule ID not found in {ids}"
-          print(f"PASS: MCP validate_vast invalid fixture, VAST-2.0-inline-impression fires ✓")
-
-          # fix_vast — HTTP→HTTPS upgrade
-          fid = send({'jsonrpc':'2.0','method':'tools/call','params':{'name':'fix_vast','arguments':{'xml': HTTP_XML}}})
-          r = read_until(fid)
-          obj = json.loads(r['result']['content'][0]['text'])
-          assert obj['applied_count'] > 0, f"FAIL: MCP fix_vast: no fixes applied, got {obj}"
-          assert 'https://' in obj['xml'], f"FAIL: MCP fix_vast: no https:// in fixed XML"
-          assert 'http://' not in obj['xml'], f"FAIL: MCP fix_vast: http:// still in fixed XML"
-          print(f"PASS: MCP fix_vast applied {obj['applied_count']} fix(es), HTTP→HTTPS ✓")
-
-          proc.stdin.close()
-          proc.wait(timeout=5)
-          print("All MCP tool-call smoke tests passed.")
-          PYEOF
-
-      - name: MCP smoke — list_rules and explain_rule tool calls
+        run: "node - <<'EOF'\nconst { validate } = require('./npm');\nconst fs = require('fs');\n\nconst FIXTURES = [\n  ['err_inline_missing_impression.xml',\
+          \ 'VAST-2.0-inline-impression',  true],\n  ['err_adservingid_missing.xml',       'VAST-4.1-adservingid-present',\
+          \ true],\n  ['err_missing_adsystem.xml',          'VAST-2.0-inline-adsystem',     true],\n];\n\nlet pass = 0, fail\
+          \ = 0;\nfor (const [file, ruleId, expectFires] of FIXTURES) {\n  const xml = fs.readFileSync(`crates/vastlint-core/tests/fixtures/${file}`,\
+          \ 'utf8');\n  const result = validate(xml);\n  const fires = result.issues.some(i => i.id === ruleId);\n  if (fires\
+          \ === expectFires) {\n    console.log(`PASS [${file} \u2192 ${ruleId}]`);\n    pass++;\n  } else {\n    console.error(`FAIL\
+          \ [${file} \u2192 ${ruleId}]: expected fires=${expectFires}, got ${fires}`);\n    fail++;\n  }\n}\nconsole.log(`Results:\
+          \ ${pass} passed, ${fail} failed`);\nif (fail > 0) process.exit(1);\nEOF\n"
+      - name: 'WASM smoke : warning fixture valid=true, warnings>0'
         if: ${{ github.event_name != 'workflow_dispatch' || inputs.tag == '' }}
-        run: |
-          python3 - <<'PYEOF'
-          import subprocess, json, time
-
-          proc = subprocess.Popen(
-              ['./target/release/vastlint-mcp'],
-              stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL
-          )
-
-          _id = [0]
-          def send(msg):
-              _id[0] += 1
-              if 'id' not in msg:
-                  msg = dict(msg, id=_id[0])
-              proc.stdin.write((json.dumps(msg) + '\n').encode())
-              proc.stdin.flush()
-              return msg.get('id')
-
-          def read_until(target_id, timeout=10):
-              import select
-              deadline = time.monotonic() + timeout
-              buf = b''
-              while time.monotonic() < deadline:
-                  r, _, _ = select.select([proc.stdout], [], [], 0.5)
-                  if r:
-                      chunk = proc.stdout.read1(4096)
-                      if chunk:
-                          buf += chunk
-                          while b'\n' in buf:
-                              line, buf = buf.split(b'\n', 1)
-                              line = line.strip()
-                              if not line:
-                                  continue
-                              try:
-                                  d = json.loads(line)
-                              except Exception:
-                                  continue
-                              if d.get('id') == target_id:
-                                  return d
-              raise TimeoutError(f'no response for id={target_id}')
-
-          init_id = send({'jsonrpc':'2.0','method':'initialize','params':{
-              'protocolVersion':'2024-11-05','capabilities':{},'clientInfo':{'name':'ci','version':'1.0'}}})
-          read_until(init_id)
-          proc.stdin.write((json.dumps({'jsonrpc':'2.0','method':'notifications/initialized','params':{}}) + '\n').encode())
-          proc.stdin.flush()
-
-          # list_rules — must return a non-empty catalog
-          lid = send({'jsonrpc':'2.0','method':'tools/call','params':{'name':'list_rules','arguments':{}}})
-          r = read_until(lid)
-          obj = json.loads(r['result']['content'][0]['text'])
-          assert obj['count'] > 0, f"FAIL: list_rules returned count=0"
-          assert len(obj['rules']) == obj['count'], "FAIL: list_rules count mismatch"
-          ids = [rule['id'] for rule in obj['rules']]
-          for expected_id in ['VAST-2.0-inline-impression', 'VAST-4.1-adservingid-present', 'VAST-2.0-root-version']:
-              assert expected_id in ids, f"FAIL: list_rules missing rule {expected_id}"
-          print(f"PASS: MCP list_rules returned {obj['count']} rules, key IDs present ✓")
-
-          # explain_rule — known rule returns description and hint
-          eid = send({'jsonrpc':'2.0','method':'tools/call','params':{
-              'name':'explain_rule','arguments':{'rule_id':'VAST-2.0-inline-impression'}}})
-          r = read_until(eid)
-          obj = json.loads(r['result']['content'][0]['text'])
-          assert obj['id'] == 'VAST-2.0-inline-impression', f"FAIL: explain_rule wrong id: {obj['id']}"
-          assert len(obj.get('description','')) > 10, f"FAIL: explain_rule empty description"
-          assert obj.get('severity') == 'error', f"FAIL: explain_rule wrong severity: {obj.get('severity')}"
-          print(f"PASS: MCP explain_rule VAST-2.0-inline-impression: severity=error, description present ✓")
-
-          # explain_rule — unknown rule returns graceful not-found message
-          uid = send({'jsonrpc':'2.0','method':'tools/call','params':{
-              'name':'explain_rule','arguments':{'rule_id':'VAST-9.9-nonexistent'}}})
-          r = read_until(uid)
-          obj = json.loads(r['result']['content'][0]['text'])
-          assert 'not found' in obj.get('description','').lower() or obj.get('severity') == 'unknown', \
-              f"FAIL: explain_rule unknown ID did not return graceful response: {obj}"
-          print("PASS: MCP explain_rule unknown rule ID → graceful not-found ✓")
-
-          proc.stdin.close()
-          proc.wait(timeout=5)
-          print("All MCP list_rules/explain_rule smoke tests passed.")
-          PYEOF
-
-      # ── 4b. WASM smoke — specific rule IDs ───────────────────────────────
-      - name: WASM smoke — specific error rule ID fires
+        run: "node - <<'EOF'\nconst { validate } = require('./npm');\nconst fs = require('fs');\n\n// warn_vpaid.xml fires\
+          \ VAST-4.1-vpaid-apiframework (Warning) : document\n// must be valid=true (no errors) but have warnings>0.\nconst\
+          \ xml = fs.readFileSync('crates/vastlint-core/tests/fixtures/warn_vpaid.xml', 'utf8');\nconst result = validate(xml);\n\
+          \nif (!result.summary.valid) {\n  console.error('FAIL: warn_vpaid.xml should be valid=true (warnings are not errors)');\n\
+          \  process.exit(1);\n}\nconsole.log('PASS: warn_vpaid.xml valid=true \u2713');\n\nif (result.summary.warnings ===\
+          \ 0) {\n  console.error('FAIL: warn_vpaid.xml should have warnings>0');\n  process.exit(1);\n}\nconsole.log(`PASS:\
+          \ warn_vpaid.xml warnings=${result.summary.warnings} \u2713`);\n\nconst fires = result.issues.some(i => i.id ===\
+          \ 'VAST-4.1-vpaid-apiframework');\nif (!fires) {\n  console.error('FAIL: VAST-4.1-vpaid-apiframework should fire\
+          \ on warn_vpaid.xml');\n  console.error('Issues:', result.issues.map(i => i.id));\n  process.exit(1);\n}\nconsole.log('PASS:\
+          \ VAST-4.1-vpaid-apiframework fires on warn_vpaid.xml \u2713');\nEOF\n"
+      - name: 'WASM smoke : info fixture valid=true, errors=0'
         if: ${{ github.event_name != 'workflow_dispatch' || inputs.tag == '' }}
-        run: |
-          node - <<'EOF'
-          const { validate } = require('./npm');
-          const fs = require('fs');
-
-          const FIXTURES = [
-            ['err_inline_missing_impression.xml', 'VAST-2.0-inline-impression',  true],
-            ['err_adservingid_missing.xml',       'VAST-4.1-adservingid-present', true],
-            ['err_missing_adsystem.xml',          'VAST-2.0-inline-adsystem',     true],
-          ];
-
-          let pass = 0, fail = 0;
-          for (const [file, ruleId, expectFires] of FIXTURES) {
-            const xml = fs.readFileSync(`crates/vastlint-core/tests/fixtures/${file}`, 'utf8');
-            const result = validate(xml);
-            const fires = result.issues.some(i => i.id === ruleId);
-            if (fires === expectFires) {
-              console.log(`PASS [${file} → ${ruleId}]`);
-              pass++;
-            } else {
-              console.error(`FAIL [${file} → ${ruleId}]: expected fires=${expectFires}, got ${fires}`);
-              fail++;
-            }
-          }
-          console.log(`Results: ${pass} passed, ${fail} failed`);
-          if (fail > 0) process.exit(1);
-          EOF
-
-      - name: WASM smoke — warning fixture valid=true, warnings>0
+        run: "node - <<'EOF'\nconst { validate } = require('./npm');\nconst fs = require('fs');\n\n// info_http_tracking.xml\
+          \ fires VAST-2.0-tracking-https at Info level.\n// Document must be valid=true and errors=0.\nconst xml = fs.readFileSync('crates/vastlint-core/tests/fixtures/info_http_tracking.xml',\
+          \ 'utf8');\nconst result = validate(xml);\n\nif (!result.summary.valid) {\n  console.error('FAIL: info_http_tracking.xml\
+          \ should be valid=true');\n  process.exit(1);\n}\nif (result.summary.errors !== 0) {\n  console.error('FAIL: info_http_tracking.xml\
+          \ should have errors=0, got', result.summary.errors);\n  process.exit(1);\n}\nconst fires = result.issues.some(i\
+          \ => i.id === 'VAST-2.0-tracking-https');\nif (!fires) {\n  console.error('FAIL: VAST-2.0-tracking-https should\
+          \ fire on info_http_tracking.xml');\n  process.exit(1);\n}\nconsole.log(`PASS: info_http_tracking.xml valid=true,\
+          \ errors=0, VAST-2.0-tracking-https fires \u2713`);\nEOF\n"
+      - name: 'CLI smoke : default text format contains rule ID and severity'
         if: ${{ github.event_name != 'workflow_dispatch' || inputs.tag == '' }}
-        run: |
-          node - <<'EOF'
-          const { validate } = require('./npm');
-          const fs = require('fs');
-
-          // warn_vpaid.xml fires VAST-4.1-vpaid-apiframework (Warning) — document
-          // must be valid=true (no errors) but have warnings>0.
-          const xml = fs.readFileSync('crates/vastlint-core/tests/fixtures/warn_vpaid.xml', 'utf8');
-          const result = validate(xml);
-
-          if (!result.summary.valid) {
-            console.error('FAIL: warn_vpaid.xml should be valid=true (warnings are not errors)');
-            process.exit(1);
-          }
-          console.log('PASS: warn_vpaid.xml valid=true ✓');
-
-          if (result.summary.warnings === 0) {
-            console.error('FAIL: warn_vpaid.xml should have warnings>0');
-            process.exit(1);
-          }
-          console.log(`PASS: warn_vpaid.xml warnings=${result.summary.warnings} ✓`);
-
-          const fires = result.issues.some(i => i.id === 'VAST-4.1-vpaid-apiframework');
-          if (!fires) {
-            console.error('FAIL: VAST-4.1-vpaid-apiframework should fire on warn_vpaid.xml');
-            console.error('Issues:', result.issues.map(i => i.id));
-            process.exit(1);
-          }
-          console.log('PASS: VAST-4.1-vpaid-apiframework fires on warn_vpaid.xml ✓');
-          EOF
-
-      - name: WASM smoke — info fixture valid=true, errors=0
-        if: ${{ github.event_name != 'workflow_dispatch' || inputs.tag == '' }}
-        run: |
-          node - <<'EOF'
-          const { validate } = require('./npm');
-          const fs = require('fs');
-
-          // info_http_tracking.xml fires VAST-2.0-tracking-https at Info level.
-          // Document must be valid=true and errors=0.
-          const xml = fs.readFileSync('crates/vastlint-core/tests/fixtures/info_http_tracking.xml', 'utf8');
-          const result = validate(xml);
-
-          if (!result.summary.valid) {
-            console.error('FAIL: info_http_tracking.xml should be valid=true');
-            process.exit(1);
-          }
-          if (result.summary.errors !== 0) {
-            console.error('FAIL: info_http_tracking.xml should have errors=0, got', result.summary.errors);
-            process.exit(1);
-          }
-          const fires = result.issues.some(i => i.id === 'VAST-2.0-tracking-https');
-          if (!fires) {
-            console.error('FAIL: VAST-2.0-tracking-https should fire on info_http_tracking.xml');
-            process.exit(1);
-          }
-          console.log(`PASS: info_http_tracking.xml valid=true, errors=0, VAST-2.0-tracking-https fires ✓`);
-          EOF
-
-      # ── 5. CLI smoke — default text format ───────────────────────────────
-      - name: CLI smoke — default text format contains rule ID and severity
-        if: ${{ github.event_name != 'workflow_dispatch' || inputs.tag == '' }}
-        run: |
-          # Default output (no --format flag) must print human-readable text
-          # with at least the rule ID and "error" for an error-level fixture.
-          OUTPUT=$(./target/release/vastlint check \
-            crates/vastlint-core/tests/fixtures/err_no_version.xml 2>/dev/null || true)
-          if ! echo "$OUTPUT" | grep -qi 'VAST-2\.0-root-version\|root-version\|err_no_version'; then
-            echo "FAIL: text output missing expected rule reference"
-            echo "Output was: $OUTPUT"
-            exit 1
-          fi
-          if ! echo "$OUTPUT" | grep -qi 'error'; then
-            echo "FAIL: text output missing 'error' keyword"
-            echo "Output was: $OUTPUT"
-            exit 1
-          fi
-          echo "PASS: default text format contains rule ID and severity ✓"
-
-      # ── 6. VS Code extension unit tests ──────────────────────────────────
-      - name: VS Code extension — unit tests (utils.ts pure functions)
-        if: ${{ github.event_name != 'workflow_dispatch' || inputs.tag == '' }}
-        working-directory: vscode
-        run: |
-          npm ci
-          npm test
-
-  # ── WASM build (single canonical build) ─────────────────────────────────────
-  # Builds the npm package once from the attested source tree and uploads it as
-  # a workflow artifact.  publish-npm and publish-vscode both download this
-  # artifact instead of rebuilding — ensuring every consumer publishes the same
-  # bytes that were validated by smoke-test.
-  #
-  # Building independently in each publish job means:
-  #   - Different jobs may produce different binaries (non-reproducible Rust/WASM)
-  #   - The published npm package and the VSIX may embed different WASM blobs
-  #   - Neither matches what was tested in smoke-test
-  #   - The SLSA provenance covers the release binaries but not what npm/vscode ship
+        run: "# Default output (no --format flag) must print human-readable text\n# with at least the rule ID and \"error\"\
+          \ for an error-level fixture.\nOUTPUT=$(./target/release/vastlint check \\\n  crates/vastlint-core/tests/fixtures/err_no_version.xml\
+          \ 2>/dev/null || true)\nif ! echo \"$OUTPUT\" | grep -qi 'VAST-2\\.0-root-version\\|root-version\\|err_no_version';\
+          \ then\n  echo \"FAIL: text output missing expected rule reference\"\n  echo \"Output was: $OUTPUT\"\n  exit 1\n\
+          fi\nif ! echo \"$OUTPUT\" | grep -qi 'error'; then\n  echo \"FAIL: text output missing 'error' keyword\"\n  echo\
+          \ \"Output was: $OUTPUT\"\n  exit 1\nfi\necho \"PASS: default text format contains rule ID and severity \u2713\"\
+          \n"
   build-wasm:
     name: Build WASM npm package
     runs-on: ubuntu-latest
     needs: smoke-test
-
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: ${{ env.RELEASE_TAG }}
-
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8  # v (pinned SHA)
+        uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
         with:
           toolchain: stable
           targets: wasm32-unknown-unknown
-
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6  # v2.9.2
-
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
       - name: Install wasm-pack
         run: cargo install wasm-pack --locked
-
       - name: Install Node.js
-        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7.1.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
           node-version: '24'
-
-      - name: Build WASM (bundler target — ESM)
+      - name: 'Build WASM (bundler target : ESM)'
         run: wasm-pack build crates/vastlint-wasm --target bundler --out-dir ../../npm/pkg
-
-      - name: Build WASM (nodejs target — CJS)
+      - name: 'Build WASM (nodejs target : CJS)'
         run: wasm-pack build crates/vastlint-wasm --target nodejs --out-dir ../../npm/pkg-node
-
       - name: Assemble npm package
         run: node npm/scripts/assemble.js
-
       - name: Upload assembled npm package
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: wasm-npm-package
           path: npm/
-          # Minor/major tags wait on the `production` environment. One day is
-          # not enough: v0.13.5 sat 45h, then publish-npm died on a missing
-          # artifact. Fourteen days covers a delayed approval without keeping
-          # the blob forever.
           retention-days: 14
-
-  # ── wasm engine module (C ABI, no JavaScript host) ──────────────────────────
-  # The vastlint-abi crate is the engine for WebAssembly runtimes embedded in
-  # other languages; vastlint-go runs it under wazero. The module is a release
-  # asset and the input to sync-go. Built with the release-wasm profile
-  # (panic=abort) and simd128, which the runtimes it targets support.
-  build-abi:
-    name: Build wasm engine module
-    runs-on: ubuntu-latest
-    needs: smoke-test
-
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
-        with:
-          ref: ${{ env.RELEASE_TAG }}
-
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8  # v (pinned SHA)
-        with:
-          toolchain: stable
-          targets: wasm32-unknown-unknown
-
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6  # v2.9.2
-
-      - name: Bump crate versions to match git tag
-        run: |
-          VERSION="${RELEASE_TAG#v}"
-          for toml in crates/*/Cargo.toml; do
-            sed -i.bak -E "s/^version = \"[^\"]*\"/version = \"${VERSION}\"/" "$toml"
-            sed -i.bak -E "s/(vastlint-[a-z-]+ = \{[^}]*version = \")[^\"]*(\")/\1${VERSION}\2/g" "$toml"
-            rm "$toml.bak"
-          done
-
-      - name: Build the module
-        run: |
-          RUSTFLAGS="-C target-feature=+simd128" \
-            cargo build --profile release-wasm --target wasm32-unknown-unknown -p vastlint-abi
-
-      - name: Package the module
-        run: |
-          TAG="${RELEASE_TAG}"
-          mkdir -p abi-staging
-          cp target/wasm32-unknown-unknown/release-wasm/vastlint_abi.wasm "abi-staging/vastlint-abi-${TAG}.wasm"
-          (cd abi-staging && sha256sum "vastlint-abi-${TAG}.wasm" > "vastlint-abi-${TAG}.wasm.sha256")
-          ls -la abi-staging
-
-      - name: Upload the module
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
-        with:
-          name: vastlint-abi
-          path: abi-staging/
-          retention-days: 14
-
   build:
     name: Build ${{ matrix.target }}
     runs-on: ${{ matrix.os }}
@@ -962,62 +303,30 @@ jobs:
             binary: vastlint
             crate: vastlint-cli
             archive: vastlint-linux-x86_64.tar.gz
-
           - target: aarch64-unknown-linux-musl
             os: ubuntu-latest
             binary: vastlint
             crate: vastlint-cli
             archive: vastlint-linux-aarch64.tar.gz
-
           - target: x86_64-apple-darwin
             os: macos-latest
             binary: vastlint
             crate: vastlint-cli
             archive: vastlint-macos-x86_64.tar.gz
-
           - target: aarch64-apple-darwin
             os: macos-latest
             binary: vastlint
             crate: vastlint-cli
             archive: vastlint-macos-aarch64.tar.gz
-
-          - target: x86_64-unknown-linux-musl
-            os: ubuntu-latest
-            binary: vastlint-mcp
-            crate: vastlint-mcp
-            archive: vastlint-mcp-linux-x86_64.tar.gz
-
-          - target: aarch64-unknown-linux-musl
-            os: ubuntu-latest
-            binary: vastlint-mcp
-            crate: vastlint-mcp
-            archive: vastlint-mcp-linux-aarch64.tar.gz
-
-          - target: x86_64-apple-darwin
-            os: macos-latest
-            binary: vastlint-mcp
-            crate: vastlint-mcp
-            archive: vastlint-mcp-macos-x86_64.tar.gz
-
-          - target: aarch64-apple-darwin
-            os: macos-latest
-            binary: vastlint-mcp
-            crate: vastlint-mcp
-            archive: vastlint-mcp-macos-aarch64.tar.gz
-
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: ${{ env.RELEASE_TAG }}
-
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8  # v (pinned SHA)
+        uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
         with:
           toolchain: stable
           targets: ${{ matrix.target }}
-
-      # Stamp every crate's Cargo.toml with the release version so that
-      # env!("CARGO_PKG_VERSION") inside the binary matches the git tag.
       - name: Bump crate versions to match git tag
         run: |
           VERSION="${RELEASE_TAG#v}"
@@ -1030,49 +339,27 @@ jobs:
             rm "$toml.bak"
           done
           echo "Bumped all crates to ${VERSION}"
-
       - name: Install musl tools (Linux)
         if: contains(matrix.target, 'musl')
         run: |
           sudo apt-get update -q
           sudo apt-get install -y musl-tools
-
-      # aarch64-unknown-linux-musl needs a cross linker (aarch64-linux-musl-gcc).
-      # `cross` is unreliable here: on the runner it silently fails to read
-      # workspace metadata and falls back to host cargo, which lacks the musl
-      # cross compiler, so the build dies in ring's build script. setup-cross-
-      # toolchain-action installs the musl cross toolchain and wires up the
-      # linker/CC env so a plain `cargo build` cross-compiles cleanly.
       - name: Set up cross toolchain (Linux aarch64)
         if: matrix.target == 'aarch64-unknown-linux-musl'
-        uses: taiki-e/setup-cross-toolchain-action@12b7ad4acfa95a1476779d6c06699b96ec1691f8  # v1.42.0
+        uses: taiki-e/setup-cross-toolchain-action@12b7ad4acfa95a1476779d6c06699b96ec1691f8
         with:
           target: ${{ matrix.target }}
-
       - name: Build (cargo)
         run: cargo build --release --target ${{ matrix.target }} -p ${{ matrix.crate }}
-
       - name: Package
         run: |
           BINARY=target/${{ matrix.target }}/release/${{ matrix.binary }}
           tar czf "${{ matrix.archive }}" -C "$(dirname "$BINARY")" "$(basename "$BINARY")"
-
       - name: Upload artifact
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: ${{ matrix.archive }}
           path: ${{ matrix.archive }}
-
-  # ── C FFI library build ─────────────────────────────────────────────────────
-  # Builds vastlint-ffi as both a shared library (.so/.dylib) and a static
-  # archive (.a) for each supported platform. The output tarballs contain:
-  #   vastlint.h          — C header (ABI contract, same across all platforms)
-  #   libvastlint.a       — static library for link-time embedding (Go CGo, etc.)
-  #   libvastlint.so      — shared library for runtime linking (Linux)
-  #   libvastlint.dylib   — shared library for runtime linking (macOS)
-  #
-  # These artifacts are the foundation for Go, Ruby, Python, Java, and Erlang
-  # language bindings.
   build-ffi:
     name: Build FFI ${{ matrix.target }}
     runs-on: ${{ matrix.os }}
@@ -1086,65 +373,55 @@ jobs:
             static: libvastlint.a
             shared: libvastlint.so
             archive: vastlint-ffi-linux-x86_64.tar.gz
-
           - target: aarch64-unknown-linux-gnu
             os: ubuntu-latest
             static: libvastlint.a
             shared: libvastlint.so
             archive: vastlint-ffi-linux-aarch64.tar.gz
-
           - target: x86_64-apple-darwin
             os: macos-latest
             static: libvastlint.a
             shared: libvastlint.dylib
             archive: vastlint-ffi-macos-x86_64.tar.gz
-
           - target: aarch64-apple-darwin
             os: macos-latest
             static: libvastlint.a
             shared: libvastlint.dylib
             archive: vastlint-ffi-macos-aarch64.tar.gz
-
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: ${{ env.RELEASE_TAG }}
-
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8  # v (pinned SHA)
+        uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
         with:
           toolchain: stable
           targets: ${{ matrix.target }}
-
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6  # v2.9.2
-
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
       - name: Install cross (Linux aarch64)
         if: matrix.target == 'aarch64-unknown-linux-gnu'
         run: cargo install cross --locked
-
-      - name: Build FFI crate (cross — Linux aarch64)
+      - name: 'Build FFI crate (cross : Linux aarch64)'
         if: matrix.target == 'aarch64-unknown-linux-gnu'
         run: cross build --release --target ${{ matrix.target }} -p vastlint-ffi
-
-      - name: Build FFI crate (cargo — all others)
+      - name: 'Build FFI crate (cargo : all others)'
         if: matrix.target != 'aarch64-unknown-linux-gnu'
         run: cargo build --release --target ${{ matrix.target }} -p vastlint-ffi
-
       - name: Package FFI artifacts
         run: |
           OUTDIR=target/${{ matrix.target }}/release
           STAGING=ffi-staging
           mkdir -p "$STAGING"
 
-          # Header — same for all platforms, included in every tarball so
+          # Header : same for all platforms, included in every tarball so
           # consumers get a self-contained package.
           cp crates/vastlint-ffi/vastlint.h "$STAGING/"
 
-          # Static library — Rust outputs libvastlint_ffi.a (crate name with
+          # Static library : Rust outputs libvastlint_ffi.a (crate name with
           # underscores). Rename to libvastlint.a so consumers use a clean name.
           cp "$OUTDIR/libvastlint_ffi.a" "$STAGING/libvastlint.a"
 
-          # Shared library — same rename convention.
+          # Shared library : same rename convention.
           # matrix.shared is "libvastlint.so" or "libvastlint.dylib"; derive
           # the extension using bash parameter expansion (not Actions expression).
           SHARED="${{ matrix.shared }}"
@@ -1152,21 +429,11 @@ jobs:
           cp "$OUTDIR/libvastlint_ffi.${EXT}" "$STAGING/${SHARED}"
 
           tar czf ${{ matrix.archive }} -C "$STAGING" .
-
       - name: Upload FFI artifact
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: ${{ matrix.archive }}
           path: ${{ matrix.archive }}
-
-  # ── Build precompiled NIFs ───────────────────────────────────────────────────
-  # Builds the vastlint_nif cdylib for the four tier-1 BEAM platforms.
-  # RustlerPrecompiled downloads these at `mix deps.get` so Elixir/Erlang users
-  # never need a local Rust toolchain.
-  #
-  # Output naming follows the RustlerPrecompiled convention:
-  #   libvastlint_nif-<version>-nif-<otp>-<arch>-<os>.so / .dylib
-  # We ship a canonical tarball and let the checksum file pin the version.
   build-nif:
     name: Build NIF ${{ matrix.target }}
     runs-on: ${{ matrix.os }}
@@ -1179,47 +446,37 @@ jobs:
             os: ubuntu-latest
             lib: libvastlint_nif.so
             archive: vastlint-nif-linux-x86_64.tar.gz
-
           - target: aarch64-unknown-linux-gnu
             os: ubuntu-latest
             lib: libvastlint_nif.so
             archive: vastlint-nif-linux-aarch64.tar.gz
-
           - target: x86_64-apple-darwin
             os: macos-latest
             lib: libvastlint_nif.dylib
             archive: vastlint-nif-macos-x86_64.tar.gz
-
           - target: aarch64-apple-darwin
             os: macos-latest
             lib: libvastlint_nif.dylib
             archive: vastlint-nif-macos-aarch64.tar.gz
-
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: ${{ env.RELEASE_TAG }}
-
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8  # v (pinned SHA)
+        uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
         with:
           toolchain: stable
           targets: ${{ matrix.target }}
-
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6  # v2.9.2
-
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
       - name: Install cross (Linux aarch64)
         if: matrix.target == 'aarch64-unknown-linux-gnu'
         run: cargo install cross --locked
-
-      - name: Build NIF crate (cross — Linux aarch64)
+      - name: 'Build NIF crate (cross : Linux aarch64)'
         if: matrix.target == 'aarch64-unknown-linux-gnu'
         run: cross build --release --target ${{ matrix.target }} -p vastlint_nif
-
-      - name: Build NIF crate (cargo — all others)
+      - name: 'Build NIF crate (cargo : all others)'
         if: matrix.target != 'aarch64-unknown-linux-gnu'
         run: cargo build --release --target ${{ matrix.target }} -p vastlint_nif
-
       - name: Package NIF artifact
         run: |
           OUTDIR=target/${{ matrix.target }}/release
@@ -1231,23 +488,11 @@ jobs:
           cp "$OUTDIR/${LIB}" "$STAGING/${LIB}"
 
           tar czf ${{ matrix.archive }} -C "$STAGING" .
-
       - name: Upload NIF artifact
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: ${{ matrix.archive }}
           path: ${{ matrix.archive }}
-
-  # ── Classify bump, then a single approval gate ──────────────────────────────
-  # Patch tags (same major.minor as the previous vX.Y.Z tag) use the unprotected
-  # `patch` environment and proceed immediately. Minor and major use
-  # `production` and wait for one reviewer click.
-  #
-  # Do not skip `wait-for-approval` on patches. GitHub skips every descendant of
-  # a skipped job, even when an intermediate job uses `if: always()` and
-  # succeeds. v0.13.6 and v0.13.7 classified as patch, skipped this job, then
-  # skipped npm, crates.io, GitHub Release, and every sync. All publish jobs
-  # keep `needs: approve`; that job is a join point after this one succeeds.
   classify:
     name: Classify release
     runs-on: ubuntu-latest
@@ -1649,47 +894,38 @@ jobs:
 
   publish-npm:
     name: Publish to npm
-    needs: [approve, build, build-wasm]
+    needs:
+      - approve
+      - build
+      - build-wasm
     runs-on: ubuntu-latest
-    # Set ENABLE_NPM_PUBLISH to "true" in repo variables (Settings → Variables)
-    # to enable publishing. Without it this job is skipped entirely.
-    # Prefer npm trusted publishing on GitHub Actions. If falling back to
-    # NPM_TOKEN, it must be a granular write token with bypass 2FA enabled.
     if: vars.ENABLE_NPM_PUBLISH == 'true'
     permissions:
       contents: read
-      id-token: write  # required for --provenance (links package to this CI run)
-
+      id-token: write
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: ${{ env.RELEASE_TAG }}
-
       - name: Download assembled npm package
-        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333  # v8.0.2
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
           name: wasm-npm-package
           path: npm
-
       - name: Install Node.js
-        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7.1.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
           node-version: '24'
-          registry-url: 'https://registry.npmjs.org'
+          registry-url: https://registry.npmjs.org
           package-manager-cache: false
-
-      - name: Prepare JS release packages
+      - name: Prepare engine npm release package
         run: |
           TAG="${{ env.RELEASE_TAG }}"
           VERSION="${TAG#v}"
           # Stage inside GITHUB_WORKSPACE so that npm's directory-tree lookup
           # finds the .npmrc written by setup-node (containing NODE_AUTH_TOKEN).
           node scripts/prepare-js-release-packages.mjs "$VERSION" "$GITHUB_WORKSPACE/.release/js-packages"
-
       - name: Publish JS packages to npm
-        # npm trusted publishing on GitHub-hosted runners uses the workflow's
-        # OIDC identity. When NPM_TOKEN is present we keep token-based auth as a
-        # fallback for packages that have not yet configured a trusted publisher.
         run: |
           TAG="${{ env.RELEASE_TAG }}"
           VERSION="${TAG#v}"
@@ -1742,223 +978,8 @@ jobs:
           pushd "$STAGE/vastlint" >/dev/null
           publish_if_needed "vastlint" "$PWD"
           popd >/dev/null
-
-          pushd "$STAGE/vastlint-client" >/dev/null
-          publish_if_needed "vastlint-client" "$PWD"
-          popd >/dev/null
-
-          pushd "$STAGE/vastlint-react" >/dev/null
-          publish_if_needed "vastlint-react" "$PWD"
-          popd >/dev/null
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
-  # ── VS Code Marketplace ─────────────────────────────────────────────────────
-  # Packages and publishes the VS Code extension to the marketplace.
-  #
-  # Prerequisites (one-time setup):
-  #   1. Go to marketplace.visualstudio.com/manage/publishers/aleksUIX
-  #   2. Create a Personal Access Token at dev.azure.com with Marketplace→Manage
-  #      scope and "All accessible organizations".
-  #   3. Add it as a secret in this repo (Settings → Secrets → Actions):
-  #        VSCE_PAT  — the personal access token
-  #
-  # Set ENABLE_VSCODE_PUBLISH to "true" in repo variables to activate this job.
-  publish-vscode:
-    name: Publish VS Code Extension
-    needs: [approve, build, build-wasm]
-    runs-on: ubuntu-latest
-    if: vars.ENABLE_VSCODE_PUBLISH == 'true'
-
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
-        with:
-          ref: ${{ env.RELEASE_TAG }}
-
-      - name: Download assembled npm package
-        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333  # v8.0.2
-        with:
-          name: wasm-npm-package
-          path: npm
-
-      - name: Install Node.js
-        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7.1.0
-        with:
-          node-version: '22'
-
-      # Sync the extension version to match the git tag (strips leading "v")
-      - name: Set extension version from tag
-        id: ext_version
-        run: |
-          TAG="${{ env.RELEASE_TAG }}"
-          VERSION="${TAG#v}"
-          npm version "$VERSION" --no-git-tag-version --allow-same-version
-          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
-        working-directory: vscode
-
-      - name: Install vscode extension dependencies
-        run: npm ci
-        working-directory: vscode
-
-      # Package the extension into a .vsix regardless of whether we publish.
-      # This gives VS Code fork users (Cursor, VSCodium, Windsurf, etc.) a
-      # verified artefact built by CI and attached to the GitHub Release —
-      # rather than relying on a binary committed to the repo.
-      - name: Package VSIX
-        run: npx --no-install vsce package --no-update-package-json --out vastlint-${{ steps.ext_version.outputs.version }}.vsix
-        working-directory: vscode
-
-      - name: Upload VSIX as workflow artifact
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
-        with:
-          name: vastlint-${{ steps.ext_version.outputs.version }}.vsix
-          path: vscode/vastlint-${{ steps.ext_version.outputs.version }}.vsix
-
-      - name: Publish to VS Code Marketplace
-        run: npx --no-install vsce publish --no-update-package-json || echo "VS Code version already published, skipping"
-        working-directory: vscode
-        env:
-          VSCE_PAT: ${{ secrets.VSCE_PAT }}
-
-      - name: Publish to Open VSX Registry
-        run: npx --no-install ovsx publish vastlint-${{ steps.ext_version.outputs.version }}.vsix --pat "$OVSX_TOKEN" || echo "Open VSX version already published, skipping"
-        working-directory: vscode
-        env:
-          OVSX_TOKEN: ${{ secrets.OVSX_TOKEN }}
-
-  # ── MCP Registry ────────────────────────────────────────────────────────────
-  # Publishes vastlint-mcp to registry.modelcontextprotocol.io after the GitHub
-  # Release is created so the download URL in server.json is live.
-  #
-  # Authentication: GitHub OIDC (no secrets needed — just id-token: write).
-  # The server namespace io.github.aleksUIX/ is validated against the OIDC
-  # token issued for this repo, so only CI runs in aleksUIX/vastlint can publish.
-  #
-  # Prerequisites (one-time setup):
-  #   None — OIDC is automatic. Just set ENABLE_MCP_REGISTRY_PUBLISH = "true"
-  #   in repo variables (Settings → Variables → Actions) to activate this job.
-  publish-mcp-registry:
-    name: Publish to MCP Registry
-    needs: [approve, build, release]
-    runs-on: ubuntu-latest
-    if: vars.ENABLE_MCP_REGISTRY_PUBLISH == 'true'
-    permissions:
-      id-token: write  # required for GitHub OIDC authentication
-      contents: read
-
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
-        with:
-          ref: ${{ env.RELEASE_TAG }}
-
-      # Download the linux-x86_64 MCP binary — this is the canonical mcpb
-      # artifact published to the registry. Other platforms are available on
-      # the GitHub Release but the registry stores only one package entry.
-      - name: Download vastlint-mcp linux-x86_64 artifact
-        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333  # v8.0.2
-        with:
-          name: vastlint-mcp-linux-x86_64.tar.gz
-          path: .
-
-      # Derive version and compute SHA-256 so server.json is fully populated
-      # before we call mcp-publisher.
-      - name: Patch server.json with version and fileSha256
-        run: |
-          TAG="${RELEASE_TAG}"          # e.g. v1.2.3
-          VERSION="${TAG#v}"                # e.g. 1.2.3
-          SHA256=$(openssl dgst -sha256 -hex vastlint-mcp-linux-x86_64.tar.gz \
-                    | awk '{print $2}')
-          IDENTIFIER="https://github.com/aleksUIX/vastlint/releases/download/${TAG}/vastlint-mcp-linux-x86_64.tar.gz"
-
-          jq \
-            --arg v   "$VERSION" \
-            --arg sha "$SHA256" \
-            --arg url "$IDENTIFIER" \
-            '.version = $v | .packages[0].fileSha256 = $sha | .packages[0].identifier = $url' \
-            crates/vastlint-mcp/server.json > server.tmp
-          mv server.tmp crates/vastlint-mcp/server.json
-          echo "Patched server.json:"
-          cat crates/vastlint-mcp/server.json
-
-      - name: Install mcp-publisher
-        run: |
-          curl -fsSL \
-            "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz" \
-            | tar xz mcp-publisher
-          chmod +x mcp-publisher
-          mv mcp-publisher crates/vastlint-mcp/mcp-publisher
-
-      - name: Authenticate to MCP Registry (GitHub OIDC)
-        run: ./mcp-publisher login github-oidc
-        working-directory: crates/vastlint-mcp
-
-      - name: Publish to MCP Registry
-        working-directory: crates/vastlint-mcp
-        run: |
-          out=$(./mcp-publisher publish 2>&1) && echo "$out" && exit 0
-          echo "$out"
-          # Treat duplicate-version as success — registry already has this release.
-          echo "$out" | grep -q "cannot publish duplicate version" && exit 0
-          exit 1
-
-  # ── Publish to Smithery ─────────────────────────────────────────────────────
-  # Publishes vastlint-mcp to smithery.ai after the GitHub Release is created.
-  #
-  # Prerequisites (one-time setup):
-  #   1. Create a Smithery account at https://smithery.ai and get an API key
-  #      from Account → API Keys.
-  #   2. Add the key as a secret named SMITHERY_API_KEY in this repo
-  #      (Settings → Secrets → Actions).
-  #
-  # Set ENABLE_SMITHERY_PUBLISH = "true" in repo variables to activate this job.
-  publish-smithery:
-    name: Publish to Smithery
-    needs: [approve, build, release]
-    runs-on: ubuntu-latest
-    if: vars.ENABLE_SMITHERY_PUBLISH == 'true'
-    permissions:
-      contents: read
-
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
-        with:
-          ref: ${{ env.RELEASE_TAG }}
-
-      - name: Set up Node.js
-        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7.1.0
-        with:
-          node-version: '24'
-
-      - name: Publish to Smithery
-        env:
-          SMITHERY_API_KEY: ${{ secrets.SMITHERY_API_KEY }}
-        run: |
-          # CLI syntax changed in @smithery/cli ≥ 1.x:
-          #   publish <url> -n <name>    (URL-based / remote server)
-          # The --config / --key flags were removed; the API key is read
-          # from the SMITHERY_API_KEY environment variable automatically.
-          out=$(npx --yes @smithery/cli@latest mcp publish \
-            "https://vastlint.org/mcp" \
-            -n "io.github.aleksUIX/vastlint" 2>&1) && echo "$out" && exit 0
-          echo "$out"
-          # Treat "Namespace not found" (one-time setup not done yet),
-          # duplicate/already-published, and Smithery API retirements as non-fatal.
-          echo "$out" | grep -qiE "namespace not found|already exists|duplicate|updating servers has been removed" && exit 0
-          exit 1
-
-  # ── Sync vastlint-go ────────────────────────────────────────────────────────
-  # After a successful release, push the updated prebuilt libs and header into
-  # the vastlint-go repo and tag it at the same version.
-  #
-  # Prerequisites (one-time setup):
-  #   1. Generate an SSH deploy key for vastlint-go:
-  #        ssh-keygen -t ed25519 -f ~/VASTLINT_GO_DEPLOY_KEY -C "vastlint release bot (go)" -N ""
-  #   2. Add ~/VASTLINT_GO_DEPLOY_KEY.pub as a deploy key in vastlint-go
-  #      (Settings → Deploy keys) with write access.
-  #   3. Add ~/VASTLINT_GO_DEPLOY_KEY (private key) as secret VASTLINT_GO_DEPLOY_KEY
-  #      in this repo (Settings → Secrets → Actions).
-  #
-  # Set ENABLE_GO_SYNC to "true" in repo variables to activate this job.
   sync-go:
     name: Sync vastlint-go
     needs: [build-abi, release]
@@ -2053,18 +1074,17 @@ jobs:
   # Set ENABLE_PYTHON_SYNC to "true" in repo variables to activate this job.
   sync-python:
     name: Sync vastlint-python
-    needs: [release]
+    needs:
+      - release
     runs-on: ubuntu-latest
     if: vars.ENABLE_PYTHON_SYNC == 'true'
-
     steps:
       - name: Checkout vastlint-python via deploy key
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           repository: aleksUIX/vastlint-python
           ssh-key: ${{ secrets.VASTLINT_PYTHON_DEPLOY_KEY }}
           path: vastlint-python
-
       - name: Bump version
         run: |
           TAG="${{ env.RELEASE_TAG }}"
@@ -2072,13 +1092,11 @@ jobs:
           cd vastlint-python
           printf '__version__ = "%s"\n' "$VERSION" > src/vastlint/_version.py
           echo "set __version__ = ${VERSION}"
-
       - name: Import bot GPG key
         run: |
           echo "${{ secrets.BOT_GPG_KEY }}" | gpg --batch --import
           # Trust the key fully so git can use it without prompts
           echo "AEA67F4C8B714AC26E14ACDB67DF23E270B033DB:6:" | gpg --import-ownertrust
-
       - name: Commit and push
         run: |
           TAG="${{ env.RELEASE_TAG }}"
@@ -2090,37 +1108,21 @@ jobs:
 
           git add src/vastlint/_version.py
           if git diff --cached --quiet; then
-            echo "version already at ${TAG#v} — nothing to commit"
+            echo "version already at ${TAG#v} : nothing to commit"
           else
             git commit -S -m "chore: release ${TAG}"
             git push origin main
           fi
-
       - name: Tag vastlint-python
         run: |
           TAG="${{ env.RELEASE_TAG }}"
           cd vastlint-python
-          # Fail loudly if the tag already exists — never silently overwrite.
+          # Fail loudly if the tag already exists : never silently overwrite.
           if git ls-remote --tags origin "$TAG" | grep -q "$TAG"; then
-            echo "::warning::Tag $TAG already exists on vastlint-python — skipping tag push" && exit 0
+            echo "::warning::Tag $TAG already exists on vastlint-python : skipping tag push" && exit 0
           fi
           git tag "$TAG"
           git push origin "$TAG"
-
-  # ── Sync vastlint-java ──────────────────────────────────────────────────────
-  # After a successful release, vendor the proto into vastlint-java, bump the
-  # Gradle version, and tag it at the same version. The vastlint-java CI then
-  # publishes the jar to GitHub Packages.
-  #
-  # Prerequisites (one-time setup):
-  #   1. Generate an SSH deploy key for vastlint-java:
-  #        ssh-keygen -t ed25519 -f ~/VASTLINT_JAVA_DEPLOY_KEY -C "vastlint release bot (java)" -N ""
-  #   2. Add ~/VASTLINT_JAVA_DEPLOY_KEY.pub as a deploy key in vastlint-java
-  #      (Settings → Deploy keys) with write access.
-  #   3. Add ~/VASTLINT_JAVA_DEPLOY_KEY (private key) as secret
-  #      VASTLINT_JAVA_DEPLOY_KEY in this repo (Settings → Secrets → Actions).
-  #
-  # Set ENABLE_JAVA_SYNC to "true" in repo variables to activate this job.
   sync-java:
     name: Sync vastlint-java
     needs: [release]
@@ -2185,121 +1187,26 @@ jobs:
           git push origin "$TAG"
 
   # ── Chrome Web Store ────────────────────────────────────────────────────────
-  chrome-extension:
-    name: Publish Chrome extension
-    runs-on: ubuntu-latest
-    needs: [approve, release, build-wasm]
-    if: ${{ inputs.publish_chrome == true || github.event_name == 'push' || inputs.tag != '' }}
-
-    permissions:
-      contents: write
-
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
-        with:
-          ref: ${{ env.RELEASE_TAG }}
-
-      - name: Download assembled npm package
-        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333  # v8.0.2
-        with:
-          name: wasm-npm-package
-          path: npm
-
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7.1.0
-        with:
-          node-version: 24
-
-      - name: Install dependencies
-        working-directory: chrome
-        run: npm ci
-
-      # Stamp the manifest version from the git tag (strips leading "v"),
-      # then build — so the compiled dist/manifest.json carries the right version.
-      - name: Set manifest version
-        working-directory: chrome
-        env:
-          VERSION: ${{ env.RELEASE_TAG }}
-        run: |
-          node -e "
-            const fs = require('fs');
-            const version = process.env.VERSION.replace(/^v/, '');
-            if (!version) throw new Error('VERSION derived from git tag is empty');
-            const m = JSON.parse(fs.readFileSync('manifest.json','utf8'));
-            m.version = version;
-            fs.writeFileSync('manifest.json', JSON.stringify(m, null, 2) + '\n');
-          "
-          node -e "
-            const fs = require('fs');
-            const expected = process.env.VERSION.replace(/^v/, '');
-            const m = JSON.parse(fs.readFileSync('manifest.json','utf8'));
-            if (m.version !== expected) {
-              throw new Error('manifest.json version mismatch: ' + m.version);
-            }
-          "
-
-      - name: Build extension
-        working-directory: chrome
-        run: npm run build
-
-      - name: Test extension assets and watch updates
-        working-directory: chrome
-        run: npm test
-
-      - name: Zip dist/
-        working-directory: chrome
-        run: |
-          cd dist
-          zip -r ../vastlint-extension.zip .
-
-      - name: Upload zip to GitHub Release
-        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64  # v3.0.3
-        with:
-          tag_name: ${{ env.RELEASE_TAG }}
-          files: chrome/vastlint-extension.zip
-
-      - name: Publish to Chrome Web Store
-        uses: mnao305/chrome-extension-upload@fdfe79400af990f5145a319e834aee64907ccff4  # v6.0.0
-        with:
-          file-path: chrome/vastlint-extension.zip
-          extension-id: ${{ secrets.CHROME_EXTENSION_ID }}
-          client-id: ${{ secrets.CHROME_CLIENT_ID }}
-          client-secret: ${{ secrets.CHROME_CLIENT_SECRET }}
-          refresh-token: ${{ secrets.CHROME_REFRESH_TOKEN }}
-          publish: true
-  # ── Sync vastlint-erlang ─────────────────────────────────────────────────────
-  # After a successful release, push the updated prebuilt NIF tarballs and
-  # checksum file into the vastlint-erlang repo and tag it at the same version.
-  #
-  # Prerequisites (one-time setup):
-  #   1. Generate an SSH deploy key for vastlint-erlang:
-  #        ssh-keygen -t ed25519 -f ~/VASTLINT_DEPLOY_KEY -C "vastlint release bot" -N ""
-  #   2. Add ~/VASTLINT_DEPLOY_KEY.pub as a deploy key in vastlint-erlang
-  #      (Settings → Deploy keys) with write access.
-  #   3. Add ~/VASTLINT_DEPLOY_KEY (private key) as secret VASTLINT_DEPLOY_KEY
-  #      in this repo (Settings → Secrets → Actions).
-  #
-  # Set ENABLE_ERLANG_SYNC to "true" in repo variables to activate this job.
   sync-erlang:
     name: Sync vastlint-erlang
-    needs: [build-nif, release]
+    needs:
+      - build-nif
+      - release
     runs-on: ubuntu-latest
     if: vars.ENABLE_ERLANG_SYNC == 'true'
-
     steps:
       - name: Download all NIF artifacts
-        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333  # v8.0.2
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
           path: nif-artifacts
           pattern: vastlint-nif-*
           merge-multiple: true
-
       - name: Checkout vastlint-erlang via deploy key
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           repository: aleksUIX/vastlint-erlang
           ssh-key: ${{ secrets.VASTLINT_DEPLOY_KEY }}
           path: vastlint-erlang
-
       - name: Update mix.exs version
         run: |
           TAG="${{ env.RELEASE_TAG }}"
@@ -2307,7 +1214,6 @@ jobs:
           sed -i "s/@version \"[^\"]*\"/@version \"${VERSION}\"/" \
             vastlint-erlang/mix.exs
           echo "Updated mix.exs to ${VERSION}"
-
       - name: Regenerate checksum file
         run: |
           CHECKSUM_FILE="vastlint-erlang/checksum-Elixir.VastlintNif.exs"
@@ -2325,12 +1231,10 @@ jobs:
           echo '}' >> "$CHECKSUM_FILE"
           echo "Wrote $CHECKSUM_FILE"
           cat "$CHECKSUM_FILE"
-
       - name: Import bot GPG key
         run: |
           echo "${{ secrets.BOT_GPG_KEY }}" | gpg --batch --import
           echo "AEA67F4C8B714AC26E14ACDB67DF23E270B033DB:6:" | gpg --import-ownertrust
-
       - name: Commit and push
         run: |
           TAG="${{ env.RELEASE_TAG }}"
@@ -2346,31 +1250,16 @@ jobs:
 
           git commit -S -m "chore: update prebuilt NIFs to ${TAG}"
           git push origin main
-
       - name: Tag vastlint-erlang
         run: |
           TAG="${{ env.RELEASE_TAG }}"
           cd vastlint-erlang
-          # Fail loudly if the tag already exists — never silently overwrite.
+          # Fail loudly if the tag already exists : never silently overwrite.
           if git ls-remote --tags origin "$TAG" | grep -q "$TAG"; then
-            echo "::warning::Tag $TAG already exists on vastlint-erlang — skipping tag push" && exit 0
+            echo "::warning::Tag $TAG already exists on vastlint-erlang : skipping tag push" && exit 0
           fi
           git tag "$TAG"
           git push origin "$TAG"
-
-  # ── Sync vastlint-infra ──────────────────────────────────────────────────────
-  # After a successful npm publish, bump the `vastlint` npm dependency in
-  # vastlint-infra so the website always ships the latest WASM linter.
-  #
-  # Prerequisites (one-time setup):
-  #   1. Generate an SSH deploy key for vastlint-infra:
-  #        ssh-keygen -t ed25519 -f ~/VASTLINT_INFRA_DEPLOY_KEY -C "vastlint release bot (infra)" -N ""
-  #   2. Add ~/VASTLINT_INFRA_DEPLOY_KEY.pub as a deploy key in vastlint-infra
-  #      (Settings → Deploy keys) with write access.
-  #   3. Add ~/VASTLINT_INFRA_DEPLOY_KEY (private key) as secret VASTLINT_INFRA_DEPLOY_KEY
-  #      in this repo (Settings → Secrets → Actions).
-  #
-  # Set ENABLE_INFRA_SYNC to "true" in repo variables to activate this job.
   sync-infra:
     name: Sync vastlint-infra
     needs: [publish-npm, release]
@@ -2557,10 +1446,9 @@ jobs:
       contents: read
       id-token: write
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: ${{ inputs.npm_tag }}
-
       - name: Validate tag
         env:
           TAG: ${{ inputs.npm_tag }}
@@ -2570,41 +1458,32 @@ jobs:
             echo "tag must be vMAJOR.MINOR.PATCH, got '${TAG}'"
             exit 1
           fi
-
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8  # v (pinned SHA)
+        uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
         with:
           toolchain: stable
           targets: wasm32-unknown-unknown
-
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6  # v2.9.2
-
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
       - name: Install wasm-pack
         run: cargo install wasm-pack --locked
-
       - name: Install Node.js
-        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7.1.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
           node-version: '24'
-          registry-url: 'https://registry.npmjs.org'
+          registry-url: https://registry.npmjs.org
           package-manager-cache: false
-
       - name: Build WASM (bundler target, ESM)
         run: wasm-pack build crates/vastlint-wasm --target bundler --out-dir ../../npm/pkg
-
       - name: Build WASM (nodejs target, CJS)
         run: wasm-pack build crates/vastlint-wasm --target nodejs --out-dir ../../npm/pkg-node
-
       - name: Assemble npm package
         run: node npm/scripts/assemble.js
-
-      - name: Prepare JS release packages
+      - name: Prepare engine npm release package
         env:
           TAG: ${{ inputs.npm_tag }}
         run: |
           VERSION="${TAG#v}"
           node scripts/prepare-js-release-packages.mjs "$VERSION" "$GITHUB_WORKSPACE/.release/js-packages"
-
       - name: Publish JS packages to npm
         env:
           TAG: ${{ inputs.npm_tag }}
@@ -2658,11 +1537,49 @@ jobs:
           pushd "$STAGE/vastlint" >/dev/null
           publish_if_needed "vastlint"
           popd >/dev/null
+  build-abi:
+    name: Build wasm engine module
+    runs-on: ubuntu-latest
+    needs: smoke-test
 
-          pushd "$STAGE/vastlint-client" >/dev/null
-          publish_if_needed "vastlint-client"
-          popd >/dev/null
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          ref: ${{ env.RELEASE_TAG }}
 
-          pushd "$STAGE/vastlint-react" >/dev/null
-          publish_if_needed "vastlint-react"
-          popd >/dev/null
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8  # v (pinned SHA)
+        with:
+          toolchain: stable
+          targets: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6  # v2.9.2
+
+      - name: Bump crate versions to match git tag
+        run: |
+          VERSION="${RELEASE_TAG#v}"
+          for toml in crates/*/Cargo.toml; do
+            sed -i.bak -E "s/^version = \"[^\"]*\"/version = \"${VERSION}\"/" "$toml"
+            sed -i.bak -E "s/(vastlint-[a-z-]+ = \{[^}]*version = \")[^\"]*(\")/\1${VERSION}\2/g" "$toml"
+            rm "$toml.bak"
+          done
+
+      - name: Build the module
+        run: |
+          RUSTFLAGS="-C target-feature=+simd128" \
+            cargo build --profile release-wasm --target wasm32-unknown-unknown -p vastlint-abi
+
+      - name: Package the module
+        run: |
+          TAG="${RELEASE_TAG}"
+          mkdir -p abi-staging
+          cp target/wasm32-unknown-unknown/release-wasm/vastlint_abi.wasm "abi-staging/vastlint-abi-${TAG}.wasm"
+          (cd abi-staging && sha256sum "vastlint-abi-${TAG}.wasm" > "vastlint-abi-${TAG}.wasm.sha256")
+          ls -la abi-staging
+
+      - name: Upload the module
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
+        with:
+          name: vastlint-abi
+          path: abi-staging/
+          retention-days: 14

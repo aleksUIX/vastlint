@@ -24,39 +24,9 @@ const packageConfigs = [
     name: "vastlint",
     sourceDir: path.join(repoRoot, "npm"),
     stageDir: path.join(stageRoot, "vastlint"),
-    requiredFiles: ["index.js", "index.d.ts", "README.md"],
+    requiredFiles: ["index.js", "index.d.ts", "README.md", "LICENSE", "NOTICE"],
     rewriteManifest(packageJson) {
       packageJson.version = version;
-      return packageJson;
-    },
-  },
-  {
-    name: "vastlint-client",
-    sourceDir: path.join(repoRoot, "packages", "vastlint-client"),
-    stageDir: path.join(stageRoot, "vastlint-client"),
-    requiredFiles: ["dist/index.js", "dist/index.d.ts", "README.md"],
-    rewriteManifest(packageJson) {
-      packageJson.version = version;
-      delete packageJson.private;
-      packageJson.dependencies = {
-        ...(packageJson.dependencies ?? {}),
-        vastlint: `^${version}`,
-      };
-      return packageJson;
-    },
-  },
-  {
-    name: "vastlint-react",
-    sourceDir: path.join(repoRoot, "packages", "vastlint-react"),
-    stageDir: path.join(stageRoot, "vastlint-react"),
-    requiredFiles: ["dist/index.js", "dist/index.d.ts", "README.md"],
-    rewriteManifest(packageJson) {
-      packageJson.version = version;
-      delete packageJson.private;
-      packageJson.dependencies = {
-        ...(packageJson.dependencies ?? {}),
-        "vastlint-client": `^${version}`,
-      };
       return packageJson;
     },
   },
