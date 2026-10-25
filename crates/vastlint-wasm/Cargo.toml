@@ -22,4 +22,6 @@ serde = { version = "1", features = ["derive"] }
 serde-wasm-bindgen = "0.6"
 
 [package.metadata.wasm-pack.profile.release]
-wasm-opt = ["-O3", "--enable-bulk-memory", "--enable-nontrapping-float-to-int"]
+# Current Rust toolchains enable these wasm features for wasm32 by default;
+# the wasm-opt that wasm-pack bundles rejects the module unless told so.
+wasm-opt = ["-O3", "--enable-bulk-memory", "--enable-nontrapping-float-to-int", "--enable-sign-ext", "--enable-mutable-globals", "--enable-reference-types", "--enable-multivalue"]
