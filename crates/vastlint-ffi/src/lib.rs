@@ -34,9 +34,11 @@ use std::ffi::{CStr, CString};
 use std::os::raw::{c_char, c_int, c_uint};
 use std::ptr;
 
+#[cfg(feature = "mimalloc")]
 use mimalloc::MiMalloc;
 use vastlint_core::{RuleLevel, ValidationContext};
 
+#[cfg(feature = "mimalloc")]
 #[global_allocator]
 static GLOBAL: MiMalloc = MiMalloc;
 
