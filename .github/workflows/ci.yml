@@ -75,6 +75,25 @@ jobs:
       - name: cargo test
         run: cargo test --workspace --exclude vastlint_nif
 
+  # The release smoke test builds the npm package with wasm-pack, and that is
+  # the only place wasm-opt runs. Do it here too, so a toolchain change that
+  # alters the emitted wasm features fails a pull request, not a release.
+  wasm-pack:
+    name: wasm-pack build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8  # v (pinned SHA)
+        with:
+          toolchain: stable
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6  # v2.9.2
+      - name: Install wasm-pack
+        run: cargo install wasm-pack --locked
+      - name: Build the npm wasm package (nodejs target)
+        run: wasm-pack build crates/vastlint-wasm --target nodejs --out-dir ../../npm/pkg-node
+
   audit:
     name: Security audit
     runs-on: ubuntu-latest

@@ -20,6 +20,7 @@ GitHub Releases: <https://github.com/aleksUIX/vastlint/releases>
 
 ### Changed
 
+- **npm wasm build passes the module's feature set to wasm-opt** (bulk memory, nontrapping float-to-int, sign extension, mutable globals, reference types, multivalue), which current Rust toolchains enable for wasm32 by default and the bundled wasm-opt otherwise rejects. CI now runs the wasm-pack build on every pull request.
 - **Parser rejects malformed XML and bounds resource use** (from #170): unclosed or multiple roots, duplicate or malformed attributes, undefined entities and invalid XML 1.0 characters now produce the parse-error finding instead of a verdict. Limits: 4 MiB input, 128 element levels, 100,000 elements. DOCTYPE and XML 1.1 are unsupported. The whole-document character check scans bytes rather than decoding characters, which keeps the cost of the new checks to about 15 percent on a corpus of real tags instead of 40 percent. See `docs/parser-safety.md`.
 - **FFI panic guard**: `vastlint_validate` and `vastlint_validate_with_options` catch a Rust panic and return NULL instead of unwinding into the host process.
 - **Release profile**: fat LTO, one codegen unit and stripped symbols for every release artifact. The native static library drops from 21 MB to about 7 MB on disk and about 1 MB of linked code.
