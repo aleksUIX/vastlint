@@ -4,7 +4,7 @@
 //! elements and attributes that validation rules care about. Everything else
 //! is skipped. No allocations are made for content we never inspect.
 
-use quick_xml::events::Event;
+use quick_xml::events::{BytesStart, Event};
 use quick_xml::name::QName;
 use quick_xml::Reader;
 
@@ -245,30 +245,84 @@ fn append_text_segment(node: &mut Node, segment: &str, from_cdata: bool) {
     }
 }
 
-fn decode_general_reference(reference: &str) -> Option<String> {
-    if let Some(hex) = reference
-        .strip_prefix("#x")
-        .or_else(|| reference.strip_prefix("#X"))
-    {
-        let codepoint = u32::from_str_radix(hex, 16).ok()?;
-        let ch = char::from_u32(codepoint)?;
-        return Some(ch.to_string());
-    }
+/// Parser resource ceilings apply to every entry point, including FFI.
+pub const MAX_DOCUMENT_BYTES: usize = 4 * 1024 * 1024;
+pub const MAX_ELEMENT_DEPTH: usize = 128;
+pub const MAX_ELEMENT_COUNT: usize = 100_000;
 
-    if let Some(decimal) = reference.strip_prefix('#') {
-        let codepoint = decimal.parse::<u32>().ok()?;
-        let ch = char::from_u32(codepoint)?;
-        return Some(ch.to_string());
-    }
+fn is_xml_char(ch: char) -> bool {
+    matches!(ch as u32, 0x9 | 0xa | 0xd | 0x20..=0xd7ff | 0xe000..=0xfffd | 0x10000..=0x10ffff)
+}
 
-    match reference {
-        "amp" => Some("&".to_owned()),
-        "lt" => Some("<".to_owned()),
-        "gt" => Some(">".to_owned()),
-        "apos" => Some("'".to_owned()),
-        "quot" => Some("\"".to_owned()),
-        _ => None,
+/// Whole-document equivalent of `input.chars().all(is_xml_char)`, scanning
+/// bytes instead of decoding characters.
+///
+/// For a `&str` the only characters `is_xml_char` rejects are C0 controls other
+/// than tab, newline and carriage return, and the two noncharacters U+FFFE and
+/// U+FFFF: surrogates cannot occur in valid UTF-8 and `char` never exceeds
+/// U+10FFFF. The control check is a tight byte loop and the two noncharacters
+/// are substring searches. On a corpus of real tags the character-by-character
+/// pass cost about 40 percent of total validation time; this costs a few percent.
+fn has_invalid_xml_char(input: &str) -> bool {
+    input
+        .bytes()
+        .any(|b| b < 0x20 && b != b'\t' && b != b'\n' && b != b'\r')
+        || input.contains('\u{fffe}')
+        || input.contains('\u{ffff}')
+}
+
+fn is_name_start(ch: char) -> bool {
+    matches!(ch, ':' | '_' | 'A'..='Z' | 'a'..='z')
+        || matches!(ch as u32,
+        0xc0..=0xd6 | 0xd8..=0xf6 | 0xf8..=0x2ff | 0x370..=0x37d |
+        0x37f..=0x1fff | 0x200c..=0x200d | 0x2070..=0x218f |
+        0x2c00..=0x2fef | 0x3001..=0xd7ff | 0xf900..=0xfdcf |
+        0xfdf0..=0xfffd | 0x10000..=0xeffff)
+}
+
+// XML 1.0 fifth edition, productions NameStartChar and NameChar.
+fn is_xml_name(name: &str) -> bool {
+    let mut chars = name.chars();
+    chars.next().is_some_and(is_name_start)
+        && chars.all(|ch| {
+            is_name_start(ch)
+                || matches!(ch, '-' | '.' | '0'..='9' | '\u{b7}')
+                || matches!(ch as u32, 0x300..=0x36f | 0x203f..=0x2040)
+        })
+}
+
+fn parse_element(e: &BytesStart<'_>, line: u32, col: u32) -> Result<Node, String> {
+    if !is_xml_name(e.name().as_ref()) {
+        return Err("XML contains an invalid element name".to_owned());
     }
+    let mut attrs = Vec::new();
+    for attr in e.attributes() {
+        // Attribute iterator errors include duplicate names and broken quoting.
+        let attr = attr.map_err(|err| format!("XML attribute error: {err}"))?;
+        if !is_xml_name(attr.key.as_ref()) {
+            return Err("XML contains an invalid attribute name".to_owned());
+        }
+        if attr.value.contains('<') {
+            return Err("XML attribute contains an unescaped '<'".to_owned());
+        }
+        let value = attr
+            .normalized_value(quick_xml::XmlVersion::Implicit1_0)
+            .map_err(|err| format!("XML attribute error: {err}"))?;
+        if !value.chars().all(is_xml_char) {
+            return Err("XML attribute contains an invalid XML 1.0 character".to_owned());
+        }
+        attrs.push(Attr {
+            namespaced: is_namespaced(&attr.key),
+            name: attr.key.local_name().as_ref().to_owned(),
+            value: value.into_owned(),
+        });
+    }
+    Ok(Node::new(
+        e.local_name().as_ref().to_owned(),
+        attrs,
+        line,
+        col,
+    ))
 }
 
 /// Parse a VAST XML string into a VastDocument.
@@ -277,107 +331,131 @@ fn decode_general_reference(reference: &str) -> Option<String> {
 /// VastDocument with parse_error set and root containing whatever was parsed
 /// successfully before the error.
 pub fn parse(input: &str) -> VastDocument {
+    let error_document = |message: &str| VastDocument {
+        root: Node::new("__empty__".to_owned(), Vec::new(), 0, 0),
+        parse_error: Some(message.to_owned()),
+    };
+    if input.len() > MAX_DOCUMENT_BYTES {
+        return error_document("XML resource limit: document exceeds 4 MiB");
+    }
+    if has_invalid_xml_char(input) {
+        return error_document("XML contains an invalid XML 1.0 character");
+    }
     let input_bytes = input.as_bytes();
     let mut cursor = LineCursor::new();
     let mut reader = Reader::from_str(input);
     reader.config_mut().trim_text(true);
+    reader.config_mut().enable_all_checks(true);
 
     // Stack-based tree construction.
     let mut stack: Vec<Node> = Vec::new();
+    let mut root = None;
+    let mut elements = 0;
     let mut parse_error: Option<String> = None;
 
     loop {
         match reader.read_event() {
-            Ok(Event::Start(e)) => {
+            Ok(event @ (Event::Start(_) | Event::Empty(_))) => {
+                if stack.is_empty() && root.is_some() {
+                    parse_error = Some("XML contains multiple root elements".to_owned());
+                    break;
+                }
+                elements += 1;
+                if stack.len() >= MAX_ELEMENT_DEPTH || elements > MAX_ELEMENT_COUNT {
+                    parse_error =
+                        Some("XML resource limit: element depth or count exceeded".to_owned());
+                    break;
+                }
+                let (e, empty) = match event {
+                    Event::Start(e) => (e, false),
+                    Event::Empty(e) => (e, true),
+                    _ => unreachable!(),
+                };
                 // buffer_position() is the byte offset just past the `>` of
                 // this tag. Walk back to find the `<` to get the tag start.
                 let end_pos = reader.buffer_position() as usize;
                 let tag_bytes = e.as_ref();
                 // tag_bytes is the raw content between < and > (exclusive).
                 // The tag in the stream is: '<' + tag_bytes + '>'.
-                let tag_len = tag_bytes.len() + 2; // +2 for '<' and '>'
+                let tag_len = tag_bytes.len() + if empty { 3 } else { 2 };
                 let start_pos = end_pos.saturating_sub(tag_len);
                 let (line, col) = cursor.locate(input_bytes, start_pos);
 
-                let name = e.local_name().as_ref().to_owned();
-                let mut attrs = Vec::new();
-                for attr in e.attributes().flatten() {
-                    let key = attr.key.local_name().as_ref().to_owned();
-                    let val = attr.value.as_ref().to_owned();
-                    attrs.push(Attr {
-                        namespaced: is_namespaced(&attr.key),
-                        name: key,
-                        value: val,
-                    });
-                }
-                stack.push(Node::new(name, attrs, line, col));
-            }
-
-            Ok(Event::End(_)) if stack.len() > 1 => {
-                let finished = stack.pop().unwrap();
-                stack.last_mut().unwrap().children.push(finished);
-                // If stack has exactly one element, that's the root — leave it.
-            }
-            Ok(Event::End(_)) => {}
-
-            Ok(Event::Empty(e)) => {
-                // Self-closing tag: push and immediately pop.
-                let end_pos = reader.buffer_position() as usize;
-                let tag_bytes = e.as_ref();
-                // Self-closing: '<' + tag_bytes + '/>'
-                let tag_len = tag_bytes.len() + 3; // +3 for '<', '/', '>'
-                let start_pos = end_pos.saturating_sub(tag_len);
-                let (line, col) = cursor.locate(input_bytes, start_pos);
-
-                let name = e.local_name().as_ref().to_owned();
-                let mut attrs = Vec::new();
-                for attr in e.attributes().flatten() {
-                    let key = attr.key.local_name().as_ref().to_owned();
-                    let val = attr.value.as_ref().to_owned();
-                    attrs.push(Attr {
-                        namespaced: is_namespaced(&attr.key),
-                        name: key,
-                        value: val,
-                    });
-                }
-                let node = Node::new(name, attrs, line, col);
-                if let Some(parent) = stack.last_mut() {
-                    parent.children.push(node);
+                let node = match parse_element(&e, line, col) {
+                    Ok(node) => node,
+                    Err(err) => {
+                        parse_error = Some(err);
+                        break;
+                    }
+                };
+                if empty {
+                    if let Some(parent) = stack.last_mut() {
+                        parent.children.push(node);
+                    } else {
+                        root = Some(node);
+                    }
                 } else {
-                    // Self-closing root (unusual but handle it).
                     stack.push(node);
                 }
             }
 
+            Ok(Event::End(_)) => {
+                if let Some(finished) = stack.pop() {
+                    if let Some(parent) = stack.last_mut() {
+                        parent.children.push(finished);
+                    } else {
+                        root = Some(finished);
+                    }
+                }
+            }
+
             Ok(Event::Text(e)) => {
+                if e.as_ref().contains("]]>") {
+                    parse_error = Some("XML contains ']]>' outside CDATA".to_owned());
+                    break;
+                }
                 if let Some(node) = stack.last_mut() {
                     append_text_segment(node, e.xml10_content().as_ref(), false);
+                } else if !e.as_ref().trim_matches([' ', '\t', '\r', '\n']).is_empty() {
+                    parse_error = Some("XML contains text outside its root".to_owned());
+                    break;
                 }
             }
 
             Ok(Event::CData(e)) => {
                 if let Some(node) = stack.last_mut() {
                     append_text_segment(node, e.into_inner().as_ref(), true);
+                } else {
+                    parse_error = Some("XML contains CDATA outside its root".to_owned());
+                    break;
                 }
             }
 
             Ok(Event::GeneralRef(e)) => {
                 if let Some(node) = stack.last_mut() {
                     let reference = e.as_ref();
-                    if let Some(decoded) = decode_general_reference(reference) {
-                        append_text_segment(node, &decoded, false);
-                    } else {
-                        let raw = format!("&{};", reference);
-                        append_text_segment(node, &raw, false);
+                    let raw = format!("&{reference};");
+                    match quick_xml::escape::unescape(&raw) {
+                        Ok(decoded) if decoded.chars().all(is_xml_char) => {
+                            append_text_segment(node, &decoded, false);
+                        }
+                        _ => {
+                            parse_error = Some(
+                                "XML contains an undefined or invalid entity reference".to_owned(),
+                            );
+                            break;
+                        }
                     }
+                } else {
+                    parse_error = Some("XML contains a reference outside its root".to_owned());
+                    break;
                 }
             }
 
             Ok(Event::Eof) => {
-                if stack.len() > 1 {
+                if !stack.is_empty() {
                     let unclosed = stack
                         .iter()
-                        .skip(1)
                         .map(|node| node.name.as_str())
                         .collect::<Vec<_>>()
                         .join(" > ");
@@ -385,8 +463,82 @@ pub fn parse(input: &str) -> VastDocument {
                         "XML parse error at end of document: unexpected EOF with unclosed element(s): {}",
                         unclosed
                     ));
+                } else if root.is_none() {
+                    parse_error = Some("XML has no root element".to_owned());
                 }
                 break;
+            }
+
+            Ok(Event::DocType(_)) => {
+                // VAST does not require DTD processing. No external access or
+                // custom entity expansion is performed by this parser.
+                parse_error = Some("XML DOCTYPE declarations are unsupported".to_owned());
+                break;
+            }
+
+            Ok(Event::Decl(e)) => {
+                let start =
+                    (reader.buffer_position() as usize).saturating_sub(e.as_ref().len() + 4);
+                if !(start == 0 || start == 3 && input.starts_with('\u{feff}'))
+                    || !e.version().is_ok_and(|version| version == "1.0")
+                {
+                    parse_error = Some(
+                        "XML declaration must begin the document and declare version 1.0"
+                            .to_owned(),
+                    );
+                    break;
+                }
+                let declaration = BytesStart::from_content(e.as_ref(), 3);
+                let attrs = match parse_element(&declaration, 1, 1) {
+                    Ok(node) => node.attrs,
+                    Err(error) => {
+                        parse_error = Some(error);
+                        break;
+                    }
+                };
+                let mut saw_standalone = false;
+                for (index, attr) in attrs.iter().enumerate() {
+                    let allowed = match attr.name.as_str() {
+                        "version" => index == 0 && attr.value == "1.0",
+                        "encoding" => {
+                            index == 1 && !saw_standalone && {
+                                let mut chars = attr.value.chars();
+                                chars.next().is_some_and(|ch| ch.is_ascii_alphabetic())
+                                    && chars.all(|ch| {
+                                        ch.is_ascii_alphanumeric() || matches!(ch, '.' | '_' | '-')
+                                    })
+                            }
+                        }
+                        "standalone" => {
+                            saw_standalone = true;
+                            index > 0 && matches!(attr.value.as_str(), "yes" | "no")
+                        }
+                        _ => false,
+                    };
+                    if !allowed {
+                        parse_error = Some("XML declaration has invalid attributes".to_owned());
+                        break;
+                    }
+                }
+                if parse_error.is_some()
+                    || declaration
+                        .attributes()
+                        .any(|attr| attr.is_ok_and(|attr| attr.value.contains('&')))
+                {
+                    parse_error.get_or_insert_with(|| {
+                        "XML declaration cannot contain entity references".to_owned()
+                    });
+                    break;
+                }
+            }
+
+            Ok(Event::PI(e)) => {
+                if !is_xml_name(e.target()) || e.target().eq_ignore_ascii_case("xml") {
+                    parse_error = Some(
+                        "XML processing instruction has an invalid or reserved target".to_owned(),
+                    );
+                    break;
+                }
             }
 
             Err(e) => {
@@ -398,20 +550,20 @@ pub fn parse(input: &str) -> VastDocument {
                 break;
             }
 
-            // PI, Comment, Doctype — skip.
+            // Processing instructions, declarations, and comments carry no VAST data.
             _ => {}
         }
     }
 
-    let root = if stack.is_empty() {
-        Node::new("__empty__".to_owned(), Vec::new(), 0, 0)
-    } else {
+    let root = if !stack.is_empty() {
         // Collapse remaining stack (handles unclosed tags gracefully).
         while stack.len() > 1 {
             let node = stack.pop().unwrap();
             stack.last_mut().unwrap().children.push(node);
         }
         stack.pop().unwrap()
+    } else {
+        root.unwrap_or_else(|| Node::new("__empty__".to_owned(), Vec::new(), 0, 0))
     };
 
     VastDocument { root, parse_error }
@@ -546,5 +698,69 @@ mod tests {
         let xml = r#"<VAST version="4.1"><Ad></VAST>"#;
         let doc = parse(xml);
         assert!(doc.parse_error.is_some());
+    }
+
+    #[test]
+    fn parser_resource_limits_stop_deep_wide_and_oversized_documents() {
+        let at_limit = format!(
+            "{}{}",
+            "<VAST>".repeat(MAX_ELEMENT_DEPTH),
+            "</VAST>".repeat(MAX_ELEMENT_DEPTH)
+        );
+        assert!(parse(&at_limit).parse_error.is_none());
+        assert!(parse(&format!("<VAST>{at_limit}</VAST>"))
+            .parse_error
+            .unwrap()
+            .contains("resource limit"));
+        assert!(parse(&format!(
+            "<VAST>{}</VAST>",
+            "<Ad/>".repeat(MAX_ELEMENT_COUNT)
+        ))
+        .parse_error
+        .unwrap()
+        .contains("resource limit"));
+        assert!(parse(&" ".repeat(MAX_DOCUMENT_BYTES + 1))
+            .parse_error
+            .unwrap()
+            .contains("resource limit"));
+    }
+
+    #[test]
+    fn attributes_are_unescaped_and_empty_roots_are_closed() {
+        let doc = parse(r#"<VAST version="4.1" id="A&amp;B&#65;"/>"#);
+        assert!(doc.parse_error.is_none());
+        assert_eq!(doc.root.attr("id"), Some("A&BA"));
+        assert!(parse("<VAST/><VAST/>").parse_error.is_some());
+        assert!(parse(r#"<VAST version="4.1" version="4.2"/>"#)
+            .parse_error
+            .is_some());
+    }
+
+    #[test]
+    fn dtd_processing_is_explicitly_unsupported() {
+        let doc = parse(r#"<!DOCTYPE VAST [<!ENTITY x "expanded">]><VAST>&x;</VAST>"#);
+        assert!(doc.parse_error.unwrap().contains("DOCTYPE"));
+    }
+
+    #[test]
+    fn byte_scan_matches_the_char_predicate() {
+        for sample in [
+            "<VAST/>",
+            "tab\tnewline\nreturn\r",
+            "bell\u{7}",
+            "delete\u{7f}",
+            "emoji \u{1f600}",
+            "fffd \u{fffd}",
+            "fffe \u{fffe}",
+            "ffff \u{ffff}",
+            "max \u{10ffff}",
+            "nul\0",
+        ] {
+            assert_eq!(
+                has_invalid_xml_char(sample),
+                !sample.chars().all(is_xml_char),
+                "{sample:?}"
+            );
+        }
     }
 }

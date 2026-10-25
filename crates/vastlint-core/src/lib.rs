@@ -95,6 +95,7 @@ mod detect;
 mod extensions;
 mod fix;
 mod inspect;
+pub mod json;
 mod parse;
 mod rules;
 mod summarize;
@@ -103,6 +104,7 @@ pub use fix::{fix, fix_with_context, AppliedFix, FixResult};
 pub use inspect::{inspect_document, InspectAdType, InspectDocumentMeta, InspectMediaFile};
 
 use std::collections::HashMap;
+use std::sync::OnceLock;
 
 // ── Public types ─────────────────────────────────────────────────────────────
 
@@ -307,6 +309,8 @@ impl Summary {
 /// The `issues` vector is ordered by document position (depth-first traversal).
 #[derive(Debug, Clone)]
 pub struct ValidationResult {
+    /// Input coverage, independent of rule severity overrides.
+    pub input_status: InputStatus,
     /// The kind of document that was validated (VAST, VMAP, or DAAST),
     /// decided by the root element.
     pub document_type: DocumentType,
@@ -315,6 +319,23 @@ pub struct ValidationResult {
     pub version: DetectedVersion,
     pub issues: Vec<Issue>,
     pub summary: Summary,
+}
+
+/// Whether the root and declared version are supported. Malformed takes precedence.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum InputStatus {
+    Supported,
+    Unsupported,
+    Malformed,
+}
+impl InputStatus {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Supported => "supported",
+            Self::Unsupported => "unsupported",
+            Self::Malformed => "malformed",
+        }
+    }
 }
 
 // ── Rule configuration ────────────────────────────────────────────────────────
@@ -468,6 +489,25 @@ pub fn validate_with_context(input: &str, context: ValidationContext) -> Validat
     let source = unescaped.as_deref().unwrap_or(input);
     let doc = parse::parse(source);
     let document_type = detect::detect_document_type(&doc);
+    let input_status = if doc.parse_error.is_some() {
+        InputStatus::Malformed
+    } else {
+        let declared = doc.root.attr("version").map(str::trim);
+        // Same acceptance as the rules that check these attributes: a VAST
+        // version the engine knows, VMAP 1.0, DAAST 1.0 or 1.1. A VAST root with
+        // no version attribute is still supported; the version rule reports it.
+        let supported = match doc.root.name.as_str() {
+            "VAST" => declared.is_none_or(|v| detect::parse_version_str(v).is_some()),
+            "VMAP" => declared == Some("1.0"),
+            "DAAST" => matches!(declared, Some("1.0" | "1.1")),
+            _ => false,
+        };
+        if supported {
+            InputStatus::Supported
+        } else {
+            InputStatus::Unsupported
+        }
+    };
     let version = match document_type {
         // version attributes on VMAP/DAAST roots are validated by their own
         // rule chains; DetectedVersion only describes VAST versions.
@@ -497,6 +537,7 @@ pub fn validate_with_context(input: &str, context: ValidationContext) -> Validat
     }
     let summary = summarize::summarize(&issues);
     ValidationResult {
+        input_status,
         document_type,
         version,
         issues,
@@ -718,4 +759,18 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 /// IDs before passing them into `ValidationContext.rule_overrides`.
 pub fn all_rules() -> &'static [RuleMeta] {
     rules::CATALOG
+}
+
+/// Looks up one rule by id.
+///
+/// Bindings resolve host-supplied rule ids through this before building a
+/// [`ValidationContext`], so an unknown id can be reported instead of silently
+/// ignored, and so the lookup does not rebuild an index on every call. The
+/// index is built once per process.
+pub fn find_rule(id: &str) -> Option<&'static RuleMeta> {
+    static INDEX: OnceLock<HashMap<&'static str, &'static RuleMeta>> = OnceLock::new();
+    INDEX
+        .get_or_init(|| rules::CATALOG.iter().map(|rule| (rule.id, rule)).collect())
+        .get(id)
+        .copied()
 }

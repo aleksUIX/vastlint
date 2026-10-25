@@ -1,6 +1,6 @@
 [package]
 name = "vastlint-ffi"
-version = "0.15.3"
+version = "0.16.0"
 edition = "2021"
 rust-version = "1.86"
 authors = ["Aleks <aleks@vastlint.org>"]
@@ -16,6 +16,14 @@ categories = ["external-ffi-bindings", "development-tools"]
 # staticlib → .a                 — for static linking (Go CGo with CGO_ENABLED=1, embedded)
 crate-type = ["cdylib", "staticlib"]
 
+[features]
+# mimalloc is the faster allocator for a standalone library. Hosts that load the
+# library from a runtime with many short-lived threads (Go via cgo) can build
+# with --no-default-features to use the system allocator and avoid per-thread
+# heap retention.
+default = ["mimalloc"]
+mimalloc = ["dep:mimalloc"]
+
 [dependencies]
 vastlint-core = { path = "../vastlint-core" }
-mimalloc = { version = "0.1", default-features = false }
+mimalloc = { version = "0.1", default-features = false, optional = true }

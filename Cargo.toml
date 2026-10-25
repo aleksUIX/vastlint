@@ -1,5 +1,6 @@
 [workspace]
 members = [
+    "crates/vastlint-abi",
     "crates/vastlint-cli",
     "crates/vastlint-core",
     "crates/vastlint-ffi",
@@ -18,3 +19,17 @@ rust-version = "1.91"
 [profile.dev]
 debug = 0
 incremental = false
+
+# Release artifacts are linked into other processes (Go via cgo, the JVM, Erlang)
+# and shipped as wasm. Whole-program optimisation keeps the native library near
+# 1 MB of code. Panics keep unwinding so the FFI boundary can catch them.
+[profile.release]
+lto = "fat"
+codegen-units = 1
+strip = true
+
+# The wasm32 ABI module has no host to unwind into: a panic is a trap either
+# way, so abort drops the unwinding machinery and shrinks the blob.
+[profile.release-wasm]
+inherits = "release"
+panic = "abort"
