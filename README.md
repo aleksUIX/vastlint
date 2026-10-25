@@ -60,7 +60,7 @@ For adjacent checks, [RTBlint](https://rtblint.org) validates OpenRTB bid reques
 
 **No data retention by default — and full self-hosting available.** The VS Code extension and Chrome page-scan path process XML locally. Pasting a tag in the Chrome popup opens the hosted tester; that path follows the website policy. The CLI does not send tags unless you pass `--contribute-sample`. The hosted tester, inspector, validator, and MCP server at vastlint.org/mcp may store a redacted copy of tags you submit, so the rules can be improved; see [vastlint.org/privacy](https://vastlint.org/privacy/). Local `vastlint-mcp` over stdio does not send tags. The RapidAPI `/validate` API and the gRPC sidecar still validate ephemerally. See [Telemetry and sample contribution](#telemetry-and-sample-contribution) and [PRIVACY.md](PRIVACY.md) for the Chrome extension policy.
 
-For teams that require on-premise processing or air-gapped deployments, VASTlint runs entirely self-hosted: the [CLI image](https://hub.docker.com/r/aleksuix/vastlint) (`FROM scratch`, under 5 MB, cold-start under 10 ms), the [`vastlint-grpc`](crates/vastlint-grpc/README.md) sidecar (`aleksuix/vastlint-grpc:0.13.2`), or the pre-built static musl binary. The Rust core has no network code: no callbacks, no telemetry, no license checks. The sidecar exposes partner tallies on `/metrics` (port 9090); scrape them yourself.
+For teams that require on-premise processing or air-gapped deployments, VASTlint runs entirely self-hosted: the [CLI image](https://hub.docker.com/r/aleksuix/vastlint) (`FROM scratch`), the [`vastlint-grpc`](crates/vastlint-grpc/README.md) sidecar (`aleksuix/vastlint-grpc:0.16.0`), or the pre-built static musl binary. The Rust core has no network code: no callbacks, no telemetry, no license checks. The sidecar exposes partner tallies on `/metrics` (port 9090); scrape them yourself.
 
 **Apache 2.0 licensed.** No CLA, no dual-license commercial upsell, no usage-based restrictions. Fork it, vendor it, embed it, redistribute it.
 
@@ -474,7 +474,7 @@ See the [vastlint-go README](https://github.com/aleksUIX/vastlint-go) for the fu
 [`vastlint-java`](https://github.com/aleksUIX/vastlint-java) is a gRPC client for JVM ad servers. Same catalog as Go. Talks to `vastlint-grpc` rather than loading JNI on the auction thread.
 
 ```kotlin
-implementation("io.openadtech:vastlint:0.13.0")
+implementation("io.openadtech:vastlint:0.16.0")
 ```
 
 ```java
@@ -491,7 +491,7 @@ try (VastlintClient client = VastlintClient.connect("localhost:50051")) {
 }
 ```
 
-Run the server first: `docker run --rm -p 50051:50051 -p 9090:9090 aleksuix/vastlint-grpc:0.13.2`. Set `x-vastlint-caller` to a stable partner id (seat, DSP, `AdSystem`); verdicts and `$` findings land on `/metrics`. Grafana: `docker compose --profile pipeline up --build`. See the [vastlint-java README](https://github.com/aleksUIX/vastlint-java) for GitHub Packages, JitPack, TLS, and options. The Java client tag is still `0.13.0`; the sidecar image tracks this repo.
+Run the server first: `docker run --rm -p 50051:50051 -p 9090:9090 aleksuix/vastlint-grpc:0.16.0`. Set `x-vastlint-caller` to a stable partner id (seat, DSP, `AdSystem`); verdicts and `$` findings land on `/metrics`. Grafana: `docker compose --profile pipeline up --build`. See the [vastlint-java README](https://github.com/aleksUIX/vastlint-java) for GitHub Packages, JitPack, TLS, and options. Use matching client and sidecar releases.
 
 ## Use from VS Code
 
