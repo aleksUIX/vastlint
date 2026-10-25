@@ -6,10 +6,12 @@ GitHub Releases: <https://github.com/aleksUIX/vastlint/releases>
 
 ---
 
-## [Unreleased]
+## [0.16.0] - 2026-10-25
 
 ### Added
 
+- **mimalloc is an optional default feature of `vastlint-ffi`**: hosts that embed the library in a process with its own allocator strategy build with `--no-default-features` and get the system allocator; the default is unchanged.
+- **wasm engine module as a release asset**: `vastlint-abi-vX.Y.Z.wasm` with its SHA-256, built from the `vastlint-abi` crate with the release-wasm profile and simd128, for runtimes such as wazero. The release workflow now feeds it to vastlint-go, which embeds the module and pins its checksum, in place of the prebuilt static libraries it used to carry.
 - **`input_status` on `ValidationResult`**: `supported`, `unsupported` or `malformed`, decided independently of rule severity overrides, so callers can tell "not VAST" from "VAST with findings". Rust callers that construct `ValidationResult` literals gain one field.
 - **`vastlint_core::json`**: the one JSON writer for result documents, the rule catalog and error documents, shared by the FFI library and the new ABI crate. Result documents gain `document_type` and `input_status`; existing fields are unchanged.
 - **`vastlint-abi` crate**: plain C-ABI exports of the engine for WebAssembly runtimes without a JavaScript host (wazero, Chicory). Length-prefixed buffers, text rule overrides, strict about unknown rule ids and levels. Not published to crates.io; the build artifact is the wasm module.
