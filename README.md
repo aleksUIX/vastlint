@@ -261,7 +261,7 @@ Or download a release binary instead of building from source:
 ```yaml
 - name: Install vastlint
   run: |
-    curl -sL https://github.com/aleksUIX/vastlint/releases/latest/download/vastlint-x86_64-linux-musl.tar.gz \
+    curl -sL https://github.com/aleksUIX/vastlint/releases/latest/download/vastlint-linux-x86_64.tar.gz \
       | tar xz -C /usr/local/bin
 
 - name: Validate VAST tags
@@ -512,7 +512,7 @@ The **VASTlint** Chrome extension detects VAST XML on any page and shows inline 
 
 **Or install manually** (no review wait):
 
-1. Download `vastlint-extension.zip` from the [tools releases](https://github.com/aleksUIX/vastlint-tools/releases). Earlier extension artifacts remain in the historical engine releases
+1. Download `vastlint-extension.zip` from the [tools releases](https://github.com/aleksUIX/vastlint-tools/releases). Until the first tools release, use the [existing v0.15.3 extension archive](https://github.com/aleksUIX/vastlint/releases/download/v0.15.3/vastlint-extension.zip). Earlier extension artifacts remain in the historical engine releases
 2. Unzip it anywhere
 3. Open `chrome://extensions` and enable **Developer mode** (top-right toggle)
 4. Click **Load unpacked** → select the unzipped folder
