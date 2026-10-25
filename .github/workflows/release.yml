@@ -354,7 +354,7 @@ jobs:
       - name: Package
         run: |
           BINARY=target/${{ matrix.target }}/release/${{ matrix.binary }}
-          tar czf "${{ matrix.archive }}" -C "$(dirname "$BINARY")" "$(basename "$BINARY")"
+          tar czf "${{ matrix.archive }}" -C "$(dirname "$BINARY")" "$(basename "$BINARY")" -C "$GITHUB_WORKSPACE" LICENSE NOTICE
       - name: Upload artifact
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
@@ -412,6 +412,7 @@ jobs:
           OUTDIR=target/${{ matrix.target }}/release
           STAGING=ffi-staging
           mkdir -p "$STAGING"
+          cp LICENSE NOTICE "$STAGING/"
 
           # Header : same for all platforms, included in every tarball so
           # consumers get a self-contained package.
@@ -482,6 +483,7 @@ jobs:
           OUTDIR=target/${{ matrix.target }}/release
           STAGING=nif-staging
           mkdir -p "$STAGING"
+          cp LICENSE NOTICE "$STAGING/"
 
           # Rust names the output libvastlint_nif.{so,dylib}.
           LIB="${{ matrix.lib }}"
