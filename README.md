@@ -8,9 +8,9 @@ This repository contains the validation engine, CLI, bindings and gRPC reference
 
 A high-performance VAST XML validator built on a pure-Rust core. Checks ad tags against the IAB Tech Lab VAST specification so you don't have to read it. Over $30 billion in annual CTV and video ad spend flows through VAST XML, and malformed tags are one of the most common causes of lost impressions, broken tracking, and revenue discrepancies between platforms. There is no widely adopted open-source tool that validates VAST XML against the full IAB specification across all published versions.
 
-VASTlint ships a native **MCP server** - making VAST validation available as a callable tool from Claude, Cursor, the [AAMP Buyer Agent SDK](https://github.com/IABTechLab/buyer-agent), or any MCP-compatible client. Connect to `vastlint.org/mcp` and call `validate_vast`, `validate_vast_url`, `inspect_vast`, `list_rules`, `explain_rule`, or `fix_vast`. Each tool returns structured JSON with rule IDs, XPath locations, and spec references.
+The [VASTlint tools repository](https://github.com/aleksUIX/vastlint-tools) ships a native **MCP server**, making VAST validation available as a callable tool from Claude, Cursor, the [AAMP Buyer Agent SDK](https://github.com/IABTechLab/buyer-agent), or any MCP-compatible client. Connect to `vastlint.org/mcp` and call `validate_vast`, `validate_vast_url`, `inspect_vast`, `list_rules`, `explain_rule`, or `fix_vast`. Each tool returns structured JSON with rule IDs, XPath locations, and spec references.
 
-Native bindings for realtime ad pipelines: [`vastlint-go`](https://github.com/aleksUIX/vastlint-go) (CGo, prebuilt static libs, no Rust toolchain needed), [`vastlint-java`](https://github.com/aleksUIX/vastlint-java) (gRPC client for JVM ad servers), [`vastlint-erlang`](https://github.com/aleksUIX/vastlint-erlang) (Elixir/Erlang: OTP port mode for production ad delivery, DirtyCpu NIF for non-critical paths), and a WASM npm package for Node.js and browsers. All bindings share the same compiled Rust core. Consistent results everywhere, sub-millisecond latency at scale.
+Bindings for realtime ad pipelines: [`vastlint-go`](https://github.com/aleksUIX/vastlint-go) (embedded WebAssembly by default, optional native cgo engine), [`vastlint-java`](https://github.com/aleksUIX/vastlint-java) (gRPC client for JVM ad servers), [`vastlint-erlang`](https://github.com/aleksUIX/vastlint-erlang) (Elixir/Erlang DirtyCpu NIF), and a WASM npm package for Node.js and browsers. All bindings use the same Rust validation core. The CLI daemon also supports OTP port integrations.
 
 Need a copy-paste frontend starting point? See the React drop-in example in [the tools examples](https://github.com/aleksUIX/vastlint-tools/tree/main/examples/take-home).
 
@@ -432,7 +432,7 @@ Works in Node.js (ESM and CJS), Vite, Webpack 5, and Rollup. Requires a bundler 
 
 ## Use from Go
 
-[`vastlint-go`](https://github.com/aleksUIX/vastlint-go) provides Go bindings via CGo. Prebuilt static libraries are included - no Rust toolchain required.
+[`vastlint-go`](https://github.com/aleksUIX/vastlint-go) embeds the engine as WebAssembly and runs it with the pure Go wazero runtime. The default build works with `CGO_ENABLED=0` and requires no Rust toolchain. An optional `vastlint_cgo` build uses an installed native library.
 
 ```sh
 go get github.com/aleksUIX/vastlint-go
@@ -452,7 +452,7 @@ if !result.Valid {
 }
 ```
 
-Supported platforms: Linux (amd64, arm64), macOS (amd64, arm64).
+The default engine is portable across wazero-supported Go platforms. Native library installation is documented in the binding repository.
 
 With options:
 

@@ -36,10 +36,10 @@ need clearing. In a linked worktree, reuse the primary checkout's cache with
 `CARGO_TARGET_DIR=/absolute/path/to/vastlint/target`. Run Cargo from the checkout
 being tested so it reads that checkout's configuration.
 
-The root npm lockfile links the local VASTlint source in `npm/`. Keep that
-filesystem entry unversioned. Its release version belongs in `npm/package.json`
-and `npm/package-lock.json`; GitHub otherwise mistakes the directory name for
-the unrelated npm CLI package. Third-party dependency versions remain locked.
+The engine's npm package lives in `npm/`, with its own manifest and lockfile.
+Applications and frontend workspaces live in
+[vastlint-tools](https://github.com/aleksUIX/vastlint-tools) and consume the
+published engine. Core builds do not require that repository.
 
 ## Filing bugs
 
