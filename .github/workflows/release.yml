@@ -2029,9 +2029,20 @@ jobs:
         run: |
           TAG="${{ env.RELEASE_TAG }}"
           cd vastlint-go
-          # Fail loudly if the tag already exists — never silently overwrite.
-          if git ls-remote --tags origin "$TAG" | grep -q "$TAG"; then
-            echo "::warning::Tag $TAG already exists on vastlint-go — skipping tag push" && exit 0
+          # vastlint-go normally carries the engine's version. A binding-only
+          # fix may already have used this tag (for example v0.16.1 for a Go
+          # fix on engine 0.16.0); never overwrite it. Tag the next free patch
+          # instead so the commit that embeds this engine is still reachable
+          # by a tag, and say so in the job summary.
+          if git ls-remote --tags origin "refs/tags/$TAG" | grep -q "refs/tags/$TAG"; then
+            base="${TAG%.*}"; patch="${TAG##*.}"
+            next="$TAG"
+            while git ls-remote --tags origin "refs/tags/$next" | grep -q "refs/tags/$next"; do
+              patch=$((patch + 1)); next="$base.$patch"
+            done
+            echo "::warning::Tag $TAG already exists on vastlint-go; tagging engine ${TAG} as $next instead"
+            echo "vastlint-go tagged **$next** (engine $TAG; $TAG was already taken by a binding-only release)" >> "$GITHUB_STEP_SUMMARY"
+            TAG="$next"
           fi
           git tag "$TAG"
           git push origin "$TAG"
