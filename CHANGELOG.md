@@ -6,6 +6,12 @@ GitHub Releases: <https://github.com/aleksUIX/vastlint/releases>
 
 ---
 
+## [0.16.1] - 2026-10-26
+
+### Changed
+
+- **`tokio` 1.53.3 → 1.54.1**, **`rmcp` 3.5.1 → 3.7.0**: dependency updates.
+
 ## [0.16.0] - 2026-10-25
 
 ### Added
