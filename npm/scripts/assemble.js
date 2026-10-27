@@ -30,6 +30,10 @@ function copy(src, dst) {
   console.log(`[assemble] ${src.replace(root, '.')} → ${dst.replace(root, '.')}`);
 }
 
+// Keep the license and creator attribution in the published package.
+copy(join(root, '..', 'LICENSE'), join(root, 'LICENSE'));
+copy(join(root, '..', 'NOTICE'), join(root, 'NOTICE'));
+
 // From bundler target: the ESM glue + wasm binary
 copy(join(root, 'pkg/vastlint_wasm.js'),         join(root, 'vastlint_wasm.js'));
 copy(join(root, 'pkg/vastlint_wasm.d.ts'),        join(root, 'vastlint_wasm.d.ts'));

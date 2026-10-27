@@ -3,7 +3,7 @@
   "version": "0.16.2",
   "description": "Validate VAST 2.0\u20134.4, VMAP 1.0, and DAAST 1.0 ad tags against IAB specs. 246 rules. Rust/WASM core.",
   "license": "Apache-2.0",
-  "author": "Alex Sekowski <alex@vastlint.org>",
+  "author": "Aleksander Sekowski <alex@vastlint.org>",
   "homepage": "https://vastlint.org",
   "repository": {
     "type": "git",
@@ -62,7 +62,9 @@
     "vastlint_wasm_bg.wasm",
     "vastlint_wasm_bg.wasm.d.ts",
     "vastlint_wasm_cjs.js",
-    "README.md"
+    "README.md",
+    "LICENSE",
+    "NOTICE"
   ],
   "scripts": {
     "build": "wasm-pack build ../crates/vastlint-wasm --target bundler --out-dir ../../npm/pkg && wasm-pack build ../crates/vastlint-wasm --target nodejs --out-dir ../../npm/pkg-node && node scripts/assemble.js",

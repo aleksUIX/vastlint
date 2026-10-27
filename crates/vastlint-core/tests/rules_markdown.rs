@@ -8,10 +8,6 @@ fn rules_markdown_path() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../../RULES.md")
 }
 
-fn vscode_readme_path() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../vscode/README.md")
-}
-
 fn read_text(path: &Path) -> String {
     fs::read_to_string(path)
         .unwrap_or_else(|error| panic!("could not read {}: {error}", path.display()))
@@ -63,20 +59,6 @@ fn parse_rule_rows(path: &Path) -> BTreeMap<String, (String, String)> {
     }
 
     rows
-}
-
-fn parse_vscode_readme_embedded_count() -> usize {
-    let path = vscode_readme_path();
-    let text = read_text(&path);
-
-    text.lines()
-        .find_map(|line| {
-            let line = line.trim();
-            let count = line.strip_prefix("<summary>All ")?;
-            let count = count.strip_suffix(" rules</summary>")?;
-            count.parse::<usize>().ok()
-        })
-        .unwrap_or_else(|| panic!("could not find embedded rule count in {}", path.display()))
 }
 
 fn catalog_severities() -> BTreeMap<String, String> {
@@ -164,13 +146,4 @@ fn rules_markdown_matches_catalog_ids_and_severities() {
     let (_, rows) = parse_rules_markdown();
     let (declared_count, _) = parse_rules_markdown();
     assert_rule_rows_match_catalog("RULES.md", declared_count, &rows);
-}
-
-#[test]
-fn vscode_readme_rule_list_matches_catalog_ids_and_severities() {
-    let path = vscode_readme_path();
-    let rows = parse_rule_rows(&path);
-    let declared_count = parse_vscode_readme_embedded_count();
-
-    assert_rule_rows_match_catalog("vscode/README.md", declared_count, &rows);
 }

@@ -6,6 +6,13 @@ GitHub Releases: <https://github.com/aleksUIX/vastlint/releases>
 
 ---
 
+## [Unreleased]
+
+### Changed
+
+- **Applications moved to [vastlint-tools](https://github.com/aleksUIX/vastlint-tools).** The Chrome and VS Code extensions, the MCP server, the `vastlint-client` and `vastlint-react` runtimes, the application examples and the agent integration manifests now live in their own repository with their own release tags and marketplace pipelines. Their development history was carried over with the original authors and dates. This repository keeps the engine, CLI and daemon, FFI, ABI and WASM builds, NIF, gRPC server and binding synchronization. The hosted MCP endpoint, the extension identities and the MCP Registry name are unchanged.
+- **`vastlint-mcp` is no longer a workspace member.** The MCP smoke test, extension smoke jobs and marketplace publication run in the tools repository, which consumes published engine releases. The `chrome/`, `vscode/` and `crates/vastlint-mcp/` directories keep a README that points to the new location.
+
 ## [0.16.2] - 2026-10-26
 
 ### Fixed

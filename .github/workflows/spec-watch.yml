@@ -77,10 +77,12 @@ jobs:
             exit 0
           fi
 
-          echo "skipped=false" >> "$GITHUB_OUTPUT"
-          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
-          echo "url=$(echo "$RELEASE" | jq -r '.url // empty')" >> "$GITHUB_OUTPUT"
-          echo "published=$(echo "$RELEASE" | jq -r '.published // "n/a"')" >> "$GITHUB_OUTPUT"
+          {
+            echo "skipped=false"
+            echo "tag=$TAG"
+            echo "url=$(echo "$RELEASE" | jq -r '.url // empty')"
+            echo "published=$(echo "$RELEASE" | jq -r '.published // "n/a"')"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Check for existing tracking issue
         if: steps.latest.outputs.skipped != 'true'

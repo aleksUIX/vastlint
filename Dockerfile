@@ -27,6 +27,8 @@ RUN cargo build --release --bin vastlint
 # ─────────────────────────────────────────────────────────────────────────────
 FROM scratch
 
+COPY LICENSE NOTICE /licenses/
+
 # Copy the static binary
 COPY --from=builder \
      /build/target/release/vastlint \

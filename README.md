@@ -1,14 +1,18 @@
 # VASTlint
 
+Created by [Aleksander Sekowski](https://github.com/aleksUIX).
+
+This repository contains the validation engine, CLI, bindings and gRPC reference server. Chrome and IDE extensions, MCP applications and frontend runtime packages are maintained separately in [vastlint-tools](https://github.com/aleksUIX/vastlint-tools).
+
 **Website & web validator:** [VAST tag validator](https://vastlint.org) Paste a VAST tag and get results in your browser, no install required.
 
 A high-performance VAST XML validator built on a pure-Rust core. Checks ad tags against the IAB Tech Lab VAST specification so you don't have to read it. Over $30 billion in annual CTV and video ad spend flows through VAST XML, and malformed tags are one of the most common causes of lost impressions, broken tracking, and revenue discrepancies between platforms. There is no widely adopted open-source tool that validates VAST XML against the full IAB specification across all published versions.
 
-VASTlint ships a native **MCP server** - making VAST validation available as a callable tool from Claude, Cursor, the [AAMP Buyer Agent SDK](https://github.com/IABTechLab/buyer-agent), or any MCP-compatible client. Connect to `vastlint.org/mcp` and call `validate_vast`, `validate_vast_url`, `inspect_vast`, `list_rules`, `explain_rule`, or `fix_vast`. Each tool returns structured JSON with rule IDs, XPath locations, and spec references.
+The [VASTlint tools repository](https://github.com/aleksUIX/vastlint-tools) ships a native **MCP server**, making VAST validation available as a callable tool from Claude, Cursor, the [AAMP Buyer Agent SDK](https://github.com/IABTechLab/buyer-agent), or any MCP-compatible client. Connect to `vastlint.org/mcp` and call `validate_vast`, `validate_vast_url`, `inspect_vast`, `list_rules`, `explain_rule`, or `fix_vast`. Each tool returns structured JSON with rule IDs, XPath locations, and spec references.
 
-Native bindings for realtime ad pipelines: [`vastlint-go`](https://github.com/aleksUIX/vastlint-go) (CGo, prebuilt static libs, no Rust toolchain needed), [`vastlint-java`](https://github.com/aleksUIX/vastlint-java) (gRPC client for JVM ad servers), [`vastlint-erlang`](https://github.com/aleksUIX/vastlint-erlang) (Elixir/Erlang: OTP port mode for production ad delivery, DirtyCpu NIF for non-critical paths), and a WASM npm package for Node.js and browsers. All bindings share the same compiled Rust core. Consistent results everywhere, sub-millisecond latency at scale.
+Bindings for realtime ad pipelines: [`vastlint-go`](https://github.com/aleksUIX/vastlint-go) (embedded WebAssembly by default, optional native cgo engine), [`vastlint-java`](https://github.com/aleksUIX/vastlint-java) (gRPC client for JVM ad servers), [`vastlint-erlang`](https://github.com/aleksUIX/vastlint-erlang) (Elixir/Erlang DirtyCpu NIF), and a WASM npm package for Node.js and browsers. All bindings use the same Rust validation core. The CLI daemon also supports OTP port integrations.
 
-Need a copy-paste frontend starting point? See the React drop-in example in [`npm/examples`](npm/examples/README.md).
+Need a copy-paste frontend starting point? See the React drop-in example in [the tools examples](https://github.com/aleksUIX/vastlint-tools/tree/main/examples/take-home).
 
 [![crates.io](https://img.shields.io/crates/v/vastlint-cli.svg?label=crates.io)](https://crates.io/crates/vastlint-cli)
 [![vastlint-core](https://img.shields.io/crates/v/vastlint-core.svg?label=vastlint-core)](https://crates.io/crates/vastlint-core)
@@ -56,7 +60,7 @@ For adjacent checks, [RTBlint](https://rtblint.org) validates OpenRTB bid reques
 
 **No data retention by default — and full self-hosting available.** The VS Code extension and Chrome page-scan path process XML locally. Pasting a tag in the Chrome popup opens the hosted tester; that path follows the website policy. The CLI does not send tags unless you pass `--contribute-sample`. The hosted tester, inspector, validator, and MCP server at vastlint.org/mcp may store a redacted copy of tags you submit, so the rules can be improved; see [vastlint.org/privacy](https://vastlint.org/privacy/). Local `vastlint-mcp` over stdio does not send tags. The RapidAPI `/validate` API and the gRPC sidecar still validate ephemerally. See [Telemetry and sample contribution](#telemetry-and-sample-contribution) and [PRIVACY.md](PRIVACY.md) for the Chrome extension policy.
 
-For teams that require on-premise processing or air-gapped deployments, VASTlint runs entirely self-hosted: the [CLI image](https://hub.docker.com/r/aleksuix/vastlint) (`FROM scratch`, under 5 MB, cold-start under 10 ms), the [`vastlint-grpc`](crates/vastlint-grpc/README.md) sidecar (`aleksuix/vastlint-grpc:0.13.2`), or the pre-built static musl binary. The Rust core has no network code: no callbacks, no telemetry, no license checks. The sidecar exposes partner tallies on `/metrics` (port 9090); scrape them yourself.
+For teams that require on-premise processing or air-gapped deployments, VASTlint runs entirely self-hosted: the [CLI image](https://hub.docker.com/r/aleksuix/vastlint) (`FROM scratch`), the [`vastlint-grpc`](crates/vastlint-grpc/README.md) sidecar (`aleksuix/vastlint-grpc:0.16.0`), or the pre-built static musl binary. The Rust core has no network code: no callbacks, no telemetry, no license checks. The sidecar exposes partner tallies on `/metrics` (port 9090); scrape them yourself.
 
 **Apache 2.0 licensed.** No CLA, no dual-license commercial upsell, no usage-based restrictions. Fork it, vendor it, embed it, redistribute it.
 
@@ -257,7 +261,7 @@ Or download a release binary instead of building from source:
 ```yaml
 - name: Install vastlint
   run: |
-    curl -sL https://github.com/aleksUIX/vastlint/releases/latest/download/vastlint-x86_64-linux-musl.tar.gz \
+    curl -sL https://github.com/aleksUIX/vastlint/releases/latest/download/vastlint-linux-x86_64.tar.gz \
       | tar xz -C /usr/local/bin
 
 - name: Validate VAST tags
@@ -428,7 +432,7 @@ Works in Node.js (ESM and CJS), Vite, Webpack 5, and Rollup. Requires a bundler 
 
 ## Use from Go
 
-[`vastlint-go`](https://github.com/aleksUIX/vastlint-go) provides Go bindings via CGo. Prebuilt static libraries are included - no Rust toolchain required.
+[`vastlint-go`](https://github.com/aleksUIX/vastlint-go) embeds the engine as WebAssembly and runs it with the pure Go wazero runtime. The default build works with `CGO_ENABLED=0` and requires no Rust toolchain. An optional `vastlint_cgo` build uses an installed native library.
 
 ```sh
 go get github.com/aleksUIX/vastlint-go
@@ -448,7 +452,7 @@ if !result.Valid {
 }
 ```
 
-Supported platforms: Linux (amd64, arm64), macOS (amd64, arm64).
+The default engine is portable across wazero-supported Go platforms. Native library installation is documented in the binding repository.
 
 With options:
 
@@ -470,7 +474,7 @@ See the [vastlint-go README](https://github.com/aleksUIX/vastlint-go) for the fu
 [`vastlint-java`](https://github.com/aleksUIX/vastlint-java) is a gRPC client for JVM ad servers. Same catalog as Go. Talks to `vastlint-grpc` rather than loading JNI on the auction thread.
 
 ```kotlin
-implementation("io.openadtech:vastlint:0.13.0")
+implementation("io.openadtech:vastlint:0.16.0")
 ```
 
 ```java
@@ -487,7 +491,7 @@ try (VastlintClient client = VastlintClient.connect("localhost:50051")) {
 }
 ```
 
-Run the server first: `docker run --rm -p 50051:50051 -p 9090:9090 aleksuix/vastlint-grpc:0.13.2`. Set `x-vastlint-caller` to a stable partner id (seat, DSP, `AdSystem`); verdicts and `$` findings land on `/metrics`. Grafana: `docker compose --profile pipeline up --build`. See the [vastlint-java README](https://github.com/aleksUIX/vastlint-java) for GitHub Packages, JitPack, TLS, and options. The Java client tag is still `0.13.0`; the sidecar image tracks this repo.
+Run the server first: `docker run --rm -p 50051:50051 -p 9090:9090 aleksuix/vastlint-grpc:0.16.0`. Set `x-vastlint-caller` to a stable partner id (seat, DSP, `AdSystem`); verdicts and `$` findings land on `/metrics`. Grafana: `docker compose --profile pipeline up --build`. See the [vastlint-java README](https://github.com/aleksUIX/vastlint-java) for GitHub Packages, JitPack, TLS, and options. Use matching client and sidecar releases.
 
 ## Use from VS Code
 
@@ -508,7 +512,7 @@ The **VASTlint** Chrome extension detects VAST XML on any page and shows inline 
 
 **Or install manually** (no review wait):
 
-1. Download `vastlint-extension.zip` from the [latest GitHub Release](https://github.com/aleksUIX/vastlint/releases/latest)
+1. Download `vastlint-extension.zip` from the [tools releases](https://github.com/aleksUIX/vastlint-tools/releases). Until the first tools release, use the [existing v0.15.3 extension archive](https://github.com/aleksUIX/vastlint/releases/download/v0.15.3/vastlint-extension.zip). Earlier extension artifacts remain in the historical engine releases
 2. Unzip it anywhere
 3. Open `chrome://extensions` and enable **Developer mode** (top-right toggle)
 4. Click **Load unpacked** → select the unzipped folder
@@ -518,40 +522,9 @@ The toolbar icon badge shows the error count for the current tab. Click it for a
 
 ## Use from an AI agent (MCP)
 
-[`vastlint-mcp`](crates/vastlint-mcp) is a [Model Context Protocol](https://modelcontextprotocol.io) server. It exposes `validate_vast`, `validate_vast_url`, `inspect_vast`, `list_rules`, `explain_rule`, and `fix_vast` as tools callable from Claude, Cursor, and any MCP-compatible client.
+The MCP server, agent manifests and installation guides now live in [vastlint-tools](https://github.com/aleksUIX/vastlint-tools/tree/main/crates/vastlint-mcp). The tools consume the published validation engine and retain their own release pipeline.
 
-**In automated advertising pipelines** - as creative trafficking moves into agent-based systems (see [IAB Tech Lab AAMP](https://iabtechlab.com/standards/agentic-advertising-initiative/)), validation needs to happen at the same step. The VASTlint MCP server is compatible with the [AAMP Buyer Agent SDK](https://github.com/IABTechLab/buyer-agent): an agent calls `validate_vast` or `validate_vast_url`, gets back rule IDs and XPath locations for any issues, and can reject or escalate the creative before trafficking. The same server works in Claude Desktop, Cursor, Copilot, any MCP client, and CI pipelines.
-
-**No-install hosted endpoint** - connect directly without installing anything. Tags sent to this endpoint may be stored (identifiers stripped); see [vastlint.org/privacy](https://vastlint.org/privacy/). Local stdio below does not send tags:
-
-```json
-{
-  "mcpServers": {
-    "vastlint": {
-      "type": "sse",
-      "url": "https://vastlint.org/mcp"
-    }
-  }
-}
-```
-
-**Local install** (stdio transport):
-
-```sh
-cargo install vastlint-mcp
-```
-
-```json
-{
-  "mcpServers": {
-    "vastlint": {
-      "command": "vastlint-mcp"
-    }
-  }
-}
-```
-
-Listed on the [MCP Registry](https://registry.modelcontextprotocol.io) as `io.github.aleksUIX/vastlint`. Open Plugins package: root [`plugin.json`](plugin.json) and [`mcp.json`](mcp.json) (hosted Streamable HTTP, no auth). Gemini CLI extension: [`gemini-extension.json`](gemini-extension.json) (`gemini extensions install https://github.com/aleksUIX/vastlint`). Claude Code plugin: [`.claude-plugin/plugin.json`](.claude-plugin/plugin.json), [`.mcp.json`](.mcp.json), skills under [`skills/`](skills/), agent [`agents/vast-tag-reviewer.md`](agents/vast-tag-reviewer.md). Load locally with `claude --plugin-dir ./vastlint`, then `/vastlint:validate-vast` or `/vastlint:inspect-vast`. Validate with `claude plugin validate ./vastlint`. Submit to the community marketplace at [platform.claude.com/plugins/submit](https://platform.claude.com/plugins/submit). Agent install notes: [`llms-install.md`](llms-install.md). See [`crates/vastlint-mcp`](crates/vastlint-mcp/README.md) for the full tool reference and [docs/mcp-agentic.md](docs/mcp-agentic.md) for integration patterns, agentic loop examples, and how VASTlint fits into the IAB Tech Lab AAMP / ARTF ecosystem.
+The hosted endpoint remains `https://vastlint.org/mcp`. See the [MCP documentation](https://github.com/aleksUIX/vastlint-tools/blob/main/docs/mcp-agentic.md) for local installation and data-handling details.
 
 ## Use as a REST API
 

@@ -49,6 +49,8 @@ RUN cargo build --release --bin vastlint-grpc
 # ─────────────────────────────────────────────────────────────────────────────
 FROM scratch
 
+COPY LICENSE NOTICE /licenses/
+
 COPY --from=builder \
      /build/target/release/vastlint-grpc \
      /vastlint-grpc

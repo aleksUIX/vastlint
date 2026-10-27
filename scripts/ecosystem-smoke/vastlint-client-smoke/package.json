@@ -1,8 +1,0 @@
-{
-  "name": "vastlint-client-smoke",
-  "private": true,
-  "type": "module",
-  "dependencies": {
-    "vastlint-client": "0.4.22"
-  }
-}

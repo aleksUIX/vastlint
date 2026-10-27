@@ -1,36 +1,21 @@
-# Manual npm publish for an existing release tag.
-#
-# Recovery tool: the Release workflow publishes vastlint, vastlint-client, and
-# vastlint-react on tag push. If that job is skipped or fails (v0.13.5 lost its
-# wasm artifact after a 45h production wait; v0.13.6 and v0.13.7 skipped every
-# publish job because the patch path skipped wait-for-approval), this workflow
-# rebuilds the WASM package and publishes for a given tag.
-#
-# Usage: Actions tab, "Publish npm (manual)", enter the tag (e.g. v0.13.7),
-# or: gh workflow run publish-npm.yml -f tag=v0.13.7
-
 name: Publish npm (manual)
-
-on:
+'on':
   workflow_dispatch:
     inputs:
       tag:
-        description: "Release tag to publish (e.g. v0.13.7)"
+        description: Release tag to publish (e.g. v0.13.7)
         required: true
-
 permissions:
   contents: read
   id-token: write
-
 jobs:
   publish:
     name: Publish to npm
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: ${{ inputs.tag }}
-
       - name: Validate tag
         env:
           TAG: ${{ inputs.tag }}
@@ -40,9 +25,8 @@ jobs:
             echo "tag must be vMAJOR.MINOR.PATCH, got '${TAG}'"
             exit 1
           fi
-
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8  # v (pinned SHA)
+        uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8
         with:
           toolchain: stable
           targets: wasm32-unknown-unknown
@@ -51,30 +35,24 @@ jobs:
 
       - name: Install wasm-pack
         run: cargo install wasm-pack --locked
-
       - name: Install Node.js
-        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7.1.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
         with:
           node-version: '24'
-          registry-url: 'https://registry.npmjs.org'
+          registry-url: https://registry.npmjs.org
           package-manager-cache: false
-
       - name: Build WASM (bundler target, ESM)
         run: wasm-pack build crates/vastlint-wasm --target bundler --out-dir ../../npm/pkg
-
       - name: Build WASM (nodejs target, CJS)
         run: wasm-pack build crates/vastlint-wasm --target nodejs --out-dir ../../npm/pkg-node
-
       - name: Assemble npm package
         run: node npm/scripts/assemble.js
-
-      - name: Prepare JS release packages
+      - name: Prepare engine npm release package
         env:
           TAG: ${{ inputs.tag }}
         run: |
           VERSION="${TAG#v}"
           node scripts/prepare-js-release-packages.mjs "$VERSION" "$GITHUB_WORKSPACE/.release/js-packages"
-
       - name: Publish JS packages to npm
         env:
           TAG: ${{ inputs.tag }}
@@ -117,12 +95,4 @@ jobs:
 
           pushd "$STAGE/vastlint" >/dev/null
           publish_if_needed "vastlint"
-          popd >/dev/null
-
-          pushd "$STAGE/vastlint-client" >/dev/null
-          publish_if_needed "vastlint-client"
-          popd >/dev/null
-
-          pushd "$STAGE/vastlint-react" >/dev/null
-          publish_if_needed "vastlint-react"
           popd >/dev/null
