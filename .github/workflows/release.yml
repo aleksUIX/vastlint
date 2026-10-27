@@ -1118,6 +1118,19 @@ jobs:
 
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0  # v2.9.3
 
+      # Stamp every crate's Cargo.toml with the release version so that
+      # vastlint_version() (env!("CARGO_PKG_VERSION")) in the library matches
+      # the git tag and the wasm engine; vastlint-go refuses a mismatch.
+      - name: Bump crate versions to match git tag
+        run: |
+          VERSION="${RELEASE_TAG#v}"
+          for toml in crates/*/Cargo.toml; do
+            sed -i.bak -E "s/^version = \"[^\"]*\"/version = \"${VERSION}\"/" "$toml"
+            sed -i.bak -E "s/(vastlint-[a-z-]+ = \{[^}]*version = \")[^\"]*(\")/\1${VERSION}\2/g" "$toml"
+            rm "$toml.bak"
+          done
+          echo "Bumped all crates to ${VERSION}"
+
       - name: Install cross (Linux aarch64)
         if: matrix.target == 'aarch64-unknown-linux-gnu'
         run: cargo install cross --locked
@@ -1211,6 +1224,19 @@ jobs:
       - name: Install cross (Linux aarch64)
         if: matrix.target == 'aarch64-unknown-linux-gnu'
         run: cargo install cross --locked
+
+      # Stamp every crate's Cargo.toml with the release version so that
+      # vastlint_version() (env!("CARGO_PKG_VERSION")) in the library matches
+      # the git tag and the wasm engine; vastlint-go refuses a mismatch.
+      - name: Bump crate versions to match git tag
+        run: |
+          VERSION="${RELEASE_TAG#v}"
+          for toml in crates/*/Cargo.toml; do
+            sed -i.bak -E "s/^version = \"[^\"]*\"/version = \"${VERSION}\"/" "$toml"
+            sed -i.bak -E "s/(vastlint-[a-z-]+ = \{[^}]*version = \")[^\"]*(\")/\1${VERSION}\2/g" "$toml"
+            rm "$toml.bak"
+          done
+          echo "Bumped all crates to ${VERSION}"
 
       - name: Build NIF crate (cross — Linux aarch64)
         if: matrix.target == 'aarch64-unknown-linux-gnu'
