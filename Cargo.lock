@@ -2051,9 +2051,9 @@ dependencies = [
 
 [[package]]
 name = "tokio"
-version = "1.53.3"
+version = "1.54.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ce3335fa71841cda333a58d7615b03901380ecf09d59b3296d21f8bbac0dde4e"
+checksum = "b52fd3255258d26fac7264ab5a76b53c13367136dc011d3d6ad4f8ed070396a3"
 dependencies = [
  "bytes",
  "libc",
@@ -2378,7 +2378,7 @@ dependencies = [
 
 [[package]]
 name = "vastlint-abi"
-version = "0.16.0"
+version = "0.16.2"
 dependencies = [
  "serde_json",
  "vastlint-core",
@@ -2386,7 +2386,7 @@ dependencies = [
 
 [[package]]
 name = "vastlint-cli"
-version = "0.16.0"
+version = "0.16.2"
 dependencies = [
  "anstream",
  "anstyle",
@@ -2404,7 +2404,7 @@ dependencies = [
 
 [[package]]
 name = "vastlint-core"
-version = "0.16.0"
+version = "0.16.2"
 dependencies = [
  "criterion",
  "phf",
@@ -2415,7 +2415,7 @@ dependencies = [
 
 [[package]]
 name = "vastlint-ffi"
-version = "0.16.0"
+version = "0.16.2"
 dependencies = [
  "mimalloc",
  "vastlint-core",
@@ -2423,7 +2423,7 @@ dependencies = [
 
 [[package]]
 name = "vastlint-grpc"
-version = "0.16.0"
+version = "0.16.2"
 dependencies = [
  "apache-avro",
  "hdrhistogram",
@@ -2447,7 +2447,7 @@ dependencies = [
 
 [[package]]
 name = "vastlint-wasm"
-version = "0.16.0"
+version = "0.16.2"
 dependencies = [
  "js-sys",
  "serde",
@@ -2458,7 +2458,7 @@ dependencies = [
 
 [[package]]
 name = "vastlint_nif"
-version = "0.16.0"
+version = "0.16.2"
 dependencies = [
  "rayon",
  "rustler",
