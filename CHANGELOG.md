@@ -6,6 +6,13 @@ GitHub Releases: <https://github.com/aleksUIX/vastlint/releases>
 
 ---
 
+## [0.16.2] - 2026-10-26
+
+### Fixed
+
+- **Release artifacts carry the release version.** The FFI (`libvastlint`) and Erlang NIF builds now stamp the git tag into the crate version like the crates, binaries and wasm builds already did. The v0.16.1 `vastlint-ffi-*` tarballs report `0.16.0` from `vastlint_version()` and are refused by vastlint-go v0.16.3; use this release's tarballs with vastlint-go v0.16.4 or later.
+- Crate and package versions are synced in the release commit again.
+
 ## [0.16.1] - 2026-10-26
 
 ### Changed
