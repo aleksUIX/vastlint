@@ -25,6 +25,7 @@ Need a copy-paste frontend starting point? See the React drop-in example in [the
 [![docs.rs](https://docs.rs/vastlint-core/badge.svg)](https://docs.rs/vastlint-core)
 [![vastlint.org](https://img.shields.io/badge/vastlint.org-docs%20%26%20validator-blue)](https://vastlint.org)
 
+[![Smithery listing](https://img.shields.io/badge/Smithery-MCP%20listing-7c3aed)](https://smithery.ai/servers/aleksander/vastlint)
 [![MCP Queen operational grade](https://mcpqueen.com/badge/io.github.aleksUIX/vastlint.svg)](https://mcpqueen.com/s/io.github.aleksUIX/vastlint)
 [![SLSA 2](https://slsa.dev/images/gh-badge-level2.svg)](https://slsa.dev)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/aleksUIX/vastlint/badge)](https://scorecard.dev/viewer/?uri=github.com/aleksUIX/vastlint)

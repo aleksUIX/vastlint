@@ -8,7 +8,7 @@ This repository releases the validation engine, CLI and daemon, FFI, WebAssembly
 
 The core release workflow retains its test, documentation, security, protocol, fuzz, build, approval and provenance gates. It builds the CLI, FFI, NIF, WASM binding and standalone WebAssembly ABI artifacts; publishes the engine and CLI crates, engine npm package and reference containers; and synchronizes the language bindings and Homebrew distribution.
 
-The npm staging helper prepares only `vastlint`. The `vastlint-client` and `vastlint-react` packages are released by the tools repository. Engine release tags no longer publish Chrome, VS Code, Open VSX or MCP Registry artifacts.
+The npm staging helper prepares only `vastlint`. The `vastlint-client` and `vastlint-react` packages are released by the tools repository. Engine release tags no longer publish Chrome, VS Code, Open VSX, MCP Registry or Smithery artifacts.
 
 ## Prepare a core release.
 
