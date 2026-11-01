@@ -8,6 +8,12 @@ GitHub Releases: <https://github.com/aleksUIX/vastlint/releases>
 
 ## [Unreleased]
 
+## [0.16.3] - 2026-11-01
+
+### Changed
+
+- **`pulldown-cmark` 0.13.4 → 0.13.6**: fixes RUSTSEC-2026-0414 (exponential event growth with `ENABLE_WIKILINKS`).
+
 ### Changed
 
 - **Applications moved to [vastlint-tools](https://github.com/aleksUIX/vastlint-tools).** The Chrome and VS Code extensions, the MCP server, the `vastlint-client` and `vastlint-react` runtimes, the application examples and the agent integration manifests now live in their own repository with their own release tags and marketplace pipelines. Their development history was carried over with the original authors and dates. This repository keeps the engine, CLI and daemon, FFI, ABI and WASM builds, NIF, gRPC server and binding synchronization. The hosted MCP endpoint, the extension identities and the MCP Registry name are unchanged.
