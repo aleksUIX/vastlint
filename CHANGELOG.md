@@ -8,6 +8,12 @@ GitHub Releases: <https://github.com/aleksUIX/vastlint/releases>
 
 ## [Unreleased]
 
+## [0.16.4] - 2026-11-02
+
+### Changed
+
+- **`tonic` / `tonic-prost` / `tonic-prost-build` / `tonic-health` / `tonic-reflection` 0.14.6 → 0.14.9**, **`js-sys` 0.3.104 → 0.3.106**: dependency updates.
+
 ## [0.16.3] - 2026-11-01
 
 ### Changed
