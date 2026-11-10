@@ -2379,7 +2379,7 @@ dependencies = [
 
 [[package]]
 name = "vastlint-abi"
-version = "0.16.4"
+version = "0.16.5"
 dependencies = [
  "serde_json",
  "vastlint-core",
@@ -2387,7 +2387,7 @@ dependencies = [
 
 [[package]]
 name = "vastlint-cli"
-version = "0.16.4"
+version = "0.16.5"
 dependencies = [
  "anstream",
  "anstyle",
@@ -2405,7 +2405,7 @@ dependencies = [
 
 [[package]]
 name = "vastlint-core"
-version = "0.16.4"
+version = "0.16.5"
 dependencies = [
  "criterion",
  "phf",
@@ -2416,7 +2416,7 @@ dependencies = [
 
 [[package]]
 name = "vastlint-ffi"
-version = "0.16.4"
+version = "0.16.5"
 dependencies = [
  "mimalloc",
  "vastlint-core",
@@ -2424,7 +2424,7 @@ dependencies = [
 
 [[package]]
 name = "vastlint-grpc"
-version = "0.16.4"
+version = "0.16.5"
 dependencies = [
  "apache-avro",
  "hdrhistogram",
@@ -2448,7 +2448,7 @@ dependencies = [
 
 [[package]]
 name = "vastlint-wasm"
-version = "0.16.4"
+version = "0.16.5"
 dependencies = [
  "js-sys",
  "serde",
@@ -2459,7 +2459,7 @@ dependencies = [
 
 [[package]]
 name = "vastlint_nif"
-version = "0.16.4"
+version = "0.16.5"
 dependencies = [
  "rayon",
  "rustler",
