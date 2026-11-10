@@ -1274,9 +1274,11 @@ jobs:
           archives = sorted(Path("nif-artifacts").glob("vastlint-nif-*.tar.gz"))
           if len(archives) != 4:
               raise ValueError(f"expected four engine NIF archives, found {len(archives)}")
+          engine_tag = os.environ["ENGINE_TAG"]
           metadata = {
               "engine_repository": "https://github.com/" + os.environ["GITHUB_REPOSITORY"],
-              "release_tag": os.environ["ENGINE_TAG"],
+              "release_tag": engine_tag,
+              "nif_crate_version": engine_tag.removeprefix("v"),
               "commit": os.environ["ENGINE_COMMIT"],
               "archives": [{"name": p.name, "sha256": hashlib.sha256(p.read_bytes()).hexdigest()} for p in archives],
           }
