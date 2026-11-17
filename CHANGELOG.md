@@ -8,6 +8,12 @@ GitHub Releases: <https://github.com/aleksUIX/vastlint/releases>
 
 ## [Unreleased]
 
+## [0.16.6] - 2026-11-17
+
+### Changed
+
+- **`prost` 0.14.4 → 0.14.6**, **`toml` 1.2.0+spec-1.1.0 → 1.2.1+spec-1.1.0**: dependency updates.
+
 ## [0.16.5] - 2026-11-10
 
 ### Changed
