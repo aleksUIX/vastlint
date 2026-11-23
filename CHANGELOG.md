@@ -8,6 +8,13 @@ GitHub Releases: <https://github.com/aleksUIX/vastlint/releases>
 
 ## [Unreleased]
 
+## [0.16.7] - 2026-11-23
+
+### Changed
+
+- **`url` 2.5.8 → 2.5.9**: security fix for RUSTSEC-2026-0592 (stack overflow in `Url::origin()` on nested `blob:` URLs).
+- **`regex` 1.13.1 → 1.13.2**, **`clap` 4.6.7 → 4.6.9**, **`apache-avro` 0.22.0 → 0.23.0**: dependency updates.
+
 ## [0.16.6] - 2026-11-17
 
 ### Changed

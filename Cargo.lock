@@ -239,7 +239,7 @@ dependencies = [
  "prettyplease 0.3.0",
  "proc-macro2",
  "quote",
- "syn 3.0.3",
+ "syn 3.0.10",
 ]
 
 [[package]]
@@ -492,7 +492,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "strsim",
- "syn 3.0.3",
+ "syn 3.0.10",
 ]
 
 [[package]]
@@ -503,7 +503,7 @@ checksum = "2ac7135c3ef02b2f7833bbeb1be5ba7f966dcde8a87c6b87f65a778d71a02785"
 dependencies = [
  "darling_core",
  "quote",
- "syn 3.0.3",
+ "syn 3.0.10",
 ]
 
 [[package]]
@@ -1417,7 +1417,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2bfe0f4c752e450fc2faf62654f1c134747922825d5b04ca717b8874f41a40c0"
 dependencies = [
  "proc-macro2",
- "syn 3.0.3",
+ "syn 3.0.10",
 ]
 
 [[package]]
@@ -2387,7 +2387,7 @@ dependencies = [
 
 [[package]]
 name = "vastlint-abi"
-version = "0.16.6"
+version = "0.16.7"
 dependencies = [
  "serde_json",
  "vastlint-core",
@@ -2395,7 +2395,7 @@ dependencies = [
 
 [[package]]
 name = "vastlint-cli"
-version = "0.16.6"
+version = "0.16.7"
 dependencies = [
  "anstream",
  "anstyle",
@@ -2413,7 +2413,7 @@ dependencies = [
 
 [[package]]
 name = "vastlint-core"
-version = "0.16.6"
+version = "0.16.7"
 dependencies = [
  "criterion",
  "phf",
@@ -2424,7 +2424,7 @@ dependencies = [
 
 [[package]]
 name = "vastlint-ffi"
-version = "0.16.6"
+version = "0.16.7"
 dependencies = [
  "mimalloc",
  "vastlint-core",
@@ -2432,7 +2432,7 @@ dependencies = [
 
 [[package]]
 name = "vastlint-grpc"
-version = "0.16.6"
+version = "0.16.7"
 dependencies = [
  "apache-avro",
  "hdrhistogram",
@@ -2456,7 +2456,7 @@ dependencies = [
 
 [[package]]
 name = "vastlint-wasm"
-version = "0.16.6"
+version = "0.16.7"
 dependencies = [
  "js-sys",
  "serde",
@@ -2467,7 +2467,7 @@ dependencies = [
 
 [[package]]
 name = "vastlint_nif"
-version = "0.16.6"
+version = "0.16.7"
 dependencies = [
  "rayon",
  "rustler",
