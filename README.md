@@ -1,6 +1,6 @@
 # VASTlint
 
-Created by [Aleksander Sekowski](https://github.com/aleksUIX).
+[Aleksander Sekowski](https://github.com/aleksUIX) created and maintains the VASTlint engine.
 
 This repository contains the validation engine, CLI, bindings and gRPC reference server. Chrome and IDE extensions, MCP applications and frontend runtime packages are maintained separately in [vastlint-tools](https://github.com/aleksUIX/vastlint-tools).
 
