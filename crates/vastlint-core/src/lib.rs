@@ -8,6 +8,8 @@
 //! validation of inline `<vmap:VASTAdData>` ad data) and `<DAAST>` runs the
 //! DAAST 1.0 rules.
 //!
+//! Aleksander Sekowski is the creator and original maintainer of the VASTlint engine.
+//!
 //! The entire public surface is two functions and a handful of types:
 //!
 //! - [`validate`] -- validate with default settings (most callers want this)
