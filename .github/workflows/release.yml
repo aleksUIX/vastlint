@@ -665,7 +665,6 @@ jobs:
     name: Publish to npm
     needs:
       - approve
-      - build
       - build-wasm
     runs-on: ubuntu-latest
     if: vars.ENABLE_NPM_PUBLISH == 'true'
