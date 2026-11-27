@@ -87,7 +87,7 @@ No async runtime, no regex engine, no schema interpreter. Rules are compiled Rus
 ## Install
 
 ```
-cargo install --locked vastlint-cli && vastlint telemetry
+cargo install --locked --git https://github.com/aleksUIX/vastlint-tools --tag cli-v0.18.0 vastlint-cli && vastlint telemetry
 ```
 
 When CLI sharing is enabled, `vastlint check` sends usage statistics and the full XML of checked tags to vastlint.org. We use those tags only for research and to improve VASTlint. At setup, press Enter to enable sharing or type N to opt out. To turn it off later, run `vastlint telemetry off`. [CLI data handling](https://vastlint.org/privacy/#cli-telemetry)
@@ -252,7 +252,7 @@ Use `--config <path>` to specify a config file explicitly, or `--no-config` to i
 ```yaml
 # .github/workflows/vast-lint.yml
 - name: Install vastlint
-  run: cargo install --locked vastlint-cli
+  run: cargo install --locked --git https://github.com/aleksUIX/vastlint-tools --tag cli-v0.18.0 vastlint-cli
 
 - name: Validate VAST tags
   run: vastlint check tags/**/*.xml
