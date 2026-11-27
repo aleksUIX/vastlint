@@ -13,7 +13,7 @@ What will never happen:
 - A paid tier that hides rules
 - A "cloud" version that requires an account
 - Rate limiting on the CLI
-- Telemetry without explicit opt-in
+- Mandatory telemetry or tag sharing. You can decline both during CLI setup or turn them off later with `vastlint telemetry off`.
 - A license change that retroactively restricts existing versions
 
 The Apache 2.0 license requires attribution - keep the NOTICE file and copyright header in any distribution. That is the only obligation.

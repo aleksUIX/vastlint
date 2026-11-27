@@ -1,6 +1,10 @@
 # Privacy Policy
 
-**Last updated: August 28, 2026**
+**Last updated November 26, 2026**
+
+## CLI tag sharing
+
+When CLI sharing is enabled, `vastlint check` sends usage statistics and the full XML of checked tags to vastlint.org. We use those tags only for research and to improve VASTlint. At setup, press Enter to enable sharing or type N to opt out. To turn it off later, run `vastlint telemetry off`. The server redacts known tracking identifiers before storage. Research publications may include short redacted excerpts. [CLI data handling](https://vastlint.org/privacy/#cli-telemetry) · [Research terms](https://vastlint.org/terms/)
 
 ## vastlint Chrome Extension
 
