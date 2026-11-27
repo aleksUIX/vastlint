@@ -4,7 +4,7 @@ Created by [Aleksander Sekowski](https://github.com/aleksUIX).
 
 This repository contains the validation engine, bindings and gRPC reference server. The CLI, Chrome and IDE extensions, MCP applications and frontend runtime packages are maintained in [vastlint-tools](https://github.com/aleksUIX/vastlint-tools).
 
-**Website & web validator:** [VAST tag validator](https://vastlint.org) Paste a VAST tag and get results in your browser, no install required.
+**Website:** [VAST tag tester](https://vastlint.org/tester/) for a live URL or XML, and the [VAST tag validator](https://vastlint.org) for spec checks in the browser. No install required.
 
 A high-performance VAST XML validator built on a pure-Rust core. Checks ad tags against the IAB Tech Lab VAST specification so you don't have to read it. Over $30 billion in annual CTV and video ad spend flows through VAST XML, and malformed tags are one of the most common causes of lost impressions, broken tracking, and revenue discrepancies between platforms. There is no widely adopted open-source tool that validates VAST XML against the full IAB specification across all published versions.
 
@@ -39,7 +39,7 @@ Validates VAST documents against:
 - [IANA Media Types](https://www.iana.org/assignments/media-types/) — MIME types on MediaFile, InteractiveCreativeFile, Mezzanine, and ClosedCaptionFile
 - [ISO 4217](https://www.iso.org/iso-4217-currency-codes.html) currency codes — Pricing elements
 - [Ad-ID](https://www.ad-id.org/) registry format — UniversalAdId
-- [IAB Tech Lab SIMID](https://iabtechlab.com/simid/) 1.0, 1.0.1, 1.1, 1.2 — XML envelope for `<InteractiveCreativeFile apiFramework="SIMID">` and nonlinear `<IFrameResource>` (the IAB-sanctioned VPAID replacement). Creative fetch, frame headers, and the postMessage handshake live in the [VAST tester](https://vastlint.org/tester/), not in `vastlint-core` or default `check`.
+- [IAB Tech Lab SIMID](https://iabtechlab.com/simid/) 1.0, 1.0.1, 1.1, 1.2 — XML envelope for `<InteractiveCreativeFile apiFramework="SIMID">` and nonlinear `<IFrameResource>` (the IAB-sanctioned VPAID replacement). Creative fetch, frame headers, and the postMessage handshake live in the [VAST tag tester](https://vastlint.org/tester/), not in `vastlint-core` or default `check`.
 - [IAB Tech Lab OMID / Open Measurement](https://iabtechlab.com/standards/open-measurement-sdk/) compatibility in VAST `<AdVerifications>` — vendor format, duplicate vendor detection, OMID resource semantics, verification tracking validation, and pre-4.1 extension-carried compatibility blocks
 
 246 rules across required fields, schema validation, structural correctness, security, consistency, deprecated features, ambiguous usage, value formats, SIMID validation, OMID validation, VMAP 1.0, and DAAST 1.0. Rules marked with `$` have direct revenue impact - use `vastlint check --fail-on-warning` in CI to catch them before they reach production. See [common errors](docs/common-errors.md) for the ones that cost real money. New to VASTlint? Start with the [tutorial](docs/tutorial.md).

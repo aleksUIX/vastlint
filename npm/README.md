@@ -11,7 +11,7 @@ VAST XML linter for JavaScript and TypeScript. Validates ad tags against IAB Tec
 - Inspect VAST wrapper chain structure
 - Run creative validation inside an ad server, SSP, DSP, or SSAI pipeline
 
-Browser, WASM & edge guide: [vastlint.org/docs/best-vast-validator-wasm](https://vastlint.org/docs/best-vast-validator-wasm/) · Node.js guide: [vastlint.org/docs/best-vast-validator-nodejs](https://vastlint.org/docs/best-vast-validator-nodejs/)
+Try a tag in the browser: [VAST tag tester](https://vastlint.org/tester/). Browser, WASM & edge guide: [vastlint.org/docs/best-vast-validator-wasm](https://vastlint.org/docs/best-vast-validator-wasm/) · Node.js guide: [vastlint.org/docs/best-vast-validator-nodejs](https://vastlint.org/docs/best-vast-validator-nodejs/)
 
 Try the live validator: [vastlint.org](https://vastlint.org) · Full rule reference: [vastlint.org/docs/rules](https://vastlint.org/docs/rules/)
 
