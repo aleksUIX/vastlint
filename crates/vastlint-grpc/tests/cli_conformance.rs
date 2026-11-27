@@ -26,6 +26,7 @@
 //! same findings, where a finding is its rule ID, severity, path, position, and
 //! spec reference. Presentation is free to differ; meaning is not.
 
+use std::path::PathBuf;
 use std::process::Command;
 
 use serde_json::Value;
@@ -85,11 +86,33 @@ fn fixtures() -> Vec<(&'static str, String)> {
     ]
 }
 
+/// The `vastlint` binary now lives in vastlint-tools. This test still runs that
+/// binary, because a copied JSON writer would only prove that the copy matches
+/// itself. Set `VASTLINT_BIN` to the binary, or put `vastlint` on `PATH`.
+/// Without either, the comparisons that need the CLI return and the gRPC-only
+/// fixture check still runs.
+fn cli_executable() -> Option<PathBuf> {
+    if let Some(path) = std::env::var_os("VASTLINT_BIN") {
+        let path = PathBuf::from(path);
+        assert!(
+            path.is_file(),
+            "VASTLINT_BIN is not a file: {}",
+            path.display()
+        );
+        return Some(path);
+    }
+    let names = ["vastlint", "vastlint.exe"];
+    std::env::var_os("PATH").and_then(|paths| {
+        std::env::split_paths(&paths).find_map(|dir| {
+            names
+                .iter()
+                .map(|name| dir.join(name))
+                .find(|candidate| candidate.is_file())
+        })
+    })
+}
+
 /// Runs the real CLI binary, not a reimplementation of it.
-///
-/// `CARGO_BIN_EXE_vastlint` is why this test lives in the CLI crate: cargo only
-/// exposes that for the package's own binaries. Calling a copied version of the
-/// CLI's JSON writer would test that the copy matches itself.
 ///
 /// The document goes in over stdin rather than through a temporary file. The
 /// first version wrote a file whose name was derived from the document's
@@ -100,11 +123,16 @@ fn fixtures() -> Vec<(&'static str, String)> {
 /// on macOS and failed on Linux and Windows, which is how a race announces
 /// itself. Feeding stdin removes the shared resource rather than trying to name
 /// it uniquely.
-fn cli_findings(document: &str) -> (Value, Vec<Finding>) {
+fn cli_findings(document: &str) -> Option<(Value, Vec<Finding>)> {
     use std::io::Write;
     use std::process::Stdio;
 
-    let mut child = Command::new(env!("CARGO_BIN_EXE_vastlint"))
+    let Some(bin) = cli_executable() else {
+        eprintln!("skipping CLI conformance: set VASTLINT_BIN or install vastlint");
+        return None;
+    };
+
+    let mut child = Command::new(bin)
         .arg("check")
         // "-" reads the document from stdin.
         .arg("-")
@@ -147,7 +175,7 @@ fn cli_findings(document: &str) -> (Value, Vec<Finding>) {
         })
         .collect();
 
-    (json, findings)
+    Some((json, findings))
 }
 
 /// Calls the service in process. The transport is not what is under test here;
@@ -196,7 +224,9 @@ async fn grpc_findings(document: &str) -> (vastlint_grpc::proto::Verdict, Vec<Fi
 #[tokio::test]
 async fn both_surfaces_report_the_same_findings() {
     for (name, document) in fixtures() {
-        let (cli_json, mut cli) = cli_findings(&document);
+        let Some((cli_json, mut cli)) = cli_findings(&document) else {
+            return;
+        };
         let (verdict, mut grpc) = grpc_findings(&document).await;
 
         // Order is documented as depth-first document order on both surfaces,
@@ -239,7 +269,9 @@ async fn both_surfaces_report_the_same_findings() {
 #[tokio::test]
 async fn both_surfaces_report_findings_in_the_same_order() {
     for (name, document) in fixtures() {
-        let (_, cli) = cli_findings(&document);
+        let Some((_, cli)) = cli_findings(&document) else {
+            return;
+        };
         let (_, grpc) = grpc_findings(&document).await;
 
         let cli_ids: Vec<_> = cli.iter().map(|finding| &finding.rule_id).collect();
@@ -257,7 +289,9 @@ async fn both_surfaces_agree_on_document_type_and_version() {
     use vastlint_grpc::proto::{DocumentType, VastVersion};
 
     for (name, document) in fixtures() {
-        let (cli_json, _) = cli_findings(&document);
+        let Some((cli_json, _)) = cli_findings(&document) else {
+            return;
+        };
         let (verdict, _) = grpc_findings(&document).await;
 
         let cli_type = cli_json["document_type"].as_str().expect("document_type");

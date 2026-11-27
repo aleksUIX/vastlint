@@ -50,7 +50,7 @@ Publication switches remain `ENABLE_CRATES_PUBLISH`, `ENABLE_NPM_PUBLISH`, `ENAB
 
 ## Verify every destination after release.
 
-Inspect individual job outcomes as well as the overall workflow result. Confirm the release assets and provenance, the `vastlint-core` and `vastlint-cli` crates, engine npm version, reference Docker images, Homebrew formula checksums and downstream binding commits and tags. Marketplace versions are verified in the tools release process.
+Inspect individual job outcomes as well as the overall workflow result. Confirm the release assets and provenance, the `vastlint-core` crate, engine npm version, the gRPC image and downstream binding commits and tags. The CLI crate, CLI image and Homebrew formula are verified in the tools CLI release. Marketplace versions are verified in the tools release process.
 
 For an existing core tag, recovery commands are:
 

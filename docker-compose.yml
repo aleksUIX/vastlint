@@ -1,10 +1,5 @@
 # docker-compose.yml: local build and test helper
 #
-# CLI:
-#   docker compose build vastlint
-#   docker compose run --rm vastlint check /data/tag.xml
-#   cat tag.xml | docker compose run --rm -T vastlint check -
-#
 # gRPC (what vastlint-java talks to):
 #   docker compose up grpc
 #   grpcurl -plaintext localhost:50051 list
@@ -17,16 +12,6 @@
 #   docker run --rm -p 50051:50051 -p 9090:9090 aleksuix/vastlint-grpc:0.13.2
 
 services:
-  vastlint:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    image: vastlint:local
-    volumes:
-      - ./scratch:/data:ro
-    stdin_open: true
-    tty: false
-
   grpc:
     build:
       context: .

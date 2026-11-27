@@ -35,7 +35,7 @@ thread.
   response SLAs).
 - Cuts releases and publishes artifacts.
 - Holds all release and infrastructure credentials:
-  - crates.io publish token (`vastlint-core`, `vastlint-cli`)
+  - crates.io publish token (`vastlint-core`; `vastlint-cli` publishes from vastlint-tools)
   - npm publish token (`vastlint`)
   - Cloudflare API token (vastlint.org site, hosted API, MCP server)
   - DNS control for vastlint.org

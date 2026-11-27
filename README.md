@@ -2,7 +2,7 @@
 
 Created by [Aleksander Sekowski](https://github.com/aleksUIX).
 
-This repository contains the validation engine, CLI, bindings and gRPC reference server. Chrome and IDE extensions, MCP applications and frontend runtime packages are maintained separately in [vastlint-tools](https://github.com/aleksUIX/vastlint-tools).
+This repository contains the validation engine, bindings and gRPC reference server. The CLI, Chrome and IDE extensions, MCP applications and frontend runtime packages are maintained in [vastlint-tools](https://github.com/aleksUIX/vastlint-tools).
 
 **Website & web validator:** [VAST tag validator](https://vastlint.org) Paste a VAST tag and get results in your browser, no install required.
 
@@ -10,7 +10,7 @@ A high-performance VAST XML validator built on a pure-Rust core. Checks ad tags 
 
 The [VASTlint tools repository](https://github.com/aleksUIX/vastlint-tools) ships a native **MCP server**, making VAST validation available as a callable tool from Claude, Cursor, the [AAMP Buyer Agent SDK](https://github.com/IABTechLab/buyer-agent), or any MCP-compatible client. Connect to `vastlint.org/mcp` and call `validate_vast`, `validate_vast_url`, `inspect_vast`, `list_rules`, `explain_rule`, or `fix_vast`. Each tool returns structured JSON with rule IDs, XPath locations, and spec references.
 
-Bindings for realtime ad pipelines: [`vastlint-go`](https://github.com/aleksUIX/vastlint-go) (embedded WebAssembly by default, optional native cgo engine), [`vastlint-java`](https://github.com/aleksUIX/vastlint-java) (gRPC client for JVM ad servers), [`vastlint-erlang`](https://github.com/aleksUIX/vastlint-erlang) (Elixir/Erlang DirtyCpu NIF), and a WASM npm package for Node.js and browsers. All bindings use the same Rust validation core. The CLI daemon also supports OTP port integrations.
+Bindings for realtime ad pipelines: [`vastlint-go`](https://github.com/aleksUIX/vastlint-go) (embedded WebAssembly by default, optional native cgo engine), [`vastlint-java`](https://github.com/aleksUIX/vastlint-java) (gRPC client for JVM ad servers), [`vastlint-erlang`](https://github.com/aleksUIX/vastlint-erlang) (Elixir/Erlang DirtyCpu NIF), and a WASM npm package for Node.js and browsers. All bindings use the same Rust validation core. The CLI in vastlint-tools also supports OTP port integrations.
 
 Need a copy-paste frontend starting point? See the React drop-in example in [the tools examples](https://github.com/aleksUIX/vastlint-tools/tree/main/examples/take-home).
 

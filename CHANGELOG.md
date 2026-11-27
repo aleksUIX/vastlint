@@ -8,6 +8,8 @@ GitHub Releases: <https://github.com/aleksUIX/vastlint/releases>
 
 ## [Unreleased]
 
+- **`vastlint-cli` moved to [vastlint-tools](https://github.com/aleksUIX/vastlint-tools).** This repository keeps the engine, FFI, ABI, WASM, NIF and gRPC server. CLI tags in the tools repository publish the crate, binaries, container image and Homebrew formula. The gRPC conformance test remains here and runs when `VASTLINT_BIN` or a `vastlint` binary on `PATH` is available.
+
 ## [0.16.7] - 2026-11-23
 
 ### Changed
